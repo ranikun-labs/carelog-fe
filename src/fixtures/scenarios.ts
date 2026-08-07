@@ -3,6 +3,7 @@ import type {
   CustomerContext,
   FollowUp,
   Interaction,
+  TimelineEntry,
   User,
   Workspace,
 } from '@/types/customer';
@@ -15,6 +16,7 @@ export interface ScenarioFixture {
   context: CustomerContext;
   interaction: Interaction;
   followUp: FollowUp;
+  timeline: readonly TimelineEntry[];
 }
 
 /**
@@ -44,6 +46,26 @@ export const landlordTenantScenario: ScenarioFixture = {
     note: '계약 갱신 여부 재확인',
     done: false,
   },
+  timeline: [
+    {
+      id: 'timeline-tenant-1',
+      customerId: 'customer-tenant-1',
+      occurredAt: '2026-07-05T10:00:00+09:00',
+      label: '입주 안내 완료',
+    },
+    {
+      id: 'timeline-tenant-2',
+      customerId: 'customer-tenant-1',
+      occurredAt: '2026-07-20T14:00:00+09:00',
+      label: '계약 갱신 의사 확인 통화',
+    },
+    {
+      id: 'timeline-tenant-3',
+      customerId: 'customer-tenant-1',
+      occurredAt: '2026-08-01T09:00:00+09:00',
+      label: '갱신 조건 안내 문자 발송',
+    },
+  ],
 };
 
 /**
@@ -74,6 +96,26 @@ export const therapistPatientScenario: ScenarioFixture = {
     note: '다음 방문 일정 확인 연락',
     done: false,
   },
+  timeline: [
+    {
+      id: 'timeline-patient-1',
+      customerId: 'customer-patient-1',
+      occurredAt: '2026-07-10T09:30:00+09:00',
+      label: '첫 방문 접수',
+    },
+    {
+      id: 'timeline-patient-2',
+      customerId: 'customer-patient-1',
+      occurredAt: '2026-07-28T10:30:00+09:00',
+      label: '내원 확인',
+    },
+    {
+      id: 'timeline-patient-3',
+      customerId: 'customer-patient-1',
+      occurredAt: '2026-08-05T11:00:00+09:00',
+      label: '다음 방문 일정 조율 연락',
+    },
+  ],
 };
 
 export const SCENARIO_FIXTURES: readonly ScenarioFixture[] = [

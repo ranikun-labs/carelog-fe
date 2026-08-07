@@ -18,6 +18,9 @@ describe('bootstrap scenario fixtures', () => {
     expect(Object.keys(landlordTenantScenario.followUp).sort()).toEqual(
       Object.keys(therapistPatientScenario.followUp).sort(),
     );
+    expect(Object.keys(landlordTenantScenario.timeline[0]).sort()).toEqual(
+      Object.keys(therapistPatientScenario.timeline[0]).sort(),
+    );
   });
 
   it('resolve every scenario customer through the same generic route builders', () => {
@@ -30,6 +33,17 @@ describe('bootstrap scenario fixtures', () => {
       );
       expect(scenario.context.customerId).toBe(scenario.customer.id);
       expect(scenario.followUp.customerId).toBe(scenario.customer.id);
+    }
+  });
+
+  it('gives every scenario at least two ordered timeline entries for the same customer', () => {
+    for (const scenario of SCENARIO_FIXTURES) {
+      expect(scenario.timeline.length).toBeGreaterThanOrEqual(2);
+      for (const entry of scenario.timeline) {
+        expect(entry.customerId).toBe(scenario.customer.id);
+      }
+      const occurredAtValues = scenario.timeline.map((entry) => entry.occurredAt);
+      expect(new Set(occurredAtValues).size).toBe(occurredAtValues.length);
     }
   });
 
