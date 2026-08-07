@@ -45,9 +45,7 @@ test('responsive app frame and scroll contract', async ({ page }) => {
   await expect(activeTab).toHaveAttribute('aria-current', 'page');
 });
 
-test('customer detail keeps one scroll surface and an accessible back action', async ({
-  page,
-}) => {
+test('customer detail keeps one scroll surface and an accessible back action', async ({ page }) => {
   await page.goto('/app/customers/customer-1');
   await expect(page.locator('h1')).toHaveCount(1);
   const backAction = page.getByRole('button', { name: '고객 목록으로 돌아가기' });

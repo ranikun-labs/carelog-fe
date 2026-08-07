@@ -18,10 +18,7 @@ export function CustomerDetailPage() {
       />
       <main className="flex-1 p-6">
         <p className="text-text-secondary break-all">{customerId}</p>
-        <EmptyState
-          title={t('customers.detail.title')}
-          description={t('placeholder.comingSoon')}
-        />
+        <EmptyState title={t('customers.detail.title')} description={t('placeholder.comingSoon')} />
       </main>
     </div>
   );

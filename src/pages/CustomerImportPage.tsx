@@ -17,10 +17,7 @@ export function CustomerImportPage() {
         onBack={() => navigate(buildAppCustomerDetailPath(customerId))}
       />
       <main className="flex-1 p-6">
-        <EmptyState
-          title={t('customers.import.title')}
-          description={t('placeholder.comingSoon')}
-        />
+        <EmptyState title={t('customers.import.title')} description={t('placeholder.comingSoon')} />
       </main>
     </div>
   );

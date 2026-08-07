@@ -10,7 +10,9 @@ describe('application router', () => {
         <AppRouter />
       </MemoryRouter>,
     );
-    expect(await screen.findByRole('heading', { name: /고객 맥락과 후속 업무/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /고객 맥락과 후속 업무/ }),
+    ).toBeInTheDocument();
   });
 
   it('renders English and unsupported public locale boundaries', () => {
