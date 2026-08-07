@@ -1,6 +1,6 @@
 import { DEFAULT_LOCALE, isSupportedLocale, type Locale } from '@/constants/routes';
 
-export const APP_LOCALE_STORAGE_KEY = 'react-product-foundation.language';
+export const APP_LOCALE_STORAGE_KEY = 'carelog.language';
 
 export function normalizeBrowserLocale(candidates: readonly string[]): Locale | undefined {
   for (const candidate of candidates) {
