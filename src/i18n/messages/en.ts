@@ -2,7 +2,7 @@ import type { Messages } from '@/i18n/dictionary';
 
 export const en: Messages = {
   common: {
-    appName: 'React Product Foundation',
+    appName: 'Carelog',
     openApp: 'Open app',
     learnMore: 'View features',
     changeLanguage: 'Change language',
@@ -10,42 +10,48 @@ export const en: Messages = {
   navigation: {
     home: 'Home',
     features: 'Features',
-    items: 'Items',
-    settings: 'Settings',
+    today: 'Today',
+    customers: 'Customers',
+    followUps: 'Follow-ups',
     ariaLabel: 'Primary navigation',
   },
   public: {
     home: {
-      eyebrow: 'Minimal Foundation',
-      title: 'A solid React foundation for your next product',
+      eyebrow: 'Customer Relationship Foundation',
+      title: 'Customer context and follow-ups, in one place',
       description: 'Start with localized public pages and a mobile-first application shell.',
     },
     features: {
-      title: 'A verifiable product foundation',
-      description: 'Common boundaries are ready to replace with real product requirements.',
+      title: 'A verifiable customer management foundation',
+      description: 'Common boundaries are ready to extend into real customer workflows.',
       items: ['Localized routes', 'App shell', 'Reusable components', 'Verification foundation'],
     },
   },
   app: {
     home: {
-      eyebrow: 'Starter App',
-      title: 'Welcome to your new product',
-      description: 'No personalization or external API is connected here.',
-      itemsAction: 'View sample items',
+      eyebrow: 'Today',
+      title: 'Welcome to Carelog',
+      description: 'No customer data is connected here yet.',
+      customersAction: 'View customers',
     },
   },
-  items: {
-    title: 'Items',
-    description: 'Neutral examples for checking list and detail routes.',
-    sampleNames: ['Sample workspace', 'Check checklist', 'Starter task'],
-    detail: {
-      title: 'Item detail',
-      identifier: 'Identifier',
-      created: 'Created',
-      checklist: 'Starter checklist',
-      steps: ['Replace product copy', 'Check routes', 'Run verification commands'],
-      back: 'Back to items',
-    },
+  customers: {
+    title: 'Customers',
+    description: 'A placeholder for checking the customer list and detail routes.',
+    back: 'Back to customers',
+    detail: { title: 'Customer detail' },
+    import: { title: 'Import customers' },
+    handoff: { title: 'Handoff' },
+  },
+  reviews: {
+    detail: { title: 'Review' },
+  },
+  followUps: {
+    title: 'Follow-ups',
+    description: 'A placeholder for checking upcoming follow-up work.',
+  },
+  placeholder: {
+    comingSoon: 'This screen will be filled in during a later step.',
   },
   settings: {
     title: 'Settings',
@@ -54,12 +60,9 @@ export const en: Messages = {
     korean: '한국어',
     english: 'English',
   },
-  compliance: {
-    message: 'This screen contains examples that must be replaced with your product policy.',
-  },
   notFound: {
     title: 'Page not found',
-    description: 'The requested path is not part of this starter.',
+    description: 'The requested path is not part of this app.',
     action: 'Go home',
   },
 };

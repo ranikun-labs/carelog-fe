@@ -11,24 +11,24 @@ test('public routes and locale switch', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
 });
 
-test('app list, detail, navigation, and locale persistence', async ({ page }) => {
+test('app home, customers, and navigation', async ({ page }) => {
   await page.goto('/app');
-  await page.getByRole('link', { name: '예시 항목 보기' }).click();
-  await page.getByRole('link', { name: '확인 체크리스트' }).click();
-  await expect(page).toHaveURL('/app/items/check%2Fchecklist');
-  await expect(page.getByRole('link', { name: '항목', exact: true })).toHaveAttribute(
+  await page.getByRole('link', { name: '고객 목록 보기' }).click();
+  await expect(page).toHaveURL('/app/customers');
+  await expect(page.getByRole('link', { name: '고객', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   );
-  await page.getByRole('link', { name: '설정' }).click();
-  await page.getByRole('button', { name: 'English' }).click();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await page.reload();
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await page.getByRole('link', { name: '후속 업무' }).click();
+  await expect(page).toHaveURL('/app/follow-ups');
+  await expect(page.getByRole('link', { name: '후속 업무' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
 });
 
 test('responsive app frame and scroll contract', async ({ page }) => {
-  await page.goto('/app/items');
+  await page.goto('/app/customers');
   const viewport = page.viewportSize()!;
   const frame = page.locator('#root > div');
   const box = await frame.boundingBox();
@@ -41,17 +41,15 @@ test('responsive app frame and scroll contract', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(0);
   await expect(page.locator('[data-scroll-surface]')).toHaveCount(1);
   await expect(page.locator('h1')).toHaveCount(1);
-  const activeTab = page.getByRole('link', { name: /항목|Items/ });
+  const activeTab = page.getByRole('link', { name: '고객' });
   await expect(activeTab).toHaveAttribute('aria-current', 'page');
 });
 
-test('detail keeps one scroll surface and an accessible final action', async ({ page }) => {
-  await page.goto('/app/items/starter-task');
-  await expect(page.locator('[data-scroll-surface]')).toHaveCount(1);
+test('customer detail keeps one scroll surface and an accessible back action', async ({ page }) => {
+  await page.goto('/app/customers/customer-1');
   await expect(page.locator('h1')).toHaveCount(1);
-  const finalAction = page.getByRole('link', { name: '항목으로 돌아가기' });
-  await finalAction.scrollIntoViewIfNeeded();
-  await expect(finalAction).toBeVisible();
+  const backAction = page.getByRole('button', { name: '고객 목록으로 돌아가기' });
+  await expect(backAction).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

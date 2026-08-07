@@ -1,8 +1,8 @@
 {
-  "name": "react-product-foundation",
+  "name": "carelog-fe",
   "private": true,
   "version": "0.0.0",
-  "description": "A minimal, localized React product foundation for web and Capacitor-ready apps.",
+  "description": "Mobile-first React frontend for Carelog customer context and follow-up management.",
   "type": "module",
   "engines": {
     "node": ">=22.22.0 <23"

@@ -1,10 +1,10 @@
-import { Home, ListChecks, Settings, type LucideIcon } from 'lucide-react';
+import { CalendarCheck, Home, Users, type LucideIcon } from 'lucide-react';
 
-import { buildAppHomePath, buildAppItemsPath, buildAppSettingsPath } from '@/constants/routes';
+import { buildAppCustomersPath, buildAppFollowUpsPath, buildAppHomePath } from '@/constants/routes';
 import type { MessageKey } from '@/i18n/dictionary';
 
 export interface BottomTab {
-  id: 'home' | 'items' | 'settings';
+  id: 'today' | 'customers' | 'followUps';
   href: string;
   labelKey: MessageKey;
   icon: LucideIcon;
@@ -13,24 +13,24 @@ export interface BottomTab {
 
 export const BOTTOM_TABS: readonly BottomTab[] = [
   {
-    id: 'home',
+    id: 'today',
     href: buildAppHomePath(),
-    labelKey: 'navigation.home',
+    labelKey: 'navigation.today',
     icon: Home,
     match: (pathname) => pathname === buildAppHomePath(),
   },
   {
-    id: 'items',
-    href: buildAppItemsPath(),
-    labelKey: 'navigation.items',
-    icon: ListChecks,
-    match: (pathname) => pathname.startsWith(buildAppItemsPath()),
+    id: 'customers',
+    href: buildAppCustomersPath(),
+    labelKey: 'navigation.customers',
+    icon: Users,
+    match: (pathname) => pathname.startsWith(buildAppCustomersPath()),
   },
   {
-    id: 'settings',
-    href: buildAppSettingsPath(),
-    labelKey: 'navigation.settings',
-    icon: Settings,
-    match: (pathname) => pathname.startsWith(buildAppSettingsPath()),
+    id: 'followUps',
+    href: buildAppFollowUpsPath(),
+    labelKey: 'navigation.followUps',
+    icon: CalendarCheck,
+    match: (pathname) => pathname.startsWith(buildAppFollowUpsPath()),
   },
 ] as const;

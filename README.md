@@ -1,8 +1,9 @@
-# React Product Foundation
+# Carelog
 
-A minimal React product starter with localized public pages, a mobile-first application shell,
-typed ko/en messages, four-path pre-rendering, accessible navigation, reusable UI primitives, and
-an optional-ready Capacitor configuration.
+Mobile-first React frontend for Carelog — a generic customer relationship tool that keeps
+customer context, timeline entries, and follow-up work in one place. Built on a localized public
+site, a mobile app shell, typed ko/en messages, pre-rendering, accessible navigation, and reusable
+UI primitives.
 
 ## Quick start
 
@@ -32,44 +33,36 @@ The app uses local storage, then the browser locale, then `ko`:
 
 ```text
 /app
-/app/items
-/app/items/:id
-/app/settings
+/app/customers
+/app/customers/:customerId
+/app/customers/:customerId/import
+/app/reviews/:reviewId
+/app/customers/:customerId/handoff
+/app/follow-ups
 ```
 
 Route constants and builders live in `src/constants/routes.ts`. Change routes there first, then
-update `src/app/AppRouter.tsx` and the pre-render manifest. Bottom tabs are configured once in
-`src/constants/navigation.ts`; labels remain in the typed dictionaries.
+update `src/app/AppRouter.tsx` and the pre-render manifest. Bottom tabs (오늘 / 고객 / 후속 업무) are
+configured once in `src/constants/navigation.ts`; labels remain in the typed dictionaries.
 
-## Customize before use
+## Product contract
 
-- [ ] Change the `package.json` package name and description.
-- [ ] Replace the HTML title and description in `index.html`.
-- [ ] Replace the brand name in `src/i18n/messages/`.
-- [ ] Replace color and typography tokens in `src/styles/globals.css`.
-- [ ] Replace public and app routes in `src/constants/routes.ts`.
-- [ ] Replace bottom navigation in `src/constants/navigation.ts`.
-- [ ] Replace all ko/en product copy while keeping both dictionary shapes aligned.
-- [ ] Change the `react-product-foundation.language` local-storage key.
-- [ ] Change Capacitor `appId`.
-- [ ] Change Capacitor `appName`.
-- [ ] Change the four pre-render paths and their tests.
-- [ ] Remove or replace `ComplianceNotice`.
-- [ ] Replace the example items.
-- [ ] Add the product's analytics and error monitoring.
-- [ ] Add reviewed privacy and legal text.
+Carelog is a generic customer CRM, not a vertical-specific product. The core model
+(`User`, `Workspace`, `Customer`, `CustomerContext`, `Interaction`, `TimelineEntry`, `FollowUp`,
+`Handoff`, `ImportCandidate`, `ReviewCandidate`, `Evidence`) is shared across scenarios, for example
+a landlord's tenants or a physical therapist's patients. Scenario-specific words appear only in
+copy and fixture metadata, never as core type, route, or component names.
 
 ### Capacitor
 
 Capacitor dependencies and `capacitor.config.ts` are included, but native projects are deliberately
-absent. The checked-in values are placeholders:
+absent.
 
-- `appId`: `com.example.reactproductfoundation`
-- `appName`: `React Product Foundation`
+- `appId`: `com.carelog.app`
+- `appName`: `Carelog`
 
-Change both to official product values **before** running any native initialization command. Do not
-run `cap add ios` or `cap add android` while the placeholder identity remains. The web output is
-`dist`.
+Do not run `cap add ios` or `cap add android` until native shipping is actually planned. The web
+output is `dist`.
 
 ### Font
 
@@ -83,10 +76,10 @@ To replace it:
 
 ### Localization
 
-Public locale is URL-owned. App locale is stored under
-`react-product-foundation.language`, with `navigator.languages` and `ko` as fallbacks.
-`I18nProvider` keeps `<html lang>` synchronized. Add a locale by updating the locale allowlist,
-both typed message resources, public path generation, pre-render expectations, and tests.
+Public locale is URL-owned. App locale is stored under `carelog.language`, with
+`navigator.languages` and `ko` as fallbacks. `I18nProvider` keeps `<html lang>` synchronized. Add a
+locale by updating the locale allowlist, both typed message resources, public path generation,
+pre-render expectations, and tests.
 
 ### Pre-rendering
 
@@ -105,14 +98,7 @@ to fall back to `index.html`:
 - `/app/*` routes are client-rendered only. Any unknown path under `/app` must be rewritten to
   `index.html` by the static host or CDN, or direct links and refreshes will 404.
 - Host-specific rewrite config (for example a `_redirects` or `vercel.json` file) is intentionally
-  not included, to keep the template platform-neutral. Add the rewrite rule for your chosen host
-  before shipping.
-
-### Compliance notice
-
-`src/components/ComplianceNotice.tsx` is an independent, informational example with no title,
-action, or product-specific legal language. Remove it when the product does not need a notice, or
-replace its dictionary message after policy review.
+  not included yet. Add the rewrite rule for the chosen host before shipping.
 
 ## Verification
 
@@ -130,6 +116,7 @@ Playwright covers 375 px, 480 px, and a centered 480 px app frame in a 1024 px v
 
 ## Provenance
 
-This repository uses a clean initial history. It selectively extracts reusable structure from a
-verified foundation rather than carrying product history or copying product screens verbatim. See
-[the provenance record](docs/provenance.md).
+This repository uses a clean initial history. Its structural foundation (routing boundaries,
+localization mechanics, rendering profile, UI primitives, and verification pattern) was
+materialized from a reusable template's exact tagged snapshot rather than carrying that template's
+Git history or product screens. See [the provenance record](docs/provenance.md).
