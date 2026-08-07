@@ -32,7 +32,8 @@ export interface Messages {
     title: string;
     description: string;
     back: string;
-    detail: { title: string };
+    recentContact: string;
+    detail: { title: string; contextTitle: string; contextUpdatedAt: string };
     import: { title: string };
     handoff: { title: string };
   };
@@ -42,6 +43,10 @@ export interface Messages {
   followUps: {
     title: string;
     description: string;
+  };
+  timeline: {
+    title: string;
+    empty: string;
   };
   placeholder: {
     comingSoon: string;

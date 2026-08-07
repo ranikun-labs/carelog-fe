@@ -37,9 +37,14 @@ export const ko: Messages = {
   },
   customers: {
     title: '고객',
-    description: '고객 목록과 상세 화면을 확인하기 위한 자리표시자입니다.',
+    description: '내가 관리하는 고객 목록입니다.',
     back: '고객 목록으로 돌아가기',
-    detail: { title: '고객 상세' },
+    recentContact: '최근 연락',
+    detail: {
+      title: '고객 상세',
+      contextTitle: '고객 맥락',
+      contextUpdatedAt: '마지막 업데이트',
+    },
     import: { title: '고객 가져오기' },
     handoff: { title: '인계' },
   },
@@ -49,6 +54,10 @@ export const ko: Messages = {
   followUps: {
     title: '후속 업무',
     description: '예정된 후속 업무를 확인하기 위한 자리표시자입니다.',
+  },
+  timeline: {
+    title: '타임라인',
+    empty: '아직 기록이 없습니다.',
   },
   placeholder: {
     comingSoon: '이 화면은 다음 단계에서 채워집니다.',

@@ -42,13 +42,22 @@ describe('application router', () => {
     expect(screen.getByRole('link', { name: '고객' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('renders an encoded unicode customer id on the detail route without double decoding', () => {
+  it('resolves a known customer id on the detail route via the shared fixtures', () => {
     render(
-      <MemoryRouter initialEntries={[`/app/customers/${encodeURIComponent('한글 고객')}`]}>
+      <MemoryRouter initialEntries={['/app/customers/customer-tenant-1']}>
         <AppRouter />
       </MemoryRouter>,
     );
-    expect(screen.getByText('한글 고객')).toBeVisible();
+    expect(screen.getByRole('heading', { name: '박세입' })).toBeVisible();
+  });
+
+  it('renders the app not-found surface for an unknown customer id', () => {
+    render(
+      <MemoryRouter initialEntries={['/app/customers/does-not-exist']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: '페이지를 찾을 수 없습니다' })).toBeVisible();
   });
 
   it('renders the customer import and handoff placeholder routes', () => {

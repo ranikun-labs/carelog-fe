@@ -37,9 +37,14 @@ export const en: Messages = {
   },
   customers: {
     title: 'Customers',
-    description: 'A placeholder for checking the customer list and detail routes.',
+    description: 'The customers you manage.',
     back: 'Back to customers',
-    detail: { title: 'Customer detail' },
+    recentContact: 'Recent contact',
+    detail: {
+      title: 'Customer detail',
+      contextTitle: 'Customer context',
+      contextUpdatedAt: 'Last updated',
+    },
     import: { title: 'Import customers' },
     handoff: { title: 'Handoff' },
   },
@@ -49,6 +54,10 @@ export const en: Messages = {
   followUps: {
     title: 'Follow-ups',
     description: 'A placeholder for checking upcoming follow-up work.',
+  },
+  timeline: {
+    title: 'Timeline',
+    empty: 'No activity yet.',
   },
   placeholder: {
     comingSoon: 'This screen will be filled in during a later step.',

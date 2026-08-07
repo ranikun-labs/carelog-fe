@@ -1,24 +1,31 @@
 import { useNavigate, useParams } from 'react-router';
 
-import { EmptyState } from '@/components/common/EmptyState';
+import { Badge } from '@/components/ui/badge';
+import { CustomerContextSection } from '@/components/customers/CustomerContextSection';
 import { PageHeader } from '@/components/common/PageHeader';
 import { buildAppCustomersPath } from '@/constants/routes';
+import { SCENARIO_FIXTURES } from '@/fixtures/scenarios';
 import { useTranslation } from '@/i18n/I18nContext';
+import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 
 export function CustomerDetailPage() {
   const { customerId = '' } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const scenario = SCENARIO_FIXTURES.find((entry) => entry.customer.id === customerId);
+
+  if (!scenario) return <AppNotFoundPage />;
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title={t('customers.detail.title')}
+        title={scenario.customer.displayName}
         backLabel={t('customers.back')}
         onBack={() => navigate(buildAppCustomersPath())}
       />
-      <main className="flex-1 p-6">
-        <p className="text-text-secondary break-all">{customerId}</p>
-        <EmptyState title={t('customers.detail.title')} description={t('placeholder.comingSoon')} />
+      <main className="flex-1 overflow-y-auto p-6">
+        <Badge tone="info">{scenario.workspace.name}</Badge>
+        <CustomerContextSection context={scenario.context} />
       </main>
     </div>
   );
