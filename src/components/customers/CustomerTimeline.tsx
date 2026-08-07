@@ -7,9 +7,25 @@ interface CustomerTimelineProps {
   entries: readonly TimelineEntry[];
 }
 
+function compareTimelineEntriesByInstant(a: TimelineEntry, b: TimelineEntry): number {
+  const aInstant = Date.parse(a.occurredAt);
+  const bInstant = Date.parse(b.occurredAt);
+  const aIsInvalid = Number.isNaN(aInstant);
+  const bIsInvalid = Number.isNaN(bInstant);
+
+  if (aIsInvalid || bIsInvalid) {
+    if (aIsInvalid && bIsInvalid) {
+      return 0;
+    }
+    return aIsInvalid ? 1 : -1;
+  }
+
+  return bInstant - aInstant;
+}
+
 export function CustomerTimeline({ entries }: CustomerTimelineProps) {
   const { t } = useTranslation();
-  const ordered = [...entries].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  const ordered = [...entries].sort(compareTimelineEntriesByInstant);
 
   return (
     <section className="mt-6">

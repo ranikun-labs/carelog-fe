@@ -45,10 +45,28 @@ test('responsive app frame and scroll contract', async ({ page }) => {
   await expect(activeTab).toHaveAttribute('aria-current', 'page');
 });
 
-for (const [scenarioName, customerName] of [
-  ['landlord-tenant', '박세입'],
-  ['therapist-patient', '최내원'],
-] as const) {
+const customerScenarios: Array<{
+  scenarioName: string;
+  customerName: string;
+  expectedTimelineLabels: string[];
+}> = [
+  {
+    scenarioName: 'landlord-tenant',
+    customerName: '박세입',
+    expectedTimelineLabels: [
+      '갱신 조건 안내 문자 발송',
+      '계약 갱신 의사 확인 통화',
+      '입주 안내 완료',
+    ],
+  },
+  {
+    scenarioName: 'therapist-patient',
+    customerName: '최내원',
+    expectedTimelineLabels: ['다음 방문 일정 조율 연락', '내원 확인', '첫 방문 접수'],
+  },
+];
+
+for (const { scenarioName, customerName, expectedTimelineLabels } of customerScenarios) {
   test(`customer list -> detail -> context -> timeline (${scenarioName})`, async ({ page }) => {
     await page.goto('/app/customers');
     await page.getByRole('link', { name: new RegExp(customerName) }).click();
@@ -58,6 +76,7 @@ for (const [scenarioName, customerName] of [
     await expect(page.getByRole('heading', { name: '타임라인' })).toBeVisible();
     const timelineItems = page.getByRole('listitem');
     await expect(timelineItems).toHaveCount(3);
+    await expect(timelineItems.locator('p')).toHaveText(expectedTimelineLabels);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
