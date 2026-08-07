@@ -26,7 +26,9 @@ describe('CustomersPage', () => {
 
   it('links each customer to its detail route', () => {
     renderPage();
-    const link = screen.getByRole('link', { name: new RegExp(landlordTenantScenario.customer.displayName) });
+    const link = screen.getByRole('link', {
+      name: new RegExp(landlordTenantScenario.customer.displayName),
+    });
     expect(link).toHaveAttribute('href', `/app/customers/${landlordTenantScenario.customer.id}`);
   });
 });
