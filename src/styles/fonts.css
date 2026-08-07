@@ -1,0 +1,8 @@
+/* Pretendard Variable — self-hosted from the `pretendard` npm package, no CDN. */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('../assets/fonts/PretendardVariable.woff2') format('woff2-variations');
+}

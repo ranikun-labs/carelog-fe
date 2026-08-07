@@ -1,0 +1,18 @@
+pnpm-lock.yaml
+pnpm-workspace.yaml
+dist
+dist-ssr
+.prerender-manifest.json
+node_modules
+ios
+android
+coverage
+playwright-report
+test-results
+
+# 디자인팀에서 전달한 원본 핸드오프 문서 — 포맷 재정렬로 diff를 만들지 않는다.
+docs/nav-map.md
+
+# 외부 디자인 원본(byte-for-byte 보존) — 포맷팅 금지. 출처·해시는 design/PROVENANCE.md.
+# design/README.md, design/PROVENANCE.md(우리 문서)는 검증 대상으로 남긴다.
+design/claude-export/

@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './fonts.css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* card radius: 16px. --radius-lg below resolves to exactly this value —
+     use `rounded-lg` for cards, not `rounded-xl`. */
+  --radius: 1rem;
+
+  --background: oklch(1 0 0);
+  --foreground: #191f28;
+
+  --card: oklch(1 0 0);
+  --card-foreground: #191f28;
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: #191f28;
+
+  --primary: #3182f6;
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: #191f28;
+
+  /* neutral gray, not blue — brand blue lives only in --primary/--brand */
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: #8b95a1;
+
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: #191f28;
+
+  --destructive: #f04452;
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: #3182f6;
+
+  --text-secondary: #4e5968;
+  --text-tertiary: #8b95a1;
+}
+
+.dark {
+  --background: oklch(0.16 0 0);
+  --foreground: oklch(0.96 0 0);
+
+  --card: oklch(0.2 0 0);
+  --card-foreground: oklch(0.96 0 0);
+
+  --popover: oklch(0.2 0 0);
+  --popover-foreground: oklch(0.96 0 0);
+
+  --primary: #3182f6;
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.26 0 0);
+  --secondary-foreground: oklch(0.96 0 0);
+
+  --muted: oklch(0.26 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+
+  --accent: oklch(0.26 0 0);
+  --accent-foreground: oklch(0.96 0 0);
+
+  --destructive: #f04452;
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: #3182f6;
+
+  --text-secondary: oklch(0.75 0 0);
+  --text-tertiary: oklch(0.58 0 0);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-brand: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  --font-sans: 'Pretendard Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+}
