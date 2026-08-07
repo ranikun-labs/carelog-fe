@@ -20,7 +20,7 @@ for (const { outFile, locale } of manifest) {
   if (!html.includes('data-render-mode="prerender"')) {
     throw new Error(`Missing pre-render marker in ${outFile}`);
   }
-  if (!html.includes('<title>React Product Foundation</title>')) {
+  if (!html.includes('<title>Carelog</title>')) {
     throw new Error(`Wrong title in ${outFile}`);
   }
 }

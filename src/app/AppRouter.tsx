@@ -13,8 +13,12 @@ import {
 } from '@/constants/routes';
 import { AppHomePage } from '@/pages/AppHomePage';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
-import { ItemDetailPage } from '@/pages/ItemDetailPage';
-import { ItemsPage } from '@/pages/ItemsPage';
+import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
+import { CustomerHandoffPage } from '@/pages/CustomerHandoffPage';
+import { CustomerImportPage } from '@/pages/CustomerImportPage';
+import { CustomersPage } from '@/pages/CustomersPage';
+import { FollowUpsPage } from '@/pages/FollowUpsPage';
+import { ReviewDetailPage } from '@/pages/ReviewDetailPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { FeaturesPage } from '@/pages/public/FeaturesPage';
 import { PublicHomePage } from '@/pages/public/PublicHomePage';
@@ -35,16 +39,35 @@ export function AppRouter() {
       <Route path={APP_BASE} element={<AppShell />}>
         <Route element={<TabLayout />}>
           <Route index element={<AppHomePage />} />
-          <Route path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.items)} element={<ItemsPage />} />
           <Route
-            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.settings)}
-            element={<SettingsPage />}
+            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customers)}
+            element={<CustomersPage />}
           />
           <Route
-            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.itemDetail)}
-            element={<ItemDetailPage />}
+            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.followUps)}
+            element={<FollowUpsPage />}
           />
         </Route>
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerDetail)}
+          element={<CustomerDetailPage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerImport)}
+          element={<CustomerImportPage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerHandoff)}
+          element={<CustomerHandoffPage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.reviewDetail)}
+          element={<ReviewDetailPage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.settings)}
+          element={<SettingsPage />}
+        />
         <Route path="*" element={<AppNotFoundPage />} />
       </Route>
       <Route path="*" element={<PublicNotFoundPage />} />

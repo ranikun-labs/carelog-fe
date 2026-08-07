@@ -1,9 +1,12 @@
 import {
   APP_ROUTE_PATHS,
+  buildAppCustomerDetailPath,
+  buildAppCustomerHandoffPath,
+  buildAppCustomerImportPath,
+  buildAppCustomersPath,
+  buildAppFollowUpsPath,
   buildAppHomePath,
-  buildAppItemDetailPath,
-  buildAppItemsPath,
-  buildAppSettingsPath,
+  buildAppReviewDetailPath,
   buildPublicFeaturesPath,
   buildPublicHomePath,
   isSupportedLocale,
@@ -14,20 +17,32 @@ describe('route contract', () => {
     expect(buildPublicHomePath('ko')).toBe('/ko');
     expect(buildPublicFeaturesPath('en')).toBe('/en/features');
     expect(buildAppHomePath()).toBe('/app');
-    expect(buildAppItemsPath()).toBe('/app/items');
-    expect(buildAppSettingsPath()).toBe('/app/settings');
-    expect(APP_ROUTE_PATHS.itemDetail).toBe('/app/items/:id');
+    expect(buildAppCustomersPath()).toBe('/app/customers');
+    expect(buildAppFollowUpsPath()).toBe('/app/follow-ups');
+    expect(APP_ROUTE_PATHS.customerDetail).toBe('/app/customers/:customerId');
+    expect(APP_ROUTE_PATHS.reviewDetail).toBe('/app/reviews/:reviewId');
   });
 
-  it('encodes an item identifier exactly once', () => {
-    expect(buildAppItemDetailPath('folder/item 1')).toBe('/app/items/folder%2Fitem%201');
-  });
-
-  it('encodes a unicode item identifier exactly once', () => {
-    expect(buildAppItemDetailPath('한글 항목')).toBe(
-      `/app/items/${encodeURIComponent('한글 항목')}`,
+  it('encodes a customer identifier exactly once', () => {
+    expect(buildAppCustomerDetailPath('folder/customer 1')).toBe(
+      '/app/customers/folder%2Fcustomer%201',
     );
-    expect(buildAppItemDetailPath('한글 항목')).not.toMatch(/%25/);
+  });
+
+  it('encodes a unicode customer identifier exactly once', () => {
+    expect(buildAppCustomerDetailPath('한글 고객')).toBe(
+      `/app/customers/${encodeURIComponent('한글 고객')}`,
+    );
+    expect(buildAppCustomerDetailPath('한글 고객')).not.toMatch(/%25/);
+  });
+
+  it('builds nested customer import and handoff paths under the customer detail path', () => {
+    expect(buildAppCustomerImportPath('c-1')).toBe('/app/customers/c-1/import');
+    expect(buildAppCustomerHandoffPath('c-1')).toBe('/app/customers/c-1/handoff');
+  });
+
+  it('encodes a review identifier exactly once', () => {
+    expect(buildAppReviewDetailPath('r 1')).toBe('/app/reviews/r%201');
   });
 
   it('accepts only supported locales', () => {

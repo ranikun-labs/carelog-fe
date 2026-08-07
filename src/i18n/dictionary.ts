@@ -12,8 +12,9 @@ export interface Messages {
   navigation: {
     home: string;
     features: string;
-    items: string;
-    settings: string;
+    today: string;
+    customers: string;
+    followUps: string;
     ariaLabel: string;
   };
   public: {
@@ -25,20 +26,25 @@ export interface Messages {
     };
   };
   app: {
-    home: { eyebrow: string; title: string; description: string; itemsAction: string };
+    home: { eyebrow: string; title: string; description: string; customersAction: string };
   };
-  items: {
+  customers: {
     title: string;
     description: string;
-    sampleNames: readonly [string, string, string];
-    detail: {
-      title: string;
-      identifier: string;
-      created: string;
-      checklist: string;
-      steps: readonly [string, string, string];
-      back: string;
-    };
+    back: string;
+    detail: { title: string };
+    import: { title: string };
+    handoff: { title: string };
+  };
+  reviews: {
+    detail: { title: string };
+  };
+  followUps: {
+    title: string;
+    description: string;
+  };
+  placeholder: {
+    comingSoon: string;
   };
   settings: {
     title: string;
@@ -46,9 +52,6 @@ export interface Messages {
     currentLanguage: string;
     korean: string;
     english: string;
-  };
-  compliance: {
-    message: string;
   };
   notFound: {
     title: string;

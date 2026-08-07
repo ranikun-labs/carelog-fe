@@ -14,17 +14,28 @@ export const PUBLIC_ROUTE_PATHS = {
 export const APP_BASE = '/app';
 export const APP_ROUTE_PATHS = {
   home: APP_BASE,
-  items: `${APP_BASE}/items`,
-  itemDetail: `${APP_BASE}/items/:id`,
+  customers: `${APP_BASE}/customers`,
+  customerDetail: `${APP_BASE}/customers/:customerId`,
+  customerImport: `${APP_BASE}/customers/:customerId/import`,
+  customerHandoff: `${APP_BASE}/customers/:customerId/handoff`,
+  reviewDetail: `${APP_BASE}/reviews/:reviewId`,
+  followUps: `${APP_BASE}/follow-ups`,
   settings: `${APP_BASE}/settings`,
 } as const;
 
 export const buildPublicHomePath = (locale: Locale) => `/${locale}`;
 export const buildPublicFeaturesPath = (locale: Locale) => `/${locale}/features`;
 export const buildAppHomePath = () => APP_ROUTE_PATHS.home;
-export const buildAppItemsPath = () => APP_ROUTE_PATHS.items;
-export const buildAppItemDetailPath = (id: string) =>
-  `${APP_ROUTE_PATHS.items}/${encodeURIComponent(id)}`;
+export const buildAppCustomersPath = () => APP_ROUTE_PATHS.customers;
+export const buildAppCustomerDetailPath = (customerId: string) =>
+  `${APP_ROUTE_PATHS.customers}/${encodeURIComponent(customerId)}`;
+export const buildAppCustomerImportPath = (customerId: string) =>
+  `${buildAppCustomerDetailPath(customerId)}/import`;
+export const buildAppCustomerHandoffPath = (customerId: string) =>
+  `${buildAppCustomerDetailPath(customerId)}/handoff`;
+export const buildAppReviewDetailPath = (reviewId: string) =>
+  `${APP_BASE}/reviews/${encodeURIComponent(reviewId)}`;
+export const buildAppFollowUpsPath = () => APP_ROUTE_PATHS.followUps;
 export const buildAppSettingsPath = () => APP_ROUTE_PATHS.settings;
 
 export function toRelativeUnder(base: string, path: string): string {
