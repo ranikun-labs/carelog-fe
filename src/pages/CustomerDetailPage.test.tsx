@@ -25,6 +25,9 @@ describe('CustomerDetailPage', () => {
     ).toBeVisible();
     expect(screen.getByText(landlordTenantScenario.workspace.name)).toBeVisible();
     expect(screen.getByText(landlordTenantScenario.context.summary)).toBeVisible();
+    for (const entry of landlordTenantScenario.timeline) {
+      expect(screen.getByText(entry.label)).toBeVisible();
+    }
   });
 
   it('renders the app not-found surface for an unknown customer id', () => {

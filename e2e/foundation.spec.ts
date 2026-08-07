@@ -45,11 +45,31 @@ test('responsive app frame and scroll contract', async ({ page }) => {
   await expect(activeTab).toHaveAttribute('aria-current', 'page');
 });
 
-test('customer detail keeps one scroll surface and an accessible back action', async ({ page }) => {
-  await page.goto('/app/customers/customer-1');
-  await expect(page.locator('h1')).toHaveCount(1);
-  const backAction = page.getByRole('button', { name: '고객 목록으로 돌아가기' });
-  await expect(backAction).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-  expect(overflow).toBeLessThanOrEqual(0);
+for (const [scenarioName, customerName] of [
+  ['landlord-tenant', '박세입'],
+  ['therapist-patient', '최내원'],
+] as const) {
+  test(`customer list -> detail -> context -> timeline (${scenarioName})`, async ({ page }) => {
+    await page.goto('/app/customers');
+    await page.getByRole('link', { name: new RegExp(customerName) }).click();
+    await expect(page.locator('h1')).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: customerName })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '고객 맥락' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '타임라인' })).toBeVisible();
+    const timelineItems = page.getByRole('listitem');
+    await expect(timelineItems).toHaveCount(3);
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+
+    const backAction = page.getByRole('button', { name: '고객 목록으로 돌아가기' });
+    await expect(backAction).toBeVisible();
+    await backAction.click();
+    await expect(page).toHaveURL('/app/customers');
+  });
+}
+
+test('unknown customer id renders the app not-found surface', async ({ page }) => {
+  await page.goto('/app/customers/does-not-exist');
+  await expect(page.getByRole('heading', { name: '페이지를 찾을 수 없습니다' })).toBeVisible();
 });

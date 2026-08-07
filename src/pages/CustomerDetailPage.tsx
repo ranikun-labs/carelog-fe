@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
 import { CustomerContextSection } from '@/components/customers/CustomerContextSection';
+import { CustomerTimeline } from '@/components/customers/CustomerTimeline';
 import { PageHeader } from '@/components/common/PageHeader';
 import { buildAppCustomersPath } from '@/constants/routes';
 import { SCENARIO_FIXTURES } from '@/fixtures/scenarios';
@@ -26,6 +27,7 @@ export function CustomerDetailPage() {
       <main className="flex-1 overflow-y-auto p-6">
         <Badge tone="info">{scenario.workspace.name}</Badge>
         <CustomerContextSection context={scenario.context} />
+        <CustomerTimeline entries={scenario.timeline} />
       </main>
     </div>
   );
