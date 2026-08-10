@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 describe('Button', () => {
   it('keeps compact and icon controls at least 44px without enlarging their icons', () => {
     const { rerender } = render(<Button size="sm">Compact</Button>);
-    expect(screen.getByRole('button', { name: 'Compact' })).toHaveClass('h-11');
+    expect(screen.getByRole('button', { name: 'Compact' })).toHaveClass('min-h-11');
 
     rerender(
       <Button size="icon" aria-label="Back">
@@ -16,6 +16,12 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Back' })).toHaveClass(
       "[&_svg:not([class*='size-'])]:size-4",
     );
+  });
+
+  it('uses minimum height for text controls so scaled text can expand the target', () => {
+    render(<Button>Scalable label</Button>);
+    expect(screen.getByRole('button', { name: 'Scalable label' })).toHaveClass('min-h-[46px]');
+    expect(screen.getByRole('button', { name: 'Scalable label' })).not.toHaveClass('h-[46px]');
   });
 
   it('provides the exact focus and disabled foundation on every variant', () => {

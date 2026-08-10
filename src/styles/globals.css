@@ -44,21 +44,21 @@
   --status-rail-width: 3px;
   --shadow-default: none;
 
-  --type-display-size: 24px;
+  --type-display-size: 1.5rem;
   --type-display-line-height: 1.3;
-  --type-title-lg-size: 20px;
+  --type-title-lg-size: 1.25rem;
   --type-title-lg-line-height: 1.35;
-  --type-title-size: 18px;
+  --type-title-size: 1.125rem;
   --type-title-line-height: 1.4;
-  --type-body-lg-size: 16px;
+  --type-body-lg-size: 1rem;
   --type-body-lg-line-height: 1.45;
-  --type-body-size: 14px;
+  --type-body-size: 0.875rem;
   --type-body-line-height: 1.6;
-  --type-body-sm-size: 13px;
+  --type-body-sm-size: 0.8125rem;
   --type-body-sm-line-height: 1.6;
-  --type-meta-size: 12px;
+  --type-meta-size: 0.75rem;
   --type-meta-line-height: 1.5;
-  --type-label-size: 11px;
+  --type-label-size: 0.6875rem;
   --type-label-line-height: 1.4;
 
   /* Compatibility aliases used by the existing Foundation primitives. */
@@ -204,5 +204,19 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+  }
+
+  :where(
+    a[href],
+    button,
+    input,
+    select,
+    textarea,
+    summary,
+    [role='button'],
+    [tabindex]:not([tabindex='-1'])
+  ):focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
   }
 }

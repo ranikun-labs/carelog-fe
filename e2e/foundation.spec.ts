@@ -30,12 +30,16 @@ test('app home, customers, and navigation', async ({ page }) => {
 test('responsive app frame and scroll contract', async ({ page }) => {
   await page.goto('/app/customers');
   const viewport = page.viewportSize()!;
-  const frame = page.locator('#root > div');
-  const box = await frame.boundingBox();
-  expect(box).not.toBeNull();
-  expect(box!.width).toBeLessThanOrEqual(480);
-  if (viewport.width === 1024) {
-    expect(Math.abs(box!.x - (viewport.width - box!.width) / 2)).toBeLessThanOrEqual(1);
+  const hostBox = await page.locator('[data-app-host]').boundingBox();
+  const contentBox = await page.locator('[data-app-content]').boundingBox();
+  expect(hostBox).not.toBeNull();
+  expect(contentBox).not.toBeNull();
+  expect(hostBox!.width).toBe(viewport.width);
+  expect(contentBox!.width).toBeLessThanOrEqual(480);
+  if (viewport.width > 480) {
+    expect(Math.abs(contentBox!.x - (viewport.width - contentBox!.width) / 2)).toBeLessThanOrEqual(
+      1,
+    );
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -43,6 +47,60 @@ test('responsive app frame and scroll contract', async ({ page }) => {
   await expect(page.locator('h1')).toHaveCount(1);
   const activeTab = page.getByRole('link', { name: '고객' });
   await expect(activeTab).toHaveAttribute('aria-current', 'page');
+});
+
+test('semantic tokens, touch targets, and keyboard focus load from the shared foundation', async ({
+  page,
+}) => {
+  await page.goto('/app/customers');
+
+  const tertiary = await page.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue('--text-tertiary')
+      .replaceAll(' ', '')
+      .trim(),
+  );
+  expect(tertiary).toBe('oklch(53%.01260)');
+
+  for (const tab of await page.getByRole('navigation').getByRole('link').all()) {
+    const box = await tab.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  }
+
+  const customerLink = page.getByRole('link', { name: /박세입/ });
+  await customerLink.focus();
+  const focus = await customerLink.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      offset: style.outlineOffset,
+      style: style.outlineStyle,
+      width: style.outlineWidth,
+    };
+  });
+  expect(focus).toEqual({ offset: '2px', style: 'solid', width: '2px' });
+
+  await customerLink.click();
+  const backButton = page.getByRole('button', { name: '고객 목록으로 돌아가기' });
+  const backBox = await backButton.boundingBox();
+  expect(backBox).not.toBeNull();
+  expect(backBox!.width).toBeGreaterThanOrEqual(44);
+  expect(backBox!.height).toBeGreaterThanOrEqual(44);
+});
+
+test('generic text controls expand instead of clipping at increased text scale', async ({
+  page,
+}) => {
+  await page.goto('/app');
+  await page.evaluate(() => document.documentElement.style.setProperty('font-size', '200%'));
+
+  const action = page.getByRole('link', { name: '고객 목록 보기' });
+  const dimensions = await action.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(dimensions.scrollHeight).toBeLessThanOrEqual(dimensions.clientHeight);
 });
 
 const customerScenarios: Array<{
