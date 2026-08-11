@@ -47,11 +47,12 @@ configured once in `src/constants/navigation.ts`; labels remain in the typed dic
 
 ## Product contract
 
-Carelog is a generic customer CRM, not a vertical-specific product. The core model
-(`User`, `Workspace`, `Customer`, `CustomerContext`, `Interaction`, `TimelineEntry`, `FollowUp`,
-`Handoff`, `ImportCandidate`, `ReviewCandidate`, `Evidence`) is shared across scenarios, for example
-a landlord's tenants or a physical therapist's patients. Scenario-specific words appear only in
-copy and fixture metadata, never as core type, route, or component names.
+Carelog is a generic customer CRM, not a vertical-specific product. The canonical product model is
+`User -> Workspace -> Customer -> CustomerEvent`. RPL-49 types such as `CustomerContext`,
+`Interaction`, `TimelineEntry`, and `FollowUp` remain compatibility models; event-capable records
+cross the legacy adapter before canonical consumers use them. The model is shared across scenarios,
+for example a landlord's tenants or a physical therapist's patients. Scenario-specific words appear
+only in copy and fixture metadata, never as core type, route, or component names.
 
 ### Capacitor
 
