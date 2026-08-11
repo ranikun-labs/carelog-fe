@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
 import { EmptyState } from '@/components/common/EmptyState';
 import { AgendaSkeleton } from '@/components/schedule/AgendaSkeleton';
@@ -19,6 +19,7 @@ import type { CustomerEvent } from '@/domain/customerEvent';
 import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
+import { useOptionalEventStore } from '@/state/EventStoreContext';
 
 export type ScheduleLoadState = 'ready' | 'loading' | 'error';
 
@@ -30,8 +31,22 @@ export interface SchedulePageProps {
   onRetry?: () => void;
 }
 
+interface ScheduleNavigationState {
+  targetEventId?: string;
+  targetDateKey?: string;
+}
+
+function readScheduleNavigationState(value: unknown): ScheduleNavigationState | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const state = value as Record<string, unknown>;
+  return {
+    ...(typeof state.targetEventId === 'string' ? { targetEventId: state.targetEventId } : {}),
+    ...(typeof state.targetDateKey === 'string' ? { targetDateKey: state.targetDateKey } : {}),
+  };
+}
+
 export function SchedulePage({
-  events = SCHEDULE_FIXTURE.events,
+  events,
   customers = SCHEDULE_FIXTURE.customers,
   now = new Date(),
   loadState = 'ready',
@@ -39,29 +54,39 @@ export function SchedulePage({
 }: SchedulePageProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const eventStore = useOptionalEventStore();
+  const sourceEvents =
+    eventStore && (events === undefined || events === SCHEDULE_FIXTURE.events)
+      ? eventStore.events
+      : (events ?? SCHEDULE_FIXTURE.events);
+  const scheduleNavigation = readScheduleNavigationState(location.state);
   const todayDateKey = getDateKeyFromDate(now);
-  const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
+  const [selectedDateKey, setSelectedDateKey] = useState(
+    scheduleNavigation?.targetDateKey ?? todayDateKey,
+  );
   const [todayVisible, setTodayVisible] = useState(true);
   const [selectionRequest, setSelectionRequest] = useState(0);
   const didInitialAnchor = useRef(false);
   const didSkipInitialScroll = useRef(false);
   const shouldScrollToSelection = useRef(true);
-  const pendingAgendaTargetId = useRef<string | null>(null);
+  const pendingAgendaTargetId = useRef<string | null>(scheduleNavigation?.targetEventId ?? null);
+  const highlightedEventId = eventStore?.highlightedEventId ?? null;
 
   const weekDays = useMemo(() => getWeekDaysForDate(selectedDateKey, now), [now, selectedDateKey]);
   const eventDateKeys = useMemo(
-    () => new Set(events.map((event) => getAgendaDateKey(event))),
-    [events],
+    () => new Set(sourceEvents.map((event) => getAgendaDateKey(event))),
+    [sourceEvents],
   );
-  const overdueEvents = useMemo(() => getOverdueEvents(events, now), [events, now]);
+  const overdueEvents = useMemo(() => getOverdueEvents(sourceEvents, now), [now, sourceEvents]);
   const sections = useMemo(
-    () => buildAgendaSections(events, todayDateKey, selectedDateKey),
-    [events, selectedDateKey, todayDateKey],
+    () => buildAgendaSections(sourceEvents, todayDateKey, selectedDateKey),
+    [selectedDateKey, sourceEvents, todayDateKey],
   );
   const sectionSignature = sections.map((section) => section.dateKey).join('|');
 
   useEffect(() => {
-    if (loadState !== 'ready' || events.length === 0) return;
+    if (loadState !== 'ready' || sourceEvents.length === 0) return;
     if (!shouldScrollToSelection.current) return;
     const targetEventId = pendingAgendaTargetId.current;
     const element = targetEventId
@@ -80,10 +105,10 @@ export function SchedulePage({
     pendingAgendaTargetId.current = null;
     didInitialAnchor.current = true;
     shouldScrollToSelection.current = false;
-  }, [events.length, loadState, selectedDateKey, sectionSignature, selectionRequest]);
+  }, [loadState, selectedDateKey, sectionSignature, selectionRequest, sourceEvents.length]);
 
   useEffect(() => {
-    if (loadState !== 'ready' || events.length === 0) return;
+    if (loadState !== 'ready' || sourceEvents.length === 0) return;
     const scrollSurface = document.querySelector<HTMLElement>('[data-scroll-surface]');
     if (!scrollSurface) return;
 
@@ -124,10 +149,10 @@ export function SchedulePage({
     scrollSurface.addEventListener('scroll', updateActiveDate, { passive: true });
 
     return () => scrollSurface.removeEventListener('scroll', updateActiveDate);
-  }, [events.length, loadState, sectionSignature, todayDateKey]);
+  }, [loadState, sectionSignature, sourceEvents.length, todayDateKey]);
 
   useEffect(() => {
-    if (loadState !== 'ready' || events.length === 0) return;
+    if (loadState !== 'ready' || sourceEvents.length === 0) return;
     const scrollSurface = document.querySelector<HTMLElement>('[data-scroll-surface]');
     const todayAnchor = document.querySelector<HTMLElement>('[data-today-anchor]');
     if (!scrollSurface || !todayAnchor || typeof IntersectionObserver === 'undefined') return;
@@ -140,7 +165,15 @@ export function SchedulePage({
     );
     observer.observe(todayAnchor);
     return () => observer.disconnect();
-  }, [events.length, loadState, sectionSignature, todayDateKey]);
+  }, [loadState, sectionSignature, sourceEvents.length, todayDateKey]);
+
+  useEffect(() => {
+    if (!eventStore || !highlightedEventId) return;
+    const timeoutId = window.setTimeout(() => {
+      eventStore.clearHighlight(highlightedEventId);
+    }, 1600);
+    return () => window.clearTimeout(timeoutId);
+  }, [eventStore, highlightedEventId]);
 
   const selectDate = useCallback(
     (dateKey: string, targetEventId?: string) => {
@@ -199,7 +232,7 @@ export function SchedulePage({
             </button>
           }
         />
-      ) : events.length === 0 ? (
+      ) : sourceEvents.length === 0 ? (
         <EmptyState
           title={t('schedule.emptyTitle')}
           description={t('schedule.emptyDescription')}
@@ -237,6 +270,7 @@ export function SchedulePage({
                 customers={customers}
                 now={now}
                 onOpen={openEvent}
+                highlightedEventId={highlightedEventId}
               />
             ))}
           </div>

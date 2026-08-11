@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
 import {
   formatAgendaDateTime,
   getAgendaCoordinate,
@@ -16,10 +19,22 @@ interface EventDetailProps {
   customerName: string;
   customerPath: string;
   now: Date;
+  onEdit?: (values: EventFormSubmitValues) => CustomerEvent | undefined;
+  onCancelEvent?: () => CustomerEvent | undefined;
+  onOccurEvent?: () => CustomerEvent | undefined;
 }
 
-export function EventDetail({ event, customerName, customerPath, now }: EventDetailProps) {
+export function EventDetail({
+  event,
+  customerName,
+  customerPath,
+  now,
+  onEdit,
+  onCancelEvent,
+  onOccurEvent,
+}: EventDetailProps) {
   const { locale, t } = useTranslation();
+  const [isEditing, setIsEditing] = useState(false);
   const presentation = getAgendaStatusPresentation(event, now);
   const railClass = {
     planned: 'border-l-accent-primary-rail',
@@ -83,7 +98,59 @@ export function EventDetail({ event, customerName, customerPath, now }: EventDet
             <p className="text-text-secondary mt-1 text-sm">{event.note}</p>
           </section>
         ) : null}
+
+        {onEdit || onCancelEvent || onOccurEvent ? (
+          <div className="flex flex-wrap gap-2" data-event-actions>
+            {onEdit ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-event-action="edit"
+                onClick={() => setIsEditing(true)}
+              >
+                {t('eventDetail.edit')}
+              </Button>
+            ) : null}
+            {event.status === 'PLANNED' && onOccurEvent ? (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                data-event-action="occur"
+                onClick={() => onOccurEvent()}
+              >
+                {t('eventDetail.markOccurred')}
+              </Button>
+            ) : null}
+            {event.status === 'PLANNED' && onCancelEvent ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                data-event-action="cancel"
+                onClick={() => onCancelEvent()}
+              >
+                {t('eventDetail.cancel')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
+
+      {isEditing && onEdit ? (
+        <EventForm
+          mode="edit"
+          event={event}
+          customerName={customerName}
+          now={now}
+          onSubmit={(values) => {
+            onEdit(values);
+            setIsEditing(false);
+          }}
+          onCancel={() => setIsEditing(false)}
+        />
+      ) : null}
     </article>
   );
 }

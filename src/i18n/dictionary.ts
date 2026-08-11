@@ -88,10 +88,33 @@ export interface Messages {
     customer: string;
     statusPlanned: string;
     statusCancelled: string;
+    edit: string;
+    cancel: string;
+    markOccurred: string;
     scheduledTime: string;
     actualTime: string;
     time: string;
     memo: string;
+  };
+  eventForm: {
+    createTitle: string;
+    editTitle: string;
+    customer: string;
+    kindLabel: string;
+    planned: string;
+    immediateOccurred: string;
+    descriptor: string;
+    descriptorPlaceholder: string;
+    scheduledTime: string;
+    occurredTime: string;
+    originalScheduledPreserved: string;
+    note: string;
+    notePlaceholder: string;
+    scheduledRequired: string;
+    occurredRequired: string;
+    cancel: string;
+    create: string;
+    save: string;
   };
   timeline: {
     title: string;
