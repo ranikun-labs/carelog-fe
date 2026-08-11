@@ -146,6 +146,8 @@ const customerScenarios: Array<{
     scenarioName: 'landlord-tenant',
     customerName: '박세입',
     expectedTimelineLabels: [
+      '현장 확인 일정',
+      '계약 갱신 상담',
       '갱신 조건 안내 문자 발송',
       '계약 갱신 의사 확인 통화',
       '입주 안내 완료',
@@ -154,12 +156,19 @@ const customerScenarios: Array<{
   {
     scenarioName: 'therapist-patient',
     customerName: '최내원',
-    expectedTimelineLabels: ['다음 방문 일정 조율 연락', '내원 확인', '첫 방문 접수'],
+    expectedTimelineLabels: [
+      '내원 확인 기록',
+      '다음 방문 일정 조율 연락',
+      '내원 확인',
+      '첫 방문 접수',
+    ],
   },
 ];
 
 for (const { scenarioName, customerName, expectedTimelineLabels } of customerScenarios) {
-  test(`customer list -> detail -> context -> timeline (${scenarioName})`, async ({ page }) => {
+  test(`customer list -> detail -> context -> canonical history (${scenarioName})`, async ({
+    page,
+  }) => {
     await page.goto('/app/customers');
     await page.getByRole('link', { name: new RegExp(customerName) }).click();
     await expect(page.locator('h1')).toHaveCount(1);
@@ -170,7 +179,7 @@ for (const { scenarioName, customerName, expectedTimelineLabels } of customerSce
       .locator('section')
       .filter({ has: page.getByRole('heading', { name: '타임라인', exact: true }) })
       .getByRole('listitem');
-    await expect(timelineItems).toHaveCount(3);
+    await expect(timelineItems).toHaveCount(expectedTimelineLabels.length);
     await expect(timelineItems.locator('p')).toHaveText(expectedTimelineLabels);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
