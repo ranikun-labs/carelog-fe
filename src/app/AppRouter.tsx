@@ -49,14 +49,14 @@ export function AppRouter() {
             element={<CustomersPage />}
           />
           <Route
+            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerDetail)}
+            element={<CustomerDetailPage />}
+          />
+          <Route
             path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.followUps)}
             element={<FollowUpsPage />}
           />
         </Route>
-        <Route
-          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerDetail)}
-          element={<CustomerDetailPage />}
-        />
         <Route
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerImport)}
           element={<CustomerImportPage />}

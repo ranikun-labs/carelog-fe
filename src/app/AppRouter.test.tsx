@@ -79,6 +79,9 @@ describe('application router', () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: '박세입' })).toBeVisible();
+    expect(document.querySelectorAll('[data-scroll-surface]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-bottom-navigation]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-side-navigation]')).toHaveLength(1);
   });
 
   it('renders the app not-found surface for an unknown customer id', () => {
