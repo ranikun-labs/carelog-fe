@@ -17,9 +17,16 @@ interface AgendaRowProps {
   customerName: string;
   now: Date;
   onOpen: (event: CustomerEvent) => void;
+  isHighlighted?: boolean;
 }
 
-export function AgendaRow({ event, customerName, now, onOpen }: AgendaRowProps) {
+export function AgendaRow({
+  event,
+  customerName,
+  now,
+  onOpen,
+  isHighlighted = false,
+}: AgendaRowProps) {
   const { locale, t } = useTranslation();
   const presentation = getAgendaStatusPresentation(event, now);
   const coordinate = getAgendaCoordinate(event);
@@ -40,9 +47,11 @@ export function AgendaRow({ event, customerName, now, onOpen }: AgendaRowProps) 
       data-agenda-row
       data-event-id={event.id}
       data-event-status={event.status}
+      data-event-highlighted={isHighlighted ? 'true' : undefined}
       className={cn(
         'bg-surface border-border-subtle hover:bg-subtle/60 relative min-h-20 border-b border-l-[var(--status-rail-width)] px-4 py-3 text-left transition-colors',
         railClass,
+        isHighlighted && 'event-highlight',
       )}
     >
       <button

@@ -10,6 +10,7 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
     trace: 'retain-on-failure',
   },
   webServer: {

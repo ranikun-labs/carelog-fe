@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('schedule agenda exposes the canonical week, overdue cue, and event rows', async ({
   page,

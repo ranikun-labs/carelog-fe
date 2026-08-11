@@ -1,13 +1,18 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { vi } from 'vitest';
 
 import { EventDetail } from '@/components/schedule/EventDetail';
+import { toCanonicalTimestamp, toDateTimeLocalValue } from '@/components/schedule/EventForm';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { I18nProvider } from '@/i18n/I18nContext';
 
 const now = new Date('2026-08-11T12:00:00+09:00');
 
-function renderDetail(event: CustomerEvent) {
+function renderDetail(
+  event: CustomerEvent,
+  onOccurEvent?: (occurredAt: string) => CustomerEvent | undefined,
+) {
   return render(
     <MemoryRouter>
       <I18nProvider locale="ko">
@@ -16,6 +21,7 @@ function renderDetail(event: CustomerEvent) {
           customerName="박세입"
           customerPath="/app/customers/customer-1"
           now={now}
+          onOccurEvent={onOccurEvent}
         />
       </I18nProvider>
     </MemoryRouter>,
@@ -52,6 +58,40 @@ describe('EventDetail', () => {
     expect(screen.getByText('정리 필요')).toBeVisible();
     expect(screen.getByText('예정 시각 지남')).toBeVisible();
     expect(getTimeTexts()[0]).toContain('8월 11일');
+  });
+
+  it('confirms the scheduled time by default and allows an actual-time override before mutation', () => {
+    const plannedEvent: CustomerEvent = {
+      id: 'planned-transition',
+      customerId: 'customer-1',
+      status: 'PLANNED',
+      scheduledAt: '2026-08-15T10:00:00+09:00',
+      descriptor: '예정 상담',
+    };
+    const onOccurEvent = vi.fn((occurredAt: string) => ({
+      ...plannedEvent,
+      status: 'OCCURRED' as const,
+      occurredAt,
+    }));
+
+    renderDetail(plannedEvent, onOccurEvent);
+
+    fireEvent.click(screen.getByRole('button', { name: '기록 완료' }));
+    const occurrenceInput = screen.getByLabelText('실제');
+    expect(occurrenceInput).toHaveValue(toDateTimeLocalValue(plannedEvent.scheduledAt));
+    expect(onOccurEvent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+    expect(document.querySelector('[data-event-occurrence-confirmation]')).not.toBeInTheDocument();
+    expect(onOccurEvent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '기록 완료' }));
+    fireEvent.change(screen.getByLabelText('실제'), {
+      target: { value: '2026-08-16T09:00' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '확인' }));
+
+    expect(onOccurEvent).toHaveBeenCalledWith(toCanonicalTimestamp('2026-08-16T09:00'));
   });
 
   it('renders an immediate occurred event with one actual time', () => {

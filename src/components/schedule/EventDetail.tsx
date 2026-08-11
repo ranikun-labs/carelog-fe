@@ -1,6 +1,14 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  EventForm,
+  toCanonicalTimestamp,
+  toDateTimeLocalValue,
+  type EventFormSubmitValues,
+} from '@/components/schedule/EventForm';
 import {
   formatAgendaDateTime,
   getAgendaCoordinate,
@@ -16,16 +24,44 @@ interface EventDetailProps {
   customerName: string;
   customerPath: string;
   now: Date;
+  onEdit?: (values: EventFormSubmitValues) => CustomerEvent | undefined;
+  onCancelEvent?: () => CustomerEvent | undefined;
+  onOccurEvent?: (occurredAt: string) => CustomerEvent | undefined;
 }
 
-export function EventDetail({ event, customerName, customerPath, now }: EventDetailProps) {
+export function EventDetail({
+  event,
+  customerName,
+  customerPath,
+  now,
+  onEdit,
+  onCancelEvent,
+  onOccurEvent,
+}: EventDetailProps) {
   const { locale, t } = useTranslation();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isConfirmingOccurrence, setIsConfirmingOccurrence] = useState(false);
+  const [occurrenceTime, setOccurrenceTime] = useState(
+    event.status === 'PLANNED' ? toDateTimeLocalValue(event.scheduledAt) : '',
+  );
   const presentation = getAgendaStatusPresentation(event, now);
   const railClass = {
     planned: 'border-l-accent-primary-rail',
     warning: 'border-l-warning-rail',
     neutral: 'border-l-rail-neutral',
   }[presentation.rail];
+
+  function openOccurrenceConfirmation() {
+    if (event.status !== 'PLANNED') return;
+    setOccurrenceTime(toDateTimeLocalValue(event.scheduledAt));
+    setIsConfirmingOccurrence(true);
+  }
+
+  function confirmOccurrence() {
+    if (!onOccurEvent || !occurrenceTime) return;
+    const updatedEvent = onOccurEvent(toCanonicalTimestamp(occurrenceTime));
+    if (updatedEvent) setIsConfirmingOccurrence(false);
+  }
 
   return (
     <article
@@ -83,7 +119,105 @@ export function EventDetail({ event, customerName, customerPath, now }: EventDet
             <p className="text-text-secondary mt-1 text-sm">{event.note}</p>
           </section>
         ) : null}
+
+        {onEdit || onCancelEvent || onOccurEvent ? (
+          <div className="flex flex-wrap gap-2" data-event-actions>
+            {onEdit ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-event-action="edit"
+                onClick={() => setIsEditing(true)}
+              >
+                {t('eventDetail.edit')}
+              </Button>
+            ) : null}
+            {event.status === 'PLANNED' && onOccurEvent ? (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                data-event-action="occur"
+                onClick={openOccurrenceConfirmation}
+              >
+                {t('eventDetail.markOccurred')}
+              </Button>
+            ) : null}
+            {event.status === 'PLANNED' && onCancelEvent ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                data-event-action="cancel"
+                onClick={() => onCancelEvent()}
+              >
+                {t('eventDetail.cancel')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {isConfirmingOccurrence && event.status === 'PLANNED' && onOccurEvent ? (
+          <section
+            data-event-occurrence-confirmation
+            className="border-border-default bg-subtle mt-4 rounded-lg border p-4"
+          >
+            <h2 className="text-text-primary text-sm font-semibold">
+              {t('eventDetail.confirmOccurrence')}
+            </h2>
+            <label
+              className="text-text-primary mt-3 grid gap-1.5 text-sm font-semibold"
+              htmlFor="event-occurrence-time"
+            >
+              {t('eventDetail.actualTime')}
+              <input
+                id="event-occurrence-time"
+                data-event-occurrence-time
+                type="datetime-local"
+                value={occurrenceTime}
+                onChange={(inputEvent) => setOccurrenceTime(inputEvent.target.value)}
+                required
+                className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                data-event-occurrence-cancel
+                onClick={() => setIsConfirmingOccurrence(false)}
+              >
+                {t('eventDetail.closeOccurrence')}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                data-event-occurrence-confirm
+                onClick={confirmOccurrence}
+              >
+                {t('eventDetail.confirmOccurrenceAction')}
+              </Button>
+            </div>
+          </section>
+        ) : null}
       </div>
+
+      {isEditing && onEdit ? (
+        <EventForm
+          mode="edit"
+          event={event}
+          customerName={customerName}
+          now={now}
+          onSubmit={(values) => {
+            onEdit(values);
+            setIsEditing(false);
+          }}
+          onCancel={() => setIsEditing(false)}
+        />
+      ) : null}
     </article>
   );
 }

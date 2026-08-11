@@ -220,3 +220,23 @@
     outline-offset: 2px;
   }
 }
+
+@keyframes event-highlight {
+  0% {
+    background-color: var(--accent-primary-bg);
+  }
+  100% {
+    background-color: var(--bg-surface);
+  }
+}
+
+.event-highlight {
+  animation: event-highlight 1.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-highlight {
+    animation: none;
+    background-color: var(--accent-primary-bg);
+  }
+}

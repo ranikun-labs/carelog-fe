@@ -13,9 +13,16 @@ interface DateSectionProps {
   customers: readonly ScheduleCustomer[];
   now: Date;
   onOpen: (event: AgendaSection['events'][number]) => void;
+  highlightedEventId?: string | null;
 }
 
-export function DateSection({ section, customers, now, onOpen }: DateSectionProps) {
+export function DateSection({
+  section,
+  customers,
+  now,
+  onOpen,
+  highlightedEventId,
+}: DateSectionProps) {
   const { locale, t } = useTranslation();
   const isToday = section.dateKey === getDateKeyFromDate(now);
   const headingId = `agenda-date-${section.dateKey}`;
@@ -54,6 +61,7 @@ export function DateSection({ section, customers, now, onOpen }: DateSectionProp
                 }
                 now={now}
                 onOpen={onOpen}
+                isHighlighted={event.id === highlightedEventId}
               />
             </li>
           ))}
