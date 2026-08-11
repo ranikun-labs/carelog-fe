@@ -45,6 +45,11 @@ export const en: Messages = {
       title: 'Customer detail',
       contextTitle: 'Customer context',
       contextUpdatedAt: 'Last updated',
+      addEvent: 'Add event',
+      upcomingTitle: 'Upcoming',
+      noUpcoming: 'No upcoming events',
+      additionalUpcoming: '{{count}} more upcoming',
+      memoTitle: 'Memo',
     },
     import: { title: 'Import customers' },
     handoff: { title: 'Handoff' },
@@ -98,6 +103,7 @@ export const en: Messages = {
   timeline: {
     title: 'Timeline',
     empty: 'No activity yet.',
+    loadMore: 'Show more',
   },
   placeholder: {
     comingSoon: 'This screen will be filled in during a later step.',

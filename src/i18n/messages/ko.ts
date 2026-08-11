@@ -45,6 +45,11 @@ export const ko: Messages = {
       title: '고객 상세',
       contextTitle: '고객 맥락',
       contextUpdatedAt: '마지막 업데이트',
+      addEvent: '일정 추가',
+      upcomingTitle: '다음 일정',
+      noUpcoming: '다음 일정 없음',
+      additionalUpcoming: '이후 예정 {{count}}건',
+      memoTitle: '메모',
     },
     import: { title: '고객 가져오기' },
     handoff: { title: '인계' },
@@ -98,6 +103,7 @@ export const ko: Messages = {
   timeline: {
     title: '타임라인',
     empty: '아직 기록이 없습니다.',
+    loadMore: '더보기',
   },
   placeholder: {
     comingSoon: '이 화면은 다음 단계에서 채워집니다.',

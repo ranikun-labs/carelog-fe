@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 
 import { adaptLegacyCustomerEvents } from '@/adapters/legacyCustomerEventAdapter';
 import { CustomerTimeline } from '@/components/customers/CustomerTimeline';
@@ -8,9 +9,11 @@ import { I18nProvider } from '@/i18n/I18nContext';
 
 function renderTimeline(events: readonly CustomerEvent[]) {
   render(
-    <I18nProvider locale="ko">
-      <CustomerTimeline events={events} />
-    </I18nProvider>,
+    <MemoryRouter>
+      <I18nProvider locale="ko">
+        <CustomerTimeline events={events} />
+      </I18nProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -104,7 +107,7 @@ describe('CustomerTimeline', () => {
     expect(screen.getByText('아직 기록이 없습니다.')).toBeVisible();
   });
 
-  it('projects only OCCURRED events onto the timeline', () => {
+  it('projects OCCURRED and CANCELLED events while excluding PLANNED', () => {
     renderTimeline([
       {
         id: 'planned-1',
@@ -122,8 +125,31 @@ describe('CustomerTimeline', () => {
       },
     ]);
 
-    expect(screen.getByText('아직 기록이 없습니다.')).toBeVisible();
+    expect(screen.getByText('cancelled plan')).toBeVisible();
     expect(screen.queryByText('future plan')).not.toBeInTheDocument();
-    expect(screen.queryByText('cancelled plan')).not.toBeInTheDocument();
+    expect(screen.getByText('취소됨')).toBeVisible();
+    expect(screen.getByRole('link', { name: '일정 상세 열기: cancelled plan' })).toHaveAttribute(
+      'href',
+      '/app/events/cancelled-1',
+    );
+  });
+
+  it('reveals history in additional groups of eight', () => {
+    renderTimeline(
+      Array.from({ length: 17 }, (_, index): CustomerEvent => ({
+        id: `occurred-${index}`,
+        customerId: 'customer-1',
+        status: 'OCCURRED',
+        occurredAt: `2026-08-${String(17 - index).padStart(2, '0')}T10:00:00+09:00`,
+        descriptor: `기록 ${index}`,
+      })),
+    );
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(8);
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(16);
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(17);
+    expect(screen.queryByRole('button', { name: '더보기' })).not.toBeInTheDocument();
   });
 });
