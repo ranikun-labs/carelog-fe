@@ -53,6 +53,12 @@ interface RouteInfo {
   navigationState: AdaptiveNavigationState;
 }
 
+type EventFocusTarget =
+  | { eventId: string; kind: 'event-action'; value: string }
+  | { eventId: string; kind: 'occurrence-time' }
+  | { eventId: string; kind: 'occurrence-cancel' }
+  | { eventId: string; kind: 'occurrence-confirm' };
+
 const INITIAL_ROOT_STATE: AdaptiveRootState = {
   scheduleDateKey: null,
   scheduleEventId: null,
@@ -77,10 +83,14 @@ function readViewportMetrics(host: HTMLElement | null): ViewportMetrics {
   };
 }
 
-function useViewportMetrics(hostRef: RefObject<HTMLElement | null>): ViewportMetrics {
+function useViewportMetrics(
+  hostRef: RefObject<HTMLElement | null>,
+  beforeMeasure: () => void,
+): ViewportMetrics {
   const [metrics, setMetrics] = useState<ViewportMetrics>(() => readViewportMetrics(null));
 
   const measure = useCallback(() => {
+    beforeMeasure();
     setMetrics((current) => {
       const next = readViewportMetrics(hostRef.current);
       if (
@@ -92,7 +102,7 @@ function useViewportMetrics(hostRef: RefObject<HTMLElement | null>): ViewportMet
       }
       return next;
     });
-  }, [hostRef]);
+  }, [beforeMeasure, hostRef]);
 
   useLayoutEffect(() => {
     measure();
@@ -116,6 +126,54 @@ function useViewportMetrics(hostRef: RefObject<HTMLElement | null>): ViewportMet
   }, [hostRef, measure]);
 
   return metrics;
+}
+
+function readEventFocusTarget(host: HTMLElement | null): EventFocusTarget | null {
+  if (typeof document === 'undefined' || !host) return null;
+
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement) || !host.contains(activeElement)) return null;
+
+  const eventSurface = activeElement.closest<HTMLElement>('[data-event-detail-page]');
+  const eventId = eventSurface?.dataset.selectedEventId;
+  if (!eventSurface || !eventId || !host.contains(eventSurface)) return null;
+
+  const eventAction =
+    activeElement.closest<HTMLElement>('[data-event-action]')?.dataset.eventAction;
+  if (eventAction) return { eventId, kind: 'event-action', value: eventAction };
+  if (activeElement.closest('[data-event-occurrence-time]')) {
+    return { eventId, kind: 'occurrence-time' };
+  }
+  if (activeElement.closest('[data-event-occurrence-cancel]')) {
+    return { eventId, kind: 'occurrence-cancel' };
+  }
+  if (activeElement.closest('[data-event-occurrence-confirm]')) {
+    return { eventId, kind: 'occurrence-confirm' };
+  }
+
+  return null;
+}
+
+function findEventFocusTarget(host: HTMLElement, target: EventFocusTarget): HTMLElement | null {
+  const eventSurface = Array.from(
+    host.querySelectorAll<HTMLElement>('[data-event-detail-page]'),
+  ).find((candidate) => candidate.dataset.selectedEventId === target.eventId);
+  if (!eventSurface) return null;
+
+  if (target.kind === 'event-action') {
+    return (
+      Array.from(eventSurface.querySelectorAll<HTMLElement>('[data-event-action]')).find(
+        (candidate) => candidate.dataset.eventAction === target.value,
+      ) ?? null
+    );
+  }
+
+  const selector = {
+    'occurrence-time': '[data-event-occurrence-time]',
+    'occurrence-cancel': '[data-event-occurrence-cancel]',
+    'occurrence-confirm': '[data-event-occurrence-confirm]',
+  }[target.kind];
+  return eventSurface.querySelector<HTMLElement>(selector);
 }
 
 function decodePathSegment(value: string | undefined): string | undefined {
@@ -183,7 +241,11 @@ export function AdaptiveHost() {
   const hostRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const metrics = useViewportMetrics(hostRef);
+  const focusedEventTargetRef = useRef<EventFocusTarget | null>(null);
+  const captureFocusedEventTarget = useCallback(() => {
+    focusedEventTargetRef.current = readEventFocusTarget(hostRef.current);
+  }, []);
+  const metrics = useViewportMetrics(hostRef, captureFocusedEventTarget);
   const [rootState, setRootState] = useState<AdaptiveRootState>(INITIAL_ROOT_STATE);
   const [isCoVisible, setIsCoVisible] = useState(false);
   const masterPaneRef = useRef<HTMLElement>(null);
@@ -378,6 +440,28 @@ export function AdaptiveHost() {
   };
 
   const compositionKey = `${mode}:${twoPaneRoot ?? 'single'}:${routeInfo.kind}:${location.key}`;
+
+  const previousModeRef = useRef<AdaptiveMode>(mode);
+  useLayoutEffect(() => {
+    const previousMode = previousModeRef.current;
+    previousModeRef.current = mode;
+    if (previousMode === mode) return;
+
+    const focusTarget = focusedEventTargetRef.current;
+    focusedEventTargetRef.current = null;
+    if (!focusTarget || routeInfo.kind !== 'event' || routeEventId !== focusTarget.eventId) return;
+
+    const activeElement = document.activeElement;
+    if (
+      activeElement instanceof HTMLElement &&
+      activeElement !== document.body &&
+      activeElement.isConnected
+    ) {
+      return;
+    }
+
+    findEventFocusTarget(hostRef.current!, focusTarget)?.focus({ preventScroll: true });
+  }, [mode, routeInfo.kind, routeEventId]);
 
   useLayoutEffect(() => {
     const updateCoVisibility = () => {

@@ -99,6 +99,106 @@ test('customer event selection replaces the right surface without a third pane',
   await expect(page.locator('[data-major-surface]')).toHaveCount(2);
 });
 
+test('portrait-start Customer to Event keeps the customer root through rotation and return', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 1366 });
+  await page.goto('/app/customers/customer-tenant-1');
+
+  const host = page.locator('[data-adaptive-host]');
+  await expect(host).toHaveAttribute('data-adaptive-mode', 'single');
+  await expect(host).toHaveAttribute('data-active-root', 'customers');
+
+  await page.locator('[data-customer-detail-page] [data-upcoming-primary]').click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+  await expect(host).toHaveAttribute('data-active-root', 'customers');
+  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
+    'data-selected-event-id',
+    'followup-tenant-1',
+  );
+
+  await page.setViewportSize({ width: 1180, height: 800 });
+  await expect(host).toHaveAttribute('data-adaptive-mode', 'two-pane');
+  await expect(host).toHaveAttribute('data-active-root', 'customers');
+  await expect(page.locator('[data-major-surface="customer-list"]')).toHaveCount(1);
+  await expect(page.locator('[data-major-surface="schedule"]')).toHaveCount(0);
+  await expect(page.locator('[data-major-surface="event-detail"]')).toHaveCount(1);
+  await expect(
+    page.locator('[data-major-surface="customer-list"] a[aria-current="true"]'),
+  ).toHaveCount(1);
+
+  await page.setViewportSize({ width: 1024, height: 1366 });
+  await expect(host).toHaveAttribute('data-adaptive-mode', 'single');
+  await expect(host).toHaveAttribute('data-active-root', 'customers');
+  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
+    'data-selected-event-id',
+    'followup-tenant-1',
+  );
+
+  await page.setViewportSize({ width: 1180, height: 800 });
+  await expect(host).toHaveAttribute('data-adaptive-mode', 'two-pane');
+  await expect(host).toHaveAttribute('data-active-root', 'customers');
+  await expect(page.locator('[data-major-surface="customer-list"]')).toHaveCount(1);
+  await expect(page.locator('[data-major-surface="event-detail"]')).toHaveCount(1);
+
+  await page.getByRole('button', { name: '일정으로 돌아가기' }).click();
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+  await expect(host).toHaveAttribute('data-active-root', 'customers');
+  await expect(page.locator('[data-major-surface="customer-list"]')).toHaveCount(1);
+  await expect(page.locator('[data-major-surface="customer-detail"]')).toHaveCount(1);
+  await expect(page.locator('[data-customer-detail-page]')).toHaveAttribute(
+    'data-selected-customer-id',
+    'customer-tenant-1',
+  );
+});
+
+test('direct Event route keeps schedule fallback without customer origin context', async ({
+  page,
+}) => {
+  await page.goto('/app/events/followup-tenant-1');
+
+  const host = page.locator('[data-adaptive-host]');
+  await expect(host).toHaveAttribute('data-active-root', 'schedule');
+  await expect(page.locator('[data-event-detail-page]')).toBeVisible();
+
+  await page.getByRole('button', { name: '일정으로 돌아가기' }).click();
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(host).toHaveAttribute('data-active-root', 'schedule');
+  await expect(page.locator('[data-major-surface="schedule"]')).toHaveCount(1);
+  await expect(page.locator('[data-major-surface="customer-list"]')).toHaveCount(0);
+});
+
+test('Event Detail focus survives mode changes without stealing navigation focus', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1180, height: 800 });
+  await page.goto('/app/events/followup-tenant-1');
+
+  const host = page.locator('[data-adaptive-host]');
+  const editButton = page.locator('[data-event-action="edit"]');
+  await expect(host).toHaveAttribute('data-adaptive-mode', 'two-pane');
+  await editButton.focus();
+  await expect(editButton).toBeFocused();
+
+  await page.setViewportSize({ width: 1024, height: 1366 });
+  await expect(host).toHaveAttribute('data-adaptive-mode', 'single');
+  await expect(page.locator('[data-event-action="edit"]')).toBeFocused();
+
+  await page.setViewportSize({ width: 1180, height: 800 });
+  await expect(host).toHaveAttribute('data-adaptive-mode', 'two-pane');
+  await expect(page.locator('[data-event-action="edit"]')).toBeFocused();
+
+  const customersNavigation = page
+    .locator('[data-side-navigation]:visible')
+    .getByRole('link', { name: '고객', exact: true });
+  await customersNavigation.focus();
+  await expect(customersNavigation).toBeFocused();
+
+  await page.setViewportSize({ width: 1024, height: 1366 });
+  await expect(host).toHaveAttribute('data-adaptive-mode', 'single');
+  await expect(customersNavigation).toBeFocused();
+});
+
 test('adaptive mode changes keep the canonical Event mutation state', async ({ page }) => {
   test.skip(
     page.viewportSize()?.width !== 1180,

@@ -8,7 +8,6 @@ const OVERRIDDEN_OCCURRED_AT = '2026-08-16T09:00:00+09:00';
 test('PLANNED create resolves the same Event through Customer, Schedule, and Detail', async ({
   page,
 }) => {
-  const desktopTwoPane = page.viewportSize()?.width === 1180;
   await page.goto('/app/customers/customer-tenant-1');
 
   await page.getByRole('button', { name: '일정 추가' }).click();
@@ -35,28 +34,15 @@ test('PLANNED create resolves the same Event through Customer, Schedule, and Det
   ).toHaveCount(1);
 
   await page.getByRole('button', { name: '일정으로 돌아가기' }).click();
-  if (desktopTwoPane) {
-    await expect(page).toHaveURL('/app/customers/customer-tenant-1');
-    await expect(page.locator('[data-customer-detail-page] [data-upcoming-primary]')).toContainText(
-      '새 예정 상담',
-    );
-  } else {
-    await expect(page).toHaveURL('/app/schedule');
-    const row = page.locator(`[data-event-id="${eventId}"]`);
-    await expect(row).toHaveCount(1);
-    await expect(row).toHaveAttribute('data-event-status', 'PLANNED');
-    await expect(
-      page.locator(
-        `[data-agenda-section][data-date-key="2026-08-12"] [data-event-id="${eventId}"]`,
-      ),
-    ).toHaveCount(1);
-  }
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+  await expect(page.locator('[data-customer-detail-page] [data-upcoming-primary]')).toContainText(
+    '새 예정 상담',
+  );
 });
 
 test('immediate OCCURRED create projects one unscheduled Event across Customer, Schedule, and Detail', async ({
   page,
 }) => {
-  const desktopTwoPane = page.viewportSize()?.width === 1180;
   await page.goto('/app/customers/customer-tenant-1');
 
   await page.getByRole('button', { name: '일정 추가' }).click();
@@ -88,25 +74,12 @@ test('immediate OCCURRED create projects one unscheduled Event across Customer, 
   ).toHaveCount(1);
 
   await page.getByRole('button', { name: '일정으로 돌아가기' }).click();
-  if (desktopTwoPane) {
-    await expect(page).toHaveURL('/app/customers/customer-tenant-1');
-    await expect(
-      page.locator('[data-customer-detail-page] [data-customer-history-item]').filter({
-        hasText: '즉시 기록 상담',
-      }),
-    ).toHaveCount(1);
-  } else {
-    await expect(page).toHaveURL('/app/schedule');
-    const row = page.locator(`[data-event-id="${eventId}"]`);
-    await expect(row).toHaveCount(1);
-    await expect(row).toHaveAttribute('data-event-status', 'OCCURRED');
-    await expect(row.locator('time')).toHaveAttribute('datetime', '2026-08-11T11:00:00+09:00');
-    await expect(
-      page.locator(
-        `[data-agenda-section][data-date-key="2026-08-11"] [data-event-id="${eventId}"]`,
-      ),
-    ).toHaveCount(1);
-  }
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+  await expect(
+    page.locator('[data-customer-detail-page] [data-customer-history-item]').filter({
+      hasText: '즉시 기록 상담',
+    }),
+  ).toHaveCount(1);
 });
 
 test('reschedule relocates one Event ID, then default occurrence preserves the original scheduled time', async ({

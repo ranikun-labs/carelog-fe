@@ -66,10 +66,9 @@ export function CustomerDetailPage({
   const customerEvents = sourceEvents.filter((event) => event.customerId === customer.customer.id);
   const createEvent = onCreateEvent ?? (eventStore ? eventStore.createEvent : undefined);
 
-  const openEvent =
-    adaptiveHost?.mode === 'two-pane'
-      ? (event: CustomerEvent) => adaptiveHost.selectCustomerEvent(customer.customer.id, event.id)
-      : undefined;
+  const openEvent = adaptiveHost
+    ? (event: CustomerEvent) => adaptiveHost.selectCustomerEvent(customer.customer.id, event.id)
+    : undefined;
 
   function handleCreate(values: EventFormSubmitValues) {
     if (!createEvent) return;
