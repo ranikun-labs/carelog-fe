@@ -1,13 +1,20 @@
 import { EmptyState } from '@/components/common/EmptyState';
+import {
+  isOccurredCustomerEvent,
+  type CustomerEvent,
+  type OccurredCustomerEvent,
+} from '@/domain/customerEvent';
 import { useTranslation } from '@/i18n/I18nContext';
 import { formatDate } from '@/lib/utils';
-import type { TimelineEntry } from '@/types/customer';
 
 interface CustomerTimelineProps {
-  entries: readonly TimelineEntry[];
+  events: readonly CustomerEvent[];
 }
 
-function compareTimelineEntriesByInstant(a: TimelineEntry, b: TimelineEntry): number {
+function compareTimelineEntriesByInstant(
+  a: OccurredCustomerEvent,
+  b: OccurredCustomerEvent,
+): number {
   const aInstant = Date.parse(a.occurredAt);
   const bInstant = Date.parse(b.occurredAt);
   const aIsInvalid = Number.isNaN(aInstant);
@@ -23,9 +30,9 @@ function compareTimelineEntriesByInstant(a: TimelineEntry, b: TimelineEntry): nu
   return bInstant - aInstant;
 }
 
-export function CustomerTimeline({ entries }: CustomerTimelineProps) {
+export function CustomerTimeline({ events }: CustomerTimelineProps) {
   const { t } = useTranslation();
-  const ordered = [...entries].sort(compareTimelineEntriesByInstant);
+  const ordered = events.filter(isOccurredCustomerEvent).sort(compareTimelineEntriesByInstant);
 
   return (
     <section className="mt-6">
@@ -36,7 +43,7 @@ export function CustomerTimeline({ entries }: CustomerTimelineProps) {
         <ol className="mt-3 space-y-3">
           {ordered.map((entry) => (
             <li key={entry.id} className="border-border border-l-2 pl-3">
-              <p className="font-medium">{entry.label}</p>
+              {entry.descriptor ? <p className="font-medium">{entry.descriptor}</p> : null}
               <time dateTime={entry.occurredAt} className="text-text-tertiary text-sm">
                 {formatDate(entry.occurredAt)}
               </time>

@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from 'react-router';
 
+import { adaptLegacyCustomerEvents } from '@/adapters/legacyCustomerEventAdapter';
 import { Badge } from '@/components/ui/badge';
 import { CustomerContextSection } from '@/components/customers/CustomerContextSection';
 import { CustomerTimeline } from '@/components/customers/CustomerTimeline';
@@ -17,6 +18,11 @@ export function CustomerDetailPage() {
 
   if (!scenario) return <AppNotFoundPage />;
 
+  const { events } = adaptLegacyCustomerEvents({
+    timelineEntries: scenario.timeline,
+    followUps: [scenario.followUp],
+  });
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -27,7 +33,7 @@ export function CustomerDetailPage() {
       <main className="flex-1 overflow-y-auto p-6">
         <Badge tone="info">{scenario.workspace.name}</Badge>
         <CustomerContextSection context={scenario.context} />
-        <CustomerTimeline entries={scenario.timeline} />
+        <CustomerTimeline events={events} />
       </main>
     </div>
   );
