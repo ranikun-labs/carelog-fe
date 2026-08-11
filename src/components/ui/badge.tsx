@@ -8,12 +8,16 @@ import { cn } from '@/lib/utils';
  * 라벨은 항상 `children`으로 호출부가 넘긴다.
  */
 const badgeVariants = cva(
-  'inline-flex w-fit items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold whitespace-nowrap',
+  'inline-flex w-fit shrink-0 items-center gap-1 rounded-sm px-2.5 py-1 text-xs font-semibold whitespace-nowrap',
   {
     variants: {
       tone: {
-        neutral: 'bg-muted text-muted-foreground',
-        info: 'bg-primary/10 text-primary',
+        neutral: 'bg-subtle text-status-neutral-foreground',
+        planned: 'bg-accent-primary-bg text-accent-primary-deep',
+        prepared: 'bg-accent-primary-bg text-accent-primary-deep',
+        overdue: 'bg-warning-bg text-warning',
+        cancelled: 'bg-subtle text-status-neutral-foreground',
+        info: 'bg-accent-primary-bg text-accent-primary-deep',
         destructive: 'bg-destructive/10 text-destructive',
       },
     },

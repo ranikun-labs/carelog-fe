@@ -5,44 +5,105 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* card radius: 16px. --radius-lg below resolves to exactly this value —
-     use `rounded-lg` for cards, not `rounded-xl`. */
-  --radius: 1rem;
+  --bg-page: oklch(97% 0.004 90);
+  --bg-surface: oklch(100% 0 0);
+  --bg-subtle: oklch(96% 0.006 90);
 
-  --background: oklch(1 0 0);
-  --foreground: #191f28;
+  --text-primary: oklch(22% 0.01 260);
+  --text-secondary: oklch(40% 0.012 260);
+  --text-tertiary: oklch(53% 0.01 260);
+  --status-neutral-foreground: oklch(48% 0.012 260);
 
-  --card: oklch(1 0 0);
-  --card-foreground: #191f28;
+  --border-subtle: oklch(94% 0.006 90);
+  --border-default: oklch(90% 0.006 90);
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: #191f28;
+  --accent-primary: oklch(52% 0.1 235);
+  --accent-primary-deep: oklch(45% 0.1 235);
+  --accent-primary-bg: oklch(94% 0.025 235);
+  --accent-primary-rail: oklch(70% 0.09 235);
 
-  --primary: #3182f6;
+  --warning: oklch(45% 0.1 70);
+  --warning-bg: oklch(94% 0.03 70);
+  --warning-rail: oklch(70% 0.11 70);
+  --rail-neutral: oklch(88% 0.006 90);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-badge: 6px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-pane: 16px;
+  --radius: var(--radius-card);
+
+  --status-rail-width: 3px;
+  --shadow-default: none;
+
+  --type-display-size: 1.5rem;
+  --type-display-line-height: 1.3;
+  --type-title-lg-size: 1.25rem;
+  --type-title-lg-line-height: 1.35;
+  --type-title-size: 1.125rem;
+  --type-title-line-height: 1.4;
+  --type-body-lg-size: 1rem;
+  --type-body-lg-line-height: 1.45;
+  --type-body-size: 0.875rem;
+  --type-body-line-height: 1.6;
+  --type-body-sm-size: 0.8125rem;
+  --type-body-sm-line-height: 1.6;
+  --type-meta-size: 0.75rem;
+  --type-meta-line-height: 1.5;
+  --type-label-size: 0.6875rem;
+  --type-label-line-height: 1.4;
+
+  /* Compatibility aliases used by the existing Foundation primitives. */
+  --background: var(--bg-page);
+  --foreground: var(--text-primary);
+
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+
+  --primary: var(--accent-primary);
   --primary-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: #191f28;
+  --secondary: var(--bg-subtle);
+  --secondary-foreground: var(--text-primary);
 
-  /* neutral gray, not blue — brand blue lives only in --primary/--brand */
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: #8b95a1;
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--text-tertiary);
 
-  --accent: oklch(0.96 0 0);
-  --accent-foreground: #191f28;
+  --accent: var(--bg-subtle);
+  --accent-foreground: var(--text-primary);
 
   --destructive: #f04452;
   --destructive-foreground: oklch(1 0 0);
 
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: #3182f6;
-
-  --text-secondary: #4e5968;
-  --text-tertiary: #8b95a1;
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent-primary);
 }
 
 .dark {
+  /* Existing dark values are retained; a final Carelog dark palette is not locked. */
+  --bg-page: oklch(0.16 0 0);
+  --bg-surface: oklch(0.2 0 0);
+  --bg-subtle: oklch(0.26 0 0);
+  --text-primary: oklch(0.96 0 0);
+  --text-secondary: oklch(0.75 0 0);
+  --text-tertiary: oklch(0.58 0 0);
+  --status-neutral-foreground: var(--muted-foreground);
+  --border-subtle: oklch(1 0 0 / 12%);
+  --border-default: oklch(1 0 0 / 18%);
+  --accent-primary: #3182f6;
+
   --background: oklch(0.16 0 0);
   --foreground: oklch(0.96 0 0);
 
@@ -70,16 +131,13 @@
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 18%);
   --ring: #3182f6;
-
-  --text-secondary: oklch(0.75 0 0);
-  --text-tertiary: oklch(0.58 0 0);
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: var(--radius-badge);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-pane);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -103,6 +161,38 @@
   --color-ring: var(--ring);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
+  --color-page: var(--bg-page);
+  --color-surface: var(--bg-surface);
+  --color-subtle: var(--bg-subtle);
+  --color-text-primary: var(--text-primary);
+  --color-status-neutral-foreground: var(--status-neutral-foreground);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-deep: var(--accent-primary-deep);
+  --color-accent-primary-bg: var(--accent-primary-bg);
+  --color-accent-primary-rail: var(--accent-primary-rail);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-rail: var(--warning-rail);
+  --color-rail-neutral: var(--rail-neutral);
+
+  --text-display: var(--type-display-size);
+  --text-display--line-height: var(--type-display-line-height);
+  --text-title-lg: var(--type-title-lg-size);
+  --text-title-lg--line-height: var(--type-title-lg-line-height);
+  --text-title: var(--type-title-size);
+  --text-title--line-height: var(--type-title-line-height);
+  --text-body-lg: var(--type-body-lg-size);
+  --text-body-lg--line-height: var(--type-body-lg-line-height);
+  --text-body: var(--type-body-size);
+  --text-body--line-height: var(--type-body-line-height);
+  --text-body-sm: var(--type-body-sm-size);
+  --text-body-sm--line-height: var(--type-body-sm-line-height);
+  --text-meta: var(--type-meta-size);
+  --text-meta--line-height: var(--type-meta-line-height);
+  --text-label: var(--type-label-size);
+  --text-label--line-height: var(--type-label-line-height);
 
   --font-sans: 'Pretendard Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
@@ -114,5 +204,19 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+  }
+
+  :where(
+    a[href],
+    button,
+    input,
+    select,
+    textarea,
+    summary,
+    [role='button'],
+    [tabindex]:not([tabindex='-1'])
+  ):focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
   }
 }

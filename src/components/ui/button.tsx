@@ -4,24 +4,25 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold transition-colors outline-none disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
-        destructive:
-          'bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20',
-        outline:
-          'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
-        ghost: 'text-primary hover:bg-accent hover:text-primary',
-        link: 'text-primary underline-offset-4 hover:underline',
+        default: 'bg-accent-primary text-primary-foreground hover:bg-accent-primary/90',
+        primary: 'bg-accent-primary text-primary-foreground hover:bg-accent-primary/90',
+        destructive: 'bg-destructive text-white hover:bg-destructive/90',
+        outline: 'border border-border-default bg-surface text-accent-primary-deep hover:bg-subtle',
+        secondary:
+          'border border-border-default bg-surface text-accent-primary-deep hover:bg-subtle',
+        ghost: 'text-accent-primary-deep hover:bg-subtle',
+        text: 'text-accent-primary-deep hover:bg-subtle',
+        link: 'text-accent-primary-deep underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-[46px] rounded-md px-4 text-[15px] has-[>svg]:px-3',
-        sm: 'h-9 rounded-sm gap-1.5 px-3 text-[13px] has-[>svg]:px-2.5',
-        lg: 'h-[54px] rounded-lg px-6 text-[17px] has-[>svg]:px-4',
-        icon: 'size-9 rounded-md',
+        default: 'min-h-[46px] rounded-md px-4 py-2 text-[0.9375rem] has-[>svg]:px-3',
+        sm: 'min-h-11 rounded-md gap-1.5 px-3 py-1.5 text-body-sm has-[>svg]:px-2.5',
+        lg: 'min-h-[54px] rounded-lg px-6 py-2.5 text-[1.0625rem] has-[>svg]:px-4',
+        icon: 'size-11 rounded-md',
       },
     },
     defaultVariants: {

@@ -112,7 +112,9 @@ corepack pnpm test:e2e
 corepack pnpm verify:full
 ```
 
-Playwright covers 375 px, 480 px, and a centered 480 px app frame in a 1024 px viewport.
+Playwright covers 375 px and 480 px phones, 768 px and 1024 px portrait tablets, and an 1180 px
+landscape host. Existing product content retains its centered 480 px maximum while the full-width app
+host provides the seam for later adaptive composition.
 
 ## Provenance
 
