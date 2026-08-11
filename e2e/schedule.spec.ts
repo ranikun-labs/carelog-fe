@@ -29,8 +29,12 @@ test('agenda row and customer target open their separate destinations', async ({
     .click({ position: { x: 24, y: 20 } });
   await expect(page).toHaveURL('/app/events/event-tenant-transitioned');
   await expect(page.getByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
-  await expect(page.getByText('예정')).toHaveCount(1);
-  await expect(page.getByText('실제')).toHaveCount(1);
+  await expect(page.locator('[data-event-detail]').getByText('예정', { exact: true })).toHaveCount(
+    1,
+  );
+  await expect(page.locator('[data-event-detail]').getByText('실제', { exact: true })).toHaveCount(
+    1,
+  );
   await expect(page.locator('[data-event-detail] time')).toHaveCount(2);
 });
 
@@ -77,8 +81,14 @@ test('event detail preserves cancelled schedule context without inventing occurr
   await page.goto('/app/events/event-tenant-cancelled');
 
   await expect(page.getByRole('heading', { name: '현장 확인 일정' })).toBeVisible();
-  await expect(page.getByText('취소됨')).toBeVisible();
-  await expect(page.getByText('예정')).toBeVisible();
-  await expect(page.getByText('실제')).not.toBeVisible();
+  await expect(
+    page.locator('[data-event-detail]').getByText('취소됨', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-event-detail]').getByText('예정', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-event-detail]').getByText('실제', { exact: true }),
+  ).not.toBeVisible();
   await expect(page.locator('[data-event-detail] time')).toHaveCount(1);
 });

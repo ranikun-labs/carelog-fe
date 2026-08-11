@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { CustomerMemo } from '@/components/customers/CustomerMemo';
 import { CustomerTimeline } from '@/components/customers/CustomerTimeline';
 import { CustomerUpcoming } from '@/components/customers/CustomerUpcoming';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AdaptiveSurface, useOptionalAdaptiveHost } from '@/components/layout/adaptiveHostContext';
 import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
 import { buildAppCustomersPath } from '@/constants/routes';
 import type { CustomerEvent } from '@/domain/customerEvent';
@@ -35,9 +36,27 @@ export function CustomerDetailPage({
   const { customerId = '' } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const adaptiveHost = useOptionalAdaptiveHost();
   const eventStore = useOptionalEventStore();
   const [isCreating, setIsCreating] = useState(false);
+  const scrollSurfaceRef = useRef<HTMLDivElement>(null);
   const scenario = SCENARIO_FIXTURES.find((entry) => entry.customer.id === customerId);
+
+  useLayoutEffect(() => {
+    const scrollSurface = scrollSurfaceRef.current;
+    if (!scrollSurface || !adaptiveHost) return;
+    scrollSurface.scrollTop = adaptiveHost.customers.detailScrollTop;
+  }, [adaptiveHost]);
+
+  useEffect(() => {
+    const scrollSurface = scrollSurfaceRef.current;
+    if (!scrollSurface) return;
+    const updateScrollPosition = () => {
+      adaptiveHost?.setCustomerDetailScrollTop(scrollSurface.scrollTop);
+    };
+    scrollSurface.addEventListener('scroll', updateScrollPosition, { passive: true });
+    return () => scrollSurface.removeEventListener('scroll', updateScrollPosition);
+  }, [adaptiveHost]);
 
   if (!scenario) return <AppNotFoundPage />;
 
@@ -46,6 +65,11 @@ export function CustomerDetailPage({
     eventStore && events === SCHEDULE_FIXTURE.events ? eventStore.events : events;
   const customerEvents = sourceEvents.filter((event) => event.customerId === customer.customer.id);
   const createEvent = onCreateEvent ?? (eventStore ? eventStore.createEvent : undefined);
+
+  const openEvent =
+    adaptiveHost?.mode === 'two-pane'
+      ? (event: CustomerEvent) => adaptiveHost.selectCustomerEvent(customer.customer.id, event.id)
+      : undefined;
 
   function handleCreate(values: EventFormSubmitValues) {
     if (!createEvent) return;
@@ -72,13 +96,23 @@ export function CustomerDetailPage({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <AdaptiveSurface
+      majorSurface="customer-detail"
+      data-customer-detail-page
+      data-selected-customer-id={customer.customer.id}
+      className="flex h-full flex-col"
+    >
       <PageHeader
         title={customer.customer.displayName}
         backLabel={t('customers.back')}
         onBack={() => navigate(buildAppCustomersPath())}
       />
-      <main className="flex-1 overflow-y-auto p-6">
+      <div
+        ref={scrollSurfaceRef}
+        data-scroll-surface
+        data-root-scroll-surface="customers-detail"
+        className="flex-1 overflow-y-auto p-6"
+      >
         <section data-customer-identity aria-label={t('customers.detail.title')}>
           <Badge tone="info">{customer.workspace.name}</Badge>
           <CustomerContextSection context={customer.context} />
@@ -106,10 +140,10 @@ export function CustomerDetailPage({
           />
         ) : null}
 
-        <CustomerUpcoming events={customerEvents} now={now} />
+        <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
         <CustomerMemo memo={memo} />
-        <CustomerTimeline events={customerEvents} />
-      </main>
-    </div>
+        <CustomerTimeline events={customerEvents} onOpenEvent={openEvent} />
+      </div>
+    </AdaptiveSurface>
   );
 }

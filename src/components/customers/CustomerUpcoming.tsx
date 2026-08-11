@@ -10,9 +10,10 @@ import { useTranslation } from '@/i18n/I18nContext';
 interface CustomerUpcomingProps {
   events: readonly CustomerEvent[];
   now: Date;
+  onOpenEvent?: (event: CustomerEvent) => void;
 }
 
-export function CustomerUpcoming({ events, now }: CustomerUpcomingProps) {
+export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingProps) {
   const { locale, t } = useTranslation();
   const upcomingEvents = getUpcomingCustomerEvents(events, now);
   const [primaryEvent, ...additionalEvents] = upcomingEvents;
@@ -27,6 +28,11 @@ export function CustomerUpcoming({ events, now }: CustomerUpcomingProps) {
         <div className="mt-3 space-y-3">
           <Link
             to={buildAppEventDetailPath(primaryEvent.id)}
+            onClick={(clickEvent) => {
+              if (!onOpenEvent) return;
+              clickEvent.preventDefault();
+              onOpenEvent(primaryEvent);
+            }}
             aria-label={t('schedule.openEvent', {
               title: getEventTitle(primaryEvent) ?? t('schedule.untitled'),
             })}
@@ -61,6 +67,11 @@ export function CustomerUpcoming({ events, now }: CustomerUpcomingProps) {
                     <li key={event.id}>
                       <Link
                         to={buildAppEventDetailPath(event.id)}
+                        onClick={(clickEvent) => {
+                          if (!onOpenEvent) return;
+                          clickEvent.preventDefault();
+                          onOpenEvent(event);
+                        }}
                         aria-label={t('schedule.openEvent', { title })}
                         className="text-accent-primary-deep hover:bg-subtle flex min-h-11 items-center justify-between gap-3 rounded-md px-2 text-sm font-semibold underline-offset-2 hover:underline"
                       >

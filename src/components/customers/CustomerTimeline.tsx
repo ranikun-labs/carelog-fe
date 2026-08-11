@@ -20,9 +20,10 @@ import { useTranslation } from '@/i18n/I18nContext';
 
 interface CustomerTimelineProps {
   events: readonly CustomerEvent[];
+  onOpenEvent?: (event: CustomerEvent) => void;
 }
 
-export function CustomerTimeline({ events }: CustomerTimelineProps) {
+export function CustomerTimeline({ events, onOpenEvent }: CustomerTimelineProps) {
   const { locale, t } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(CUSTOMER_HISTORY_INITIAL_LIMIT);
   const ordered = getCustomerHistoryEvents(events);
@@ -52,6 +53,11 @@ export function CustomerTimeline({ events }: CustomerTimelineProps) {
                 >
                   <Link
                     to={buildAppEventDetailPath(event.id)}
+                    onClick={(clickEvent) => {
+                      if (!onOpenEvent) return;
+                      clickEvent.preventDefault();
+                      onOpenEvent(event);
+                    }}
                     aria-label={t('schedule.openEvent', { title })}
                     className="border-border-subtle hover:bg-subtle block rounded-md border p-3 transition-colors"
                   >
