@@ -33,18 +33,30 @@ test('responsive app frame and scroll contract', async ({ page }) => {
   const viewport = page.viewportSize()!;
   const hostBox = await page.locator('[data-app-host]').boundingBox();
   const contentBox = await page.locator('[data-app-content]').boundingBox();
+  const adaptiveHost = page.locator('[data-adaptive-host]');
   expect(hostBox).not.toBeNull();
   expect(contentBox).not.toBeNull();
   expect(hostBox!.width).toBe(viewport.width);
-  const expectedContentWidth =
-    viewport.width < 768 ? viewport.width : viewport.width < 1024 ? 520 : 560;
-  expect(contentBox!.width).toBe(expectedContentWidth);
+  const expectedAvailableWidth = viewport.width < 768 ? viewport.width : viewport.width - 80;
+  expect(contentBox!.width).toBe(expectedAvailableWidth);
   if (viewport.width >= 768) {
     const frameBox = await page.locator('[data-app-frame]').boundingBox();
     const sideBox = await page.locator('[data-side-navigation]').boundingBox();
     expect(frameBox).not.toBeNull();
     expect(sideBox).not.toBeNull();
     expect(contentBox!.x).toBe(frameBox!.x + sideBox!.width);
+  }
+  if (viewport.width === 1180) {
+    await expect(adaptiveHost).toHaveAttribute('data-adaptive-mode', 'two-pane');
+    await expect(page.locator('[data-adaptive-composition]')).toHaveCount(1);
+    await expect(page.locator('[data-adaptive-single-frame]')).toHaveCount(0);
+  } else {
+    await expect(adaptiveHost).toHaveAttribute('data-adaptive-mode', 'single');
+    const expectedFrameWidth =
+      viewport.width < 768 ? viewport.width : viewport.width < 1024 ? 520 : 560;
+    const frameBox = await page.locator('[data-adaptive-single-frame]').boundingBox();
+    expect(frameBox).not.toBeNull();
+    expect(frameBox!.width).toBe(expectedFrameWidth);
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -171,7 +183,6 @@ for (const { scenarioName, customerName, expectedTimelineLabels } of customerSce
   }) => {
     await page.goto('/app/customers');
     await page.getByRole('link', { name: new RegExp(customerName) }).click();
-    await expect(page.locator('h1')).toHaveCount(1);
     await expect(page.getByRole('heading', { name: customerName })).toBeVisible();
     await expect(page.getByRole('heading', { name: '고객 맥락' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '타임라인' })).toBeVisible();

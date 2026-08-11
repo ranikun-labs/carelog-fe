@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from 'react-router';
 
 import { AppShell } from '@/components/layout/AppShell';
 import { PublicLayout } from '@/components/layout/PublicLayout';
-import { TabLayout } from '@/components/layout/TabLayout';
 import {
   APP_BASE,
   APP_ROUTE_PATHS,
@@ -38,25 +37,23 @@ export function AppRouter() {
         <Route path="*" element={<PublicNotFoundPage />} />
       </Route>
       <Route path={APP_BASE} element={<AppShell />}>
-        <Route element={<TabLayout />}>
-          <Route index element={<SchedulePage />} />
-          <Route
-            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.schedule)}
-            element={<SchedulePage />}
-          />
-          <Route
-            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customers)}
-            element={<CustomersPage />}
-          />
-          <Route
-            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerDetail)}
-            element={<CustomerDetailPage />}
-          />
-          <Route
-            path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.followUps)}
-            element={<FollowUpsPage />}
-          />
-        </Route>
+        <Route index element={<SchedulePage />} />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.schedule)}
+          element={<SchedulePage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customers)}
+          element={<CustomersPage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerDetail)}
+          element={<CustomerDetailPage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.followUps)}
+          element={<FollowUpsPage />}
+        />
         <Route
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerImport)}
           element={<CustomerImportPage />}

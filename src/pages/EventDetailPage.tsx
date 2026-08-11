@@ -1,5 +1,7 @@
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
+import { AdaptiveSurface, useOptionalAdaptiveHost } from '@/components/layout/adaptiveHostContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EventDetail } from '@/components/schedule/EventDetail';
 import { getAgendaDateKey, getEventTitle } from '@/components/schedule/agendaModel';
@@ -31,13 +33,31 @@ export function EventDetailPage({
   const { eventId = '' } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const adaptiveHost = useOptionalAdaptiveHost();
   const eventStore = useOptionalEventStore();
+  const scrollSurfaceRef = useRef<HTMLDivElement>(null);
   const sourceEvents =
     eventStore && events === SCHEDULE_FIXTURE.events ? eventStore.events : events;
   const event = sourceEvents.find((candidate) => candidate.id === eventId);
   const customer = event
     ? customers.find((candidate) => candidate.id === event.customerId)
     : undefined;
+
+  useLayoutEffect(() => {
+    const scrollSurface = scrollSurfaceRef.current;
+    if (!scrollSurface || !adaptiveHost) return;
+    scrollSurface.scrollTop = adaptiveHost.eventDetailScrollTop;
+  }, [adaptiveHost]);
+
+  useEffect(() => {
+    const scrollSurface = scrollSurfaceRef.current;
+    if (!scrollSurface) return;
+    const updateScrollPosition = () => {
+      adaptiveHost?.setEventDetailScrollTop(scrollSurface.scrollTop);
+    };
+    scrollSurface.addEventListener('scroll', updateScrollPosition, { passive: true });
+    return () => scrollSurface.removeEventListener('scroll', updateScrollPosition);
+  }, [adaptiveHost]);
 
   if (!event || !customer) return <AppNotFoundPage />;
 
@@ -50,6 +70,14 @@ export function EventDetailPage({
   const occurEvent = onOccurEvent ?? (eventStore ? eventStore.occurEvent : undefined);
 
   function returnToAgenda(updatedEvent: CustomerEvent) {
+    if (adaptiveHost) {
+      adaptiveHost.returnFromEvent(
+        updatedEvent.id,
+        currentCustomer.id,
+        getAgendaDateKey(updatedEvent),
+      );
+      return;
+    }
     navigate(buildAppSchedulePath(), {
       state: {
         targetEventId: updatedEvent.id,
@@ -86,25 +114,42 @@ export function EventDetailPage({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <AdaptiveSurface
+      majorSurface="event-detail"
+      data-event-detail-page
+      data-selected-event-id={currentEvent.id}
+      className="flex h-full flex-col"
+    >
       <PageHeader
         title={title}
         backLabel={t('eventDetail.back')}
-        onBack={() => navigate(buildAppSchedulePath())}
+        onBack={() =>
+          adaptiveHost
+            ? adaptiveHost.goBackFromEvent(currentCustomer.id)
+            : navigate(buildAppSchedulePath())
+        }
       />
-      <main className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div
+        ref={scrollSurfaceRef}
+        data-scroll-surface
+        data-root-scroll-surface="event-detail"
+        className="flex-1 overflow-y-auto p-4 md:p-6"
+      >
         <EventDetail
           event={currentEvent}
           customerName={currentCustomer.displayName}
           customerPath={buildAppCustomerDetailPath(currentCustomer.id)}
           now={now}
+          onOpenCustomer={
+            adaptiveHost ? () => adaptiveHost.openCustomerFromEvent(currentCustomer.id) : undefined
+          }
           onEdit={editEvent && currentEvent.status !== 'CANCELLED' ? handleEdit : undefined}
           onCancelEvent={
             cancelEvent && currentEvent.status === 'PLANNED' ? handleCancel : undefined
           }
           onOccurEvent={occurEvent && currentEvent.status === 'PLANNED' ? handleOccur : undefined}
         />
-      </main>
-    </div>
+      </div>
+    </AdaptiveSurface>
   );
 }

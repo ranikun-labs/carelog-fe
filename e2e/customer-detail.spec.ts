@@ -20,14 +20,26 @@ async function expectCustomerDetailShell(page: Page) {
     await expect(visibleSideNavigation).toHaveCount(1);
   }
 
-  await expect(page.locator('[data-scroll-surface]')).toHaveCount(1);
+  const twoPane = viewport!.width === 1180 && viewport!.height < viewport!.width;
+  await expect(page.locator('[data-scroll-surface]')).toHaveCount(twoPane ? 2 : 1);
   await expect(page.locator('main')).toHaveCount(1);
 
   const contentBox = await page.locator('[data-app-content]').boundingBox();
   expect(contentBox).not.toBeNull();
-  const expectedContentWidth =
-    viewport!.width < 768 ? viewport!.width : viewport!.width < 1024 ? 520 : 560;
+  const expectedContentWidth = viewport!.width < 768 ? viewport!.width : viewport!.width - 80;
   expect(contentBox!.width).toBe(expectedContentWidth);
+  if (twoPane) {
+    await expect(page.locator('[data-adaptive-host]')).toHaveAttribute(
+      'data-adaptive-mode',
+      'two-pane',
+    );
+  } else {
+    const frameBox = await page.locator('[data-adaptive-single-frame]').boundingBox();
+    expect(frameBox).not.toBeNull();
+    expect(frameBox!.width).toBe(
+      viewport!.width < 768 ? viewport!.width : viewport!.width < 1024 ? 520 : 560,
+    );
+  }
 
   const visibleNavigation = page.locator(
     '[data-bottom-navigation]:visible, [data-side-navigation]:visible',
@@ -76,7 +88,7 @@ test('Customer Detail Upcoming resolves to the real planned Event Detail route',
   await expect(
     page.locator('[data-event-detail] [data-slot="badge"]').filter({ hasText: '예정' }),
   ).toHaveCount(1);
-  await expect(page.getByText('박세입')).toBeVisible();
+  await expect(page.locator('[data-event-detail]').getByText('박세입')).toBeVisible();
   await expect(
     page.locator('[data-event-detail] time[datetime="2026-08-15T10:00:00+09:00"]'),
   ).toHaveCount(1);
@@ -99,6 +111,6 @@ test('Customer Detail History resolves to the real occurred Event Detail route',
     'OCCURRED',
   );
   await expect(page.getByText('기록됨')).toBeVisible();
-  await expect(page.getByText('박세입')).toBeVisible();
+  await expect(page.locator('[data-event-detail]').getByText('박세입')).toBeVisible();
   await expect(page.locator('[data-event-detail] time')).toHaveCount(2);
 });

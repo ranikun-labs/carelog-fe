@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { EmptyState } from '@/components/common/EmptyState';
+import { AdaptiveSurface, useOptionalAdaptiveHost } from '@/components/layout/adaptiveHostContext';
 import { AgendaSkeleton } from '@/components/schedule/AgendaSkeleton';
 import { DateSection } from '@/components/schedule/DateSection';
 import {
@@ -55,6 +56,7 @@ export function SchedulePage({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const adaptiveHost = useOptionalAdaptiveHost();
   const eventStore = useOptionalEventStore();
   const sourceEvents =
     eventStore && (events === undefined || events === SCHEDULE_FIXTURE.events)
@@ -62,16 +64,28 @@ export function SchedulePage({
       : (events ?? SCHEDULE_FIXTURE.events);
   const scheduleNavigation = readScheduleNavigationState(location.state);
   const todayDateKey = getDateKeyFromDate(now);
-  const [selectedDateKey, setSelectedDateKey] = useState(
-    scheduleNavigation?.targetDateKey ?? todayDateKey,
+  const [localSelectedDateKey, setLocalSelectedDateKey] = useState(
+    adaptiveHost?.schedule.selectedDateKey ?? scheduleNavigation?.targetDateKey ?? todayDateKey,
   );
+  const selectedDateKey = adaptiveHost?.schedule.selectedDateKey ?? localSelectedDateKey;
   const [todayVisible, setTodayVisible] = useState(true);
   const [selectionRequest, setSelectionRequest] = useState(0);
+  const scrollSurfaceRef = useRef<HTMLElement>(null);
   const didInitialAnchor = useRef(false);
   const didSkipInitialScroll = useRef(false);
   const shouldScrollToSelection = useRef(true);
-  const pendingAgendaTargetId = useRef<string | null>(scheduleNavigation?.targetEventId ?? null);
+  const pendingAgendaTargetId = useRef<string | null>(
+    scheduleNavigation?.targetEventId ?? adaptiveHost?.schedule.selectedEventId ?? null,
+  );
   const highlightedEventId = eventStore?.highlightedEventId ?? null;
+
+  const setSelectedDateKey = useCallback(
+    (dateKey: string) => {
+      setLocalSelectedDateKey(dateKey);
+      adaptiveHost?.setScheduleDate(dateKey);
+    },
+    [adaptiveHost],
+  );
 
   const weekDays = useMemo(() => getWeekDaysForDate(selectedDateKey, now), [now, selectedDateKey]);
   const eventDateKeys = useMemo(
@@ -86,14 +100,31 @@ export function SchedulePage({
   const sectionSignature = sections.map((section) => section.dateKey).join('|');
 
   useEffect(() => {
+    const scrollSurface = scrollSurfaceRef.current;
+    if (!scrollSurface) return;
+
+    if (!pendingAgendaTargetId.current && adaptiveHost?.schedule.scrollTop) {
+      scrollSurface.scrollTop = adaptiveHost.schedule.scrollTop;
+    }
+
+    const updateScrollPosition = () => {
+      adaptiveHost?.setScheduleScrollTop(scrollSurface.scrollTop);
+    };
+    scrollSurface.addEventListener('scroll', updateScrollPosition, { passive: true });
+    return () => scrollSurface.removeEventListener('scroll', updateScrollPosition);
+  }, [adaptiveHost]);
+
+  useEffect(() => {
     if (loadState !== 'ready' || sourceEvents.length === 0) return;
     if (!shouldScrollToSelection.current) return;
+    const scrollSurface = scrollSurfaceRef.current;
+    if (!scrollSurface) return;
     const targetEventId = pendingAgendaTargetId.current;
     const element = targetEventId
-      ? Array.from(document.querySelectorAll<HTMLElement>('[data-agenda-row][data-event-id]')).find(
-          (candidate) => candidate.dataset.eventId === targetEventId,
-        )
-      : document.querySelector<HTMLElement>(
+      ? Array.from(
+          scrollSurface.querySelectorAll<HTMLElement>('[data-agenda-row][data-event-id]'),
+        ).find((candidate) => candidate.dataset.eventId === targetEventId)
+      : scrollSurface.querySelector<HTMLElement>(
           `[data-agenda-section][data-date-key="${selectedDateKey}"]`,
         );
     if (!element || typeof element.scrollIntoView !== 'function') return;
@@ -109,7 +140,7 @@ export function SchedulePage({
 
   useEffect(() => {
     if (loadState !== 'ready' || sourceEvents.length === 0) return;
-    const scrollSurface = document.querySelector<HTMLElement>('[data-scroll-surface]');
+    const scrollSurface = scrollSurfaceRef.current;
     if (!scrollSurface) return;
 
     const updateActiveDate = () => {
@@ -120,10 +151,10 @@ export function SchedulePage({
 
       const surfaceRect = scrollSurface.getBoundingClientRect();
       const weekStripBottom =
-        document.querySelector<HTMLElement>('[data-week-strip]')?.getBoundingClientRect().bottom ??
-        surfaceRect.top;
+        scrollSurface.querySelector<HTMLElement>('[data-week-strip]')?.getBoundingClientRect()
+          .bottom ?? surfaceRect.top;
       const sectionElements = Array.from(
-        document.querySelectorAll<HTMLElement>('[data-agenda-section][data-date-key]'),
+        scrollSurface.querySelectorAll<HTMLElement>('[data-agenda-section][data-date-key]'),
       );
       const sectionRects = sectionElements
         .map((element) => ({
@@ -149,12 +180,12 @@ export function SchedulePage({
     scrollSurface.addEventListener('scroll', updateActiveDate, { passive: true });
 
     return () => scrollSurface.removeEventListener('scroll', updateActiveDate);
-  }, [loadState, sectionSignature, sourceEvents.length, todayDateKey]);
+  }, [loadState, sectionSignature, setSelectedDateKey, sourceEvents.length, todayDateKey]);
 
   useEffect(() => {
     if (loadState !== 'ready' || sourceEvents.length === 0) return;
-    const scrollSurface = document.querySelector<HTMLElement>('[data-scroll-surface]');
-    const todayAnchor = document.querySelector<HTMLElement>('[data-today-anchor]');
+    const scrollSurface = scrollSurfaceRef.current;
+    const todayAnchor = scrollSurface?.querySelector<HTMLElement>('[data-today-anchor]');
     if (!scrollSurface || !todayAnchor || typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver(
@@ -183,14 +214,19 @@ export function SchedulePage({
       setSelectedDateKey(dateKey);
       setTodayVisible(dateKey === todayDateKey);
     },
-    [todayDateKey],
+    [setSelectedDateKey, todayDateKey],
   );
 
   const openEvent = useCallback(
     (event: CustomerEvent) => {
+      const targetDateKey = getAgendaDateKey(event);
+      if (adaptiveHost) {
+        adaptiveHost.selectEvent(event.id, { root: 'schedule', targetDateKey });
+        return;
+      }
       navigate(buildAppEventDetailPath(event.id));
     },
-    [navigate],
+    [adaptiveHost, navigate],
   );
 
   const jumpToLatestOverdue = useCallback(() => {
@@ -200,7 +236,14 @@ export function SchedulePage({
   }, [overdueEvents, selectDate]);
 
   return (
-    <main data-schedule-page className="bg-surface min-h-full">
+    <AdaptiveSurface
+      ref={scrollSurfaceRef}
+      majorSurface="schedule"
+      data-schedule-page
+      data-scroll-surface
+      data-root-scroll-surface="schedule"
+      className="bg-surface h-full min-h-full overflow-y-auto"
+    >
       <header className="px-4 pt-6 pb-4">
         <p className="text-accent-primary text-xs font-semibold tracking-wide">
           {t('schedule.eyebrow')}
@@ -276,6 +319,6 @@ export function SchedulePage({
           </div>
         </>
       )}
-    </main>
+    </AdaptiveSurface>
   );
 }

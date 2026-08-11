@@ -24,6 +24,7 @@ interface EventDetailProps {
   customerName: string;
   customerPath: string;
   now: Date;
+  onOpenCustomer?: () => void;
   onEdit?: (values: EventFormSubmitValues) => CustomerEvent | undefined;
   onCancelEvent?: () => CustomerEvent | undefined;
   onOccurEvent?: (occurredAt: string) => CustomerEvent | undefined;
@@ -34,6 +35,7 @@ export function EventDetail({
   customerName,
   customerPath,
   now,
+  onOpenCustomer,
   onEdit,
   onCancelEvent,
   onOccurEvent,
@@ -99,6 +101,11 @@ export function EventDetail({
             <dd className="mt-1">
               <Link
                 to={customerPath}
+                onClick={(clickEvent) => {
+                  if (!onOpenCustomer) return;
+                  clickEvent.preventDefault();
+                  onOpenCustomer();
+                }}
                 className="text-accent-primary-deep inline-flex min-h-11 min-w-11 items-center font-semibold underline-offset-2 hover:underline"
               >
                 {customerName}
