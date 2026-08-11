@@ -39,6 +39,13 @@ describe('event store transitions', () => {
       scheduledAt: planned.scheduledAt,
       occurredAt: '2026-08-15T12:00:00+09:00',
     });
+
+    expect(occurEventById(state.events, planned.id)).toMatchObject({
+      id: planned.id,
+      status: 'OCCURRED',
+      scheduledAt: planned.scheduledAt,
+      occurredAt: planned.scheduledAt,
+    });
   });
 
   it('cancels without deleting the record or inventing an occurrence coordinate', () => {

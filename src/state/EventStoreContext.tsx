@@ -20,7 +20,7 @@ export interface EventStoreValue {
   createEvent: (input: EventCreationInput) => CustomerEvent;
   editEvent: (eventId: string, changes: CustomerEventEdit) => CustomerEvent | undefined;
   cancelEvent: (eventId: string) => CustomerEvent | undefined;
-  occurEvent: (eventId: string, occurredAt: string) => CustomerEvent | undefined;
+  occurEvent: (eventId: string, occurredAt?: string) => CustomerEvent | undefined;
   clearHighlight: (eventId?: string) => void;
 }
 
@@ -72,7 +72,7 @@ export function EventStoreProvider({
   );
 
   const occurEvent = useCallback(
-    (eventId: string, occurredAt: string) => {
+    (eventId: string, occurredAt?: string) => {
       const event = occurEventById(state.events, eventId, occurredAt);
       if (!event) return undefined;
       dispatch({ type: 'replace', event });

@@ -3,11 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EventDetail } from '@/components/schedule/EventDetail';
 import { getAgendaDateKey, getEventTitle } from '@/components/schedule/agendaModel';
-import {
-  toCanonicalTimestamp,
-  toDateTimeLocalValue,
-  type EventFormSubmitValues,
-} from '@/components/schedule/EventForm';
+import type { EventFormSubmitValues } from '@/components/schedule/EventForm';
 import { buildAppCustomerDetailPath, buildAppSchedulePath } from '@/constants/routes';
 import type { CustomerEvent, CustomerEventEdit } from '@/domain/customerEvent';
 import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
@@ -82,12 +78,9 @@ export function EventDetailPage({
     return updatedEvent;
   }
 
-  function handleOccur(): CustomerEvent | undefined {
+  function handleOccur(occurredAt: string): CustomerEvent | undefined {
     if (!occurEvent) return undefined;
-    const updatedEvent = occurEvent(
-      currentEvent.id,
-      toCanonicalTimestamp(toDateTimeLocalValue(now.toISOString())),
-    );
+    const updatedEvent = occurEvent(currentEvent.id, occurredAt);
     if (updatedEvent) returnToAgenda(updatedEvent);
     return updatedEvent;
   }

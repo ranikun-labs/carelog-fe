@@ -91,6 +91,9 @@ export interface Messages {
     edit: string;
     cancel: string;
     markOccurred: string;
+    confirmOccurrence: string;
+    closeOccurrence: string;
+    confirmOccurrenceAction: string;
     scheduledTime: string;
     actualTime: string;
     time: string;

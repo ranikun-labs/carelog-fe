@@ -117,7 +117,7 @@ export function cancelEventById(
 export function occurEventById(
   events: readonly CustomerEvent[],
   eventId: string,
-  occurredAt: string,
+  occurredAt?: string,
 ): CustomerEvent | undefined {
   const current = events.find((event) => event.id === eventId);
   return current?.status === 'PLANNED' ? occurPlannedCustomerEvent(current, occurredAt) : undefined;
