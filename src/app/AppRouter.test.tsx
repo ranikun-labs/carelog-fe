@@ -4,6 +4,33 @@ import { MemoryRouter } from 'react-router';
 import { AppRouter } from '@/app/AppRouter';
 
 describe('application router', () => {
+  it('renders the schedule at the app entry and schedule path', () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/app']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: '일정' })).toBeVisible();
+    unmount();
+    render(
+      <MemoryRouter initialEntries={['/app/schedule']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: '일정' })).toBeVisible();
+  });
+
+  it('resolves a canonical event id on the event detail route', () => {
+    render(
+      <MemoryRouter initialEntries={['/app/events/event-tenant-transitioned']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
+    expect(screen.getByText('예정')).toBeVisible();
+    expect(screen.getByText('실제')).toBeVisible();
+  });
+
   it('redirects root to the Korean public home', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
@@ -39,7 +66,10 @@ describe('application router', () => {
         <AppRouter />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('link', { name: '고객' })).toHaveAttribute('aria-current', 'page');
+    const activeCustomerLink = screen
+      .getAllByRole('link', { name: '고객' })
+      .find((link) => link.getAttribute('aria-current') === 'page');
+    expect(activeCustomerLink).toHaveAttribute('aria-current', 'page');
   });
 
   it('resolves a known customer id on the detail route via the shared fixtures', () => {

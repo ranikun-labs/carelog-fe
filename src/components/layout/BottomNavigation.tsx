@@ -10,9 +10,10 @@ export function BottomNavigation() {
   return (
     <nav
       aria-label={t('navigation.ariaLabel')}
-      className="bg-background border-t pb-[env(safe-area-inset-bottom)]"
+      data-bottom-navigation
+      className="bg-background border-t pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <ul className="grid grid-cols-3">
+      <ul className="grid grid-cols-2">
         {BOTTOM_TABS.map((tab) => {
           const active = tab.match(pathname);
           const Icon = tab.icon;

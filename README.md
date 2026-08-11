@@ -33,8 +33,10 @@ The app uses local storage, then the browser locale, then `ko`:
 
 ```text
 /app
+/app/schedule
 /app/customers
 /app/customers/:customerId
+/app/events/:eventId
 /app/customers/:customerId/import
 /app/reviews/:reviewId
 /app/customers/:customerId/handoff
@@ -42,7 +44,7 @@ The app uses local storage, then the browser locale, then `ko`:
 ```
 
 Route constants and builders live in `src/constants/routes.ts`. Change routes there first, then
-update `src/app/AppRouter.tsx` and the pre-render manifest. Bottom tabs (오늘 / 고객 / 후속 업무) are
+update `src/app/AppRouter.tsx` and the pre-render manifest. Primary navigation (일정 / 고객) is
 configured once in `src/constants/navigation.ts`; labels remain in the typed dictionaries.
 
 ## Product contract
@@ -114,8 +116,9 @@ corepack pnpm verify:full
 ```
 
 Playwright covers 375 px and 480 px phones, 768 px and 1024 px portrait tablets, and an 1180 px
-landscape host. Existing product content retains its centered 480 px maximum while the full-width app
-host provides the seam for later adaptive composition.
+landscape host. The app uses a single-column surface with bottom navigation on phones, a side rail
+and approximately 520/560 px content surfaces at tablet widths, and an adaptive-host seam for later
+desktop composition.
 
 ## Provenance
 
