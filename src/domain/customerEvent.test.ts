@@ -47,21 +47,38 @@ describe('CustomerEvent', () => {
     expect(isCustomerEventOverdue(plannedEvent, 'invalid')).toBe(false);
   });
 
-  it('uses scheduledAt as the default occurrence coordinate without retaining a ghost plan', () => {
+  it('preserves scheduledAt and uses it as the default occurrence coordinate', () => {
     expect(occurPlannedCustomerEvent(plannedEvent)).toEqual({
       id: plannedEvent.id,
       customerId: plannedEvent.customerId,
       status: 'OCCURRED',
       occurredAt: plannedEvent.scheduledAt,
+      scheduledAt: plannedEvent.scheduledAt,
       descriptor: plannedEvent.descriptor,
       note: plannedEvent.note,
     });
   });
 
-  it('uses actual time when a planned event occurs at a different instant', () => {
+  it('uses actual time while preserving the original schedule when the instants differ', () => {
     const actualTime = '2026-08-11T10:05:00+09:00';
+    const occurred = occurPlannedCustomerEvent(plannedEvent, actualTime);
 
-    expect(occurPlannedCustomerEvent(plannedEvent, actualTime).occurredAt).toBe(actualTime);
+    expect(occurred.scheduledAt).toBe(plannedEvent.scheduledAt);
+    expect(occurred.occurredAt).toBe(actualTime);
+    expect(occurred.scheduledAt).not.toBe(occurred.occurredAt);
+  });
+
+  it('retains both planned and actual coordinates for transitioned event detail', () => {
+    const actualTime = '2026-08-11T10:05:00+09:00';
+    const transitioned: OccurredCustomerEvent = occurPlannedCustomerEvent(plannedEvent, actualTime);
+
+    expect({
+      scheduledAt: transitioned.scheduledAt,
+      occurredAt: transitioned.occurredAt,
+    }).toEqual({
+      scheduledAt: plannedEvent.scheduledAt,
+      occurredAt: actualTime,
+    });
   });
 
   it('preserves the original scheduledAt when cancelling without synthesizing occurredAt', () => {

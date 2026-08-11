@@ -18,7 +18,7 @@ export interface PlannedCustomerEvent extends CustomerEventBase {
 export interface OccurredCustomerEvent extends CustomerEventBase {
   status: 'OCCURRED';
   occurredAt: string;
-  scheduledAt?: never;
+  scheduledAt?: string;
 }
 
 export interface CancelledCustomerEvent extends CustomerEventBase {
@@ -53,6 +53,7 @@ export function occurPlannedCustomerEvent(
     customerId: event.customerId,
     status: 'OCCURRED',
     occurredAt,
+    scheduledAt: event.scheduledAt,
     ...(event.descriptor === undefined ? {} : { descriptor: event.descriptor }),
     ...(event.note === undefined ? {} : { note: event.note }),
   };
