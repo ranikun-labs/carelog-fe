@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 
 import { Button } from '@/components/ui/button';
 
+const focusVariants = ['default', 'primary', 'secondary', 'text', 'destructive'] as const;
+
 describe('Button', () => {
   it('keeps compact and icon controls at least 44px without enlarging their icons', () => {
     const { rerender } = render(<Button size="sm">Compact</Button>);
@@ -24,14 +26,21 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Scalable label' })).not.toHaveClass('h-[46px]');
   });
 
-  it('provides the exact focus and disabled foundation on every variant', () => {
-    render(<Button disabled>Save</Button>);
-    expect(screen.getByRole('button', { name: 'Save' })).toHaveClass(
+  it.each(focusVariants)('provides the canonical focus foundation on the %s variant', (variant) => {
+    render(<Button variant={variant}>{variant}</Button>);
+    const button = screen.getByRole('button', { name: variant });
+
+    expect(button).toHaveClass(
       'focus-visible:outline-2',
       'focus-visible:outline-offset-2',
       'focus-visible:outline-accent-primary',
-      'disabled:opacity-40',
     );
+    expect(button).not.toHaveClass('focus-visible:outline-destructive');
+  });
+
+  it('provides the disabled foundation', () => {
+    render(<Button disabled>Save</Button>);
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveClass('disabled:opacity-40');
   });
 
   it('offers primary, secondary, and text action variants', () => {

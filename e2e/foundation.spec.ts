@@ -69,6 +69,33 @@ test('semantic tokens, touch targets, and keyboard focus load from the shared fo
     expect(box!.height).toBeGreaterThanOrEqual(44);
   }
 
+  const bottomNavigationLink = page
+    .getByRole('navigation')
+    .getByRole('link', { name: '고객', exact: true });
+  await bottomNavigationLink.focus();
+  const bottomNavigationFocus = await bottomNavigationLink.evaluate((element) => {
+    const accentProbe = document.createElement('span');
+    accentProbe.style.color = 'var(--accent-primary)';
+    document.body.append(accentProbe);
+    const accentColor = getComputedStyle(accentProbe).color;
+    accentProbe.remove();
+
+    const style = getComputedStyle(element);
+    return {
+      accentColor,
+      color: style.outlineColor,
+      offset: style.outlineOffset,
+      style: style.outlineStyle,
+      width: style.outlineWidth,
+    };
+  });
+  expect(bottomNavigationFocus.color).toBe(bottomNavigationFocus.accentColor);
+  expect(bottomNavigationFocus).toMatchObject({
+    offset: '2px',
+    style: 'solid',
+    width: '2px',
+  });
+
   const customerLink = page.getByRole('link', { name: /박세입/ });
   await customerLink.focus();
   const focus = await customerLink.evaluate((element) => {

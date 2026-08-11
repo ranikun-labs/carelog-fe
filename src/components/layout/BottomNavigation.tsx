@@ -22,7 +22,7 @@ export function BottomNavigation() {
                 to={tab.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex min-h-14 flex-col items-center justify-center gap-1 text-xs focus-visible:outline-2 focus-visible:outline-offset-[-2px]',
+                  'flex min-h-14 flex-col items-center justify-center gap-1 text-xs',
                   active ? 'text-primary' : 'text-muted-foreground',
                 )}
               >

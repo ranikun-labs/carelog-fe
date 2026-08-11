@@ -9,6 +9,10 @@ function colorToken(name: string): string {
 }
 
 describe('Carelog semantic design tokens', () => {
+  afterEach(() => {
+    document.documentElement.classList.remove('dark');
+  });
+
   it('loads the final light color contract', () => {
     expect(colorToken('--bg-page')).toBe('oklch(97%0.00490)');
     expect(colorToken('--bg-surface')).toBe('oklch(100%00)');
@@ -43,5 +47,12 @@ describe('Carelog semantic design tokens', () => {
     expect(rootToken('--radius-pane')).toBe('16px');
     expect(rootToken('--status-rail-width')).toBe('3px');
     expect(rootToken('--shadow-default')).toBe('none');
+  });
+
+  it('reuses an existing semantic value for the undefined dark neutral status palette', () => {
+    document.documentElement.classList.add('dark');
+
+    expect(rootToken('--status-neutral-foreground')).toBe('var(--muted-foreground)');
+    expect(rootToken('--muted-foreground')).not.toMatch(/^var\(/);
   });
 });
