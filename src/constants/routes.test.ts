@@ -4,9 +4,11 @@ import {
   buildAppCustomerHandoffPath,
   buildAppCustomerImportPath,
   buildAppCustomersPath,
+  buildAppEventDetailPath,
   buildAppFollowUpsPath,
   buildAppHomePath,
   buildAppReviewDetailPath,
+  buildAppSchedulePath,
   buildPublicFeaturesPath,
   buildPublicHomePath,
   isSupportedLocale,
@@ -17,10 +19,12 @@ describe('route contract', () => {
     expect(buildPublicHomePath('ko')).toBe('/ko');
     expect(buildPublicFeaturesPath('en')).toBe('/en/features');
     expect(buildAppHomePath()).toBe('/app');
+    expect(buildAppSchedulePath()).toBe('/app/schedule');
     expect(buildAppCustomersPath()).toBe('/app/customers');
     expect(buildAppFollowUpsPath()).toBe('/app/follow-ups');
     expect(APP_ROUTE_PATHS.customerDetail).toBe('/app/customers/:customerId');
     expect(APP_ROUTE_PATHS.reviewDetail).toBe('/app/reviews/:reviewId');
+    expect(APP_ROUTE_PATHS.eventDetail).toBe('/app/events/:eventId');
   });
 
   it('encodes a customer identifier exactly once', () => {
@@ -43,6 +47,10 @@ describe('route contract', () => {
 
   it('encodes a review identifier exactly once', () => {
     expect(buildAppReviewDetailPath('r 1')).toBe('/app/reviews/r%201');
+  });
+
+  it('encodes an event identifier exactly once', () => {
+    expect(buildAppEventDetailPath('event/1')).toBe('/app/events/event%2F1');
   });
 
   it('accepts only supported locales', () => {

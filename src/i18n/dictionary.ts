@@ -13,6 +13,7 @@ export interface Messages {
     home: string;
     features: string;
     today: string;
+    schedule: string;
     customers: string;
     followUps: string;
     ariaLabel: string;
@@ -43,6 +44,45 @@ export interface Messages {
   followUps: {
     title: string;
     description: string;
+  };
+  schedule: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    weekStripLabel: string;
+    today: string;
+    hasEvents: string;
+    overdueCueLabel: string;
+    overdueBadge: string;
+    overdueMeta: string;
+    todayReturn: string;
+    emptyTitle: string;
+    emptyDescription: string;
+    emptyCustomersAction: string;
+    loadingLabel: string;
+    errorTitle: string;
+    errorDescription: string;
+    retry: string;
+    noEventsDate: string;
+    untitled: string;
+    openEvent: string;
+    unknownCustomer: string;
+    meta: {
+      planned: string;
+      overdue: string;
+      occurred: string;
+      cancelled: string;
+    };
+  };
+  eventDetail: {
+    back: string;
+    customer: string;
+    statusPlanned: string;
+    statusCancelled: string;
+    scheduledTime: string;
+    actualTime: string;
+    time: string;
+    memo: string;
   };
   timeline: {
     title: string;

@@ -13,15 +13,16 @@ test('public routes and locale switch', async ({ page }) => {
 
 test('app home, customers, and navigation', async ({ page }) => {
   await page.goto('/app');
-  await page.getByRole('link', { name: '고객 목록 보기' }).click();
+  await expect(page.getByRole('heading', { name: '일정', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: '고객', exact: true }).click();
   await expect(page).toHaveURL('/app/customers');
   await expect(page.getByRole('link', { name: '고객', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   );
-  await page.getByRole('link', { name: '후속 업무' }).click();
-  await expect(page).toHaveURL('/app/follow-ups');
-  await expect(page.getByRole('link', { name: '후속 업무' })).toHaveAttribute(
+  await page.getByRole('link', { name: '일정', exact: true }).click();
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(page.getByRole('link', { name: '일정', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   );
@@ -35,17 +36,21 @@ test('responsive app frame and scroll contract', async ({ page }) => {
   expect(hostBox).not.toBeNull();
   expect(contentBox).not.toBeNull();
   expect(hostBox!.width).toBe(viewport.width);
-  expect(contentBox!.width).toBeLessThanOrEqual(480);
-  if (viewport.width > 480) {
-    expect(Math.abs(contentBox!.x - (viewport.width - contentBox!.width) / 2)).toBeLessThanOrEqual(
-      1,
-    );
+  const expectedContentWidth =
+    viewport.width < 768 ? viewport.width : viewport.width < 1024 ? 520 : 560;
+  expect(contentBox!.width).toBe(expectedContentWidth);
+  if (viewport.width >= 768) {
+    const frameBox = await page.locator('[data-app-frame]').boundingBox();
+    const sideBox = await page.locator('[data-side-navigation]').boundingBox();
+    expect(frameBox).not.toBeNull();
+    expect(sideBox).not.toBeNull();
+    expect(contentBox!.x).toBe(frameBox!.x + sideBox!.width);
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await expect(page.locator('[data-scroll-surface]')).toHaveCount(1);
   await expect(page.locator('h1')).toHaveCount(1);
-  const activeTab = page.getByRole('link', { name: '고객' });
+  const activeTab = page.getByRole('link', { name: '고객', exact: true });
   await expect(activeTab).toHaveAttribute('aria-current', 'page');
 });
 
@@ -70,7 +75,7 @@ test('semantic tokens, touch targets, and keyboard focus load from the shared fo
   }
 
   const bottomNavigationLink = page
-    .getByRole('navigation')
+    .locator('[data-bottom-navigation]:visible, [data-side-navigation]:visible')
     .getByRole('link', { name: '고객', exact: true });
   await bottomNavigationLink.focus();
   const bottomNavigationFocus = await bottomNavigationLink.evaluate((element) => {
@@ -122,7 +127,9 @@ test('generic text controls expand instead of clipping at increased text scale',
   await page.goto('/app');
   await page.evaluate(() => document.documentElement.style.setProperty('font-size', '200%'));
 
-  const action = page.getByRole('link', { name: '고객 목록 보기' });
+  const action = page
+    .locator('[data-bottom-navigation]:visible, [data-side-navigation]:visible')
+    .getByRole('link', { name: '고객', exact: true });
   const dimensions = await action.evaluate((element) => ({
     clientHeight: element.clientHeight,
     scrollHeight: element.scrollHeight,
@@ -159,7 +166,10 @@ for (const { scenarioName, customerName, expectedTimelineLabels } of customerSce
     await expect(page.getByRole('heading', { name: customerName })).toBeVisible();
     await expect(page.getByRole('heading', { name: '고객 맥락' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '타임라인' })).toBeVisible();
-    const timelineItems = page.getByRole('listitem');
+    const timelineItems = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: '타임라인', exact: true }) })
+      .getByRole('listitem');
     await expect(timelineItems).toHaveCount(3);
     await expect(timelineItems.locator('p')).toHaveText(expectedTimelineLabels);
 
