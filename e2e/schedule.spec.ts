@@ -34,6 +34,43 @@ test('agenda row and customer target open their separate destinations', async ({
   await expect(page.locator('[data-event-detail] time')).toHaveCount(2);
 });
 
+test('agenda scroll keeps the selected date inside the WeekStrip week', async ({ page }) => {
+  await page.goto('/app/schedule');
+
+  const targetSection = page.locator('[data-agenda-section][data-date-key="2026-07-05"]');
+  await targetSection.scrollIntoViewIfNeeded();
+
+  await expect(
+    page.locator('[data-week-strip] button[data-date-key="2026-07-05"][aria-current="date"]'),
+  ).toHaveCount(1);
+  await expect(page.locator('[data-week-strip] button[aria-current="date"]')).toHaveCount(1);
+});
+
+test('agenda targets have foundation focus and touch semantics without nested controls', async ({
+  page,
+}) => {
+  await page.goto('/app/schedule');
+
+  const row = page.locator('[data-agenda-row]').first();
+  const customerLink = row.getByRole('link', { name: '박세입' });
+  const customerBox = await customerLink.boundingBox();
+  expect(customerBox).not.toBeNull();
+  expect(customerBox!.width).toBeGreaterThanOrEqual(44);
+  expect(customerBox!.height).toBeGreaterThanOrEqual(44);
+
+  await row.getByRole('button').focus();
+  const focus = await row.getByRole('button').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      offset: style.outlineOffset,
+      style: style.outlineStyle,
+      width: style.outlineWidth,
+    };
+  });
+  expect(focus).toEqual({ offset: '2px', style: 'solid', width: '2px' });
+  expect(await row.locator('button a, a button').count()).toBe(0);
+});
+
 test('event detail preserves cancelled schedule context without inventing occurrence', async ({
   page,
 }) => {

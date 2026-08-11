@@ -22,6 +22,10 @@ function renderDetail(event: CustomerEvent) {
   );
 }
 
+function getTimeTexts() {
+  return [...document.querySelectorAll('time')].map((time) => time.textContent ?? '');
+}
+
 describe('EventDetail', () => {
   it('renders normal and overdue planned states without mutation controls', () => {
     const { unmount } = renderDetail({
@@ -34,6 +38,7 @@ describe('EventDetail', () => {
     });
     expect(screen.getAllByText('예정')).toHaveLength(2);
     expect(screen.getByText('메모 내용')).toBeVisible();
+    expect(getTimeTexts()[0]).toContain('8월 12일');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     unmount();
 
@@ -46,6 +51,7 @@ describe('EventDetail', () => {
     });
     expect(screen.getByText('정리 필요')).toBeVisible();
     expect(screen.getByText('예정 시각 지남')).toBeVisible();
+    expect(getTimeTexts()[0]).toContain('8월 11일');
   });
 
   it('renders an immediate occurred event with one actual time', () => {
@@ -59,7 +65,8 @@ describe('EventDetail', () => {
 
     expect(screen.getByText('기록된 상담')).toBeVisible();
     expect(screen.getByText('실제')).toBeVisible();
-    expect(document.querySelectorAll('time')).toHaveLength(1);
+    expect(getTimeTexts()).toHaveLength(1);
+    expect(getTimeTexts()[0]).toContain('8월 11일');
     expect(screen.queryByText('예정')).not.toBeInTheDocument();
   });
 
@@ -73,10 +80,11 @@ describe('EventDetail', () => {
     });
     expect(screen.getByText('시간')).toBeVisible();
     expect(screen.queryByText('실제')).not.toBeInTheDocument();
-    expect(document.querySelectorAll('time')).toHaveLength(1);
+    expect(getTimeTexts()).toHaveLength(1);
+    expect(getTimeTexts()[0]).toContain('8월 11일');
     unmount();
 
-    renderDetail({
+    const { unmount: unmountDifferentTime } = renderDetail({
       id: 'different-time',
       customerId: 'customer-1',
       status: 'OCCURRED',
@@ -85,7 +93,24 @@ describe('EventDetail', () => {
     });
     expect(screen.getByText('예정')).toBeVisible();
     expect(screen.getByText('실제')).toBeVisible();
-    expect(document.querySelectorAll('time')).toHaveLength(2);
+    expect(getTimeTexts()).toHaveLength(2);
+    expect(getTimeTexts()[0]).toContain('8월 11일');
+    expect(getTimeTexts()[1]).toContain('8월 11일');
+    unmountDifferentTime();
+
+    renderDetail({
+      id: 'different-date',
+      customerId: 'customer-1',
+      status: 'OCCURRED',
+      scheduledAt: '2026-08-11T10:00:00+09:00',
+      occurredAt: '2026-08-12T10:00:00+09:00',
+    });
+    expect(screen.getByText('예정')).toBeVisible();
+    expect(screen.getByText('실제')).toBeVisible();
+    expect(getTimeTexts()).toEqual([
+      expect.stringContaining('8월 11일'),
+      expect.stringContaining('8월 12일'),
+    ]);
   });
 
   it('keeps the cancelled event at its scheduled time without an occurred time', () => {
@@ -99,7 +124,8 @@ describe('EventDetail', () => {
 
     expect(screen.getByText('취소됨')).toBeVisible();
     expect(screen.getByText('예정')).toBeVisible();
-    expect(document.querySelectorAll('time')).toHaveLength(1);
+    expect(getTimeTexts()).toHaveLength(1);
+    expect(getTimeTexts()[0]).toContain('8월 12일');
     expect(screen.queryByText('실제')).not.toBeInTheDocument();
   });
 });

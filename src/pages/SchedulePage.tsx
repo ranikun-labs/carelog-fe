@@ -9,7 +9,7 @@ import {
   getAgendaDateKey,
   getDateKeyFromDate,
   getOverdueEvents,
-  getWeekDays,
+  getWeekDaysForDate,
 } from '@/components/schedule/agendaModel';
 import { OverdueCue } from '@/components/schedule/OverdueCue';
 import { WeekStrip } from '@/components/schedule/WeekStrip';
@@ -42,10 +42,13 @@ export function SchedulePage({
   const todayDateKey = getDateKeyFromDate(now);
   const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
   const [todayVisible, setTodayVisible] = useState(true);
+  const [selectionRequest, setSelectionRequest] = useState(0);
   const didInitialAnchor = useRef(false);
+  const didSkipInitialScroll = useRef(false);
   const shouldScrollToSelection = useRef(true);
+  const pendingAgendaTargetId = useRef<string | null>(null);
 
-  const weekDays = useMemo(() => getWeekDays(now), [now]);
+  const weekDays = useMemo(() => getWeekDaysForDate(selectedDateKey, now), [now, selectedDateKey]);
   const eventDateKeys = useMemo(
     () => new Set(events.map((event) => getAgendaDateKey(event))),
     [events],
@@ -60,18 +63,24 @@ export function SchedulePage({
   useEffect(() => {
     if (loadState !== 'ready' || events.length === 0) return;
     if (!shouldScrollToSelection.current) return;
-    const element = document.querySelector<HTMLElement>(
-      `[data-agenda-section][data-date-key="${selectedDateKey}"]`,
-    );
+    const targetEventId = pendingAgendaTargetId.current;
+    const element = targetEventId
+      ? Array.from(document.querySelectorAll<HTMLElement>('[data-agenda-row][data-event-id]')).find(
+          (candidate) => candidate.dataset.eventId === targetEventId,
+        )
+      : document.querySelector<HTMLElement>(
+          `[data-agenda-section][data-date-key="${selectedDateKey}"]`,
+        );
     if (!element || typeof element.scrollIntoView !== 'function') return;
 
     element.scrollIntoView({
       behavior: didInitialAnchor.current ? 'smooth' : 'auto',
-      block: didInitialAnchor.current ? 'start' : 'center',
+      block: targetEventId || !didInitialAnchor.current ? 'center' : 'start',
     });
+    pendingAgendaTargetId.current = null;
     didInitialAnchor.current = true;
     shouldScrollToSelection.current = false;
-  }, [events.length, loadState, selectedDateKey, sectionSignature]);
+  }, [events.length, loadState, selectedDateKey, sectionSignature, selectionRequest]);
 
   useEffect(() => {
     if (loadState !== 'ready' || events.length === 0) return;
@@ -79,17 +88,32 @@ export function SchedulePage({
     if (!scrollSurface) return;
 
     const updateActiveDate = () => {
+      if (didInitialAnchor.current && !didSkipInitialScroll.current) {
+        didSkipInitialScroll.current = true;
+        return;
+      }
+
       const surfaceRect = scrollSurface.getBoundingClientRect();
+      const weekStripBottom =
+        document.querySelector<HTMLElement>('[data-week-strip]')?.getBoundingClientRect().bottom ??
+        surfaceRect.top;
       const sectionElements = Array.from(
         document.querySelectorAll<HTMLElement>('[data-agenda-section][data-date-key]'),
       );
-      const nearest = sectionElements
+      const sectionRects = sectionElements
         .map((element) => ({
           dateKey: element.dataset.dateKey ?? '',
-          distance: Math.abs(element.getBoundingClientRect().top - surfaceRect.top),
+          top: element.getBoundingClientRect().top,
         }))
-        .filter(({ dateKey }) => dateKey.length > 0)
-        .sort((first, second) => first.distance - second.distance)[0];
+        .filter(({ dateKey }) => dateKey.length > 0);
+
+      const isAtBottom =
+        scrollSurface.scrollHeight > scrollSurface.clientHeight &&
+        scrollSurface.scrollTop + scrollSurface.clientHeight >= scrollSurface.scrollHeight - 1;
+      const nearest = isAtBottom
+        ? sectionRects.at(-1)
+        : (sectionRects.find(({ top }) => top >= Math.max(surfaceRect.top, weekStripBottom)) ??
+          sectionRects.at(-1));
 
       if (!nearest) return;
       shouldScrollToSelection.current = false;
@@ -119,8 +143,10 @@ export function SchedulePage({
   }, [events.length, loadState, sectionSignature, todayDateKey]);
 
   const selectDate = useCallback(
-    (dateKey: string) => {
+    (dateKey: string, targetEventId?: string) => {
+      pendingAgendaTargetId.current = targetEventId ?? null;
       shouldScrollToSelection.current = true;
+      setSelectionRequest((request) => request + 1);
       setSelectedDateKey(dateKey);
       setTodayVisible(dateKey === todayDateKey);
     },
@@ -137,7 +163,7 @@ export function SchedulePage({
   const jumpToLatestOverdue = useCallback(() => {
     const latestOverdue = overdueEvents[0];
     if (!latestOverdue) return;
-    selectDate(getAgendaDateKey(latestOverdue));
+    selectDate(getAgendaDateKey(latestOverdue), latestOverdue.id);
   }, [overdueEvents, selectDate]);
 
   return (

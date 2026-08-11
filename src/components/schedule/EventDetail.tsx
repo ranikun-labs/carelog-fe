@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
 import {
-  formatAgendaTime,
+  formatAgendaDateTime,
   getAgendaCoordinate,
   getAgendaStatusPresentation,
   hasSameInstant,
@@ -63,7 +63,7 @@ export function EventDetail({ event, customerName, customerPath, now }: EventDet
             <dd className="mt-1">
               <Link
                 to={customerPath}
-                className="text-accent-primary-deep inline-flex min-h-11 items-center font-semibold underline-offset-2 hover:underline"
+                className="text-accent-primary-deep inline-flex min-h-11 min-w-11 items-center font-semibold underline-offset-2 hover:underline"
               >
                 {customerName}
               </Link>
@@ -146,7 +146,7 @@ function TimeItem({
     <div>
       <dt className="text-text-tertiary text-xs">{label}</dt>
       <dd className="text-text-primary mt-1 font-semibold">
-        <time dateTime={timestamp}>{formatAgendaTime(timestamp, locale)}</time>
+        <time dateTime={timestamp}>{formatAgendaDateTime(timestamp, locale)}</time>
       </dd>
     </div>
   );

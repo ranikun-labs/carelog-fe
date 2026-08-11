@@ -4,6 +4,7 @@ import {
   getAgendaCoordinate,
   getAgendaStatusPresentation,
   getOverdueEvents,
+  getWeekDaysForDate,
   hasSameInstant,
 } from '@/components/schedule/agendaModel';
 import type { CustomerEvent } from '@/domain/customerEvent';
@@ -89,6 +90,24 @@ describe('agenda model', () => {
     expect(formatOverdueCount(10)).toBe('9+');
     expect(hasSameInstant('2026-08-11T10:00:00+09:00', '2026-08-11T01:00:00Z')).toBe(true);
     expect(hasSameInstant('2026-08-11T10:00:00+09:00', '2026-08-11T10:05:00+09:00')).toBe(false);
+  });
+
+  it('builds the WeekStrip window from the selected date while preserving today identity', () => {
+    const selectedWeek = getWeekDaysForDate('2026-08-18', now);
+
+    expect(selectedWeek.map((day) => day.dateKey)).toEqual([
+      '2026-08-17',
+      '2026-08-18',
+      '2026-08-19',
+      '2026-08-20',
+      '2026-08-21',
+      '2026-08-22',
+      '2026-08-23',
+    ]);
+    expect(selectedWeek.find((day) => day.dateKey === '2026-08-18')?.isToday).toBe(false);
+
+    const todayWeek = getWeekDaysForDate('2026-08-11', now);
+    expect(todayWeek.find((day) => day.dateKey === '2026-08-11')?.isToday).toBe(true);
   });
 
   it('keeps an invalid coordinate renderable after valid agenda dates', () => {

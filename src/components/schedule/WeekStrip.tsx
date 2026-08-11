@@ -27,6 +27,7 @@ export function WeekStrip({ days, selectedDateKey, eventDateKeys, onSelect }: We
             <li key={day.dateKey}>
               <button
                 type="button"
+                data-date-key={day.dateKey}
                 aria-current={active ? 'date' : undefined}
                 aria-pressed={active}
                 aria-label={`${weekday} ${day.dayOfMonth}${day.isToday ? `, ${t('schedule.today')}` : ''}${hasEvents ? `, ${t('schedule.hasEvents')}` : ''}`}
@@ -41,16 +42,17 @@ export function WeekStrip({ days, selectedDateKey, eventDateKeys, onSelect }: We
               >
                 <span className="text-text-tertiary text-[0.6875rem]">{weekday}</span>
                 <span className="text-sm">{day.dayOfMonth}</span>
-                <span
-                  aria-hidden="true"
-                  data-event-dot={hasEvents ? true : undefined}
-                  data-today-indicator={day.isToday ? true : undefined}
-                  className={cn(
-                    'h-1 w-1 rounded-full',
-                    hasEvents ? 'bg-accent-primary' : 'bg-transparent',
-                    day.isToday && !hasEvents && 'border-accent-primary border',
-                  )}
-                />
+                <span aria-hidden="true" className="flex h-2 items-center justify-center gap-0.5">
+                  {hasEvents ? (
+                    <span data-event-dot className="bg-accent-primary h-1 w-1 rounded-full" />
+                  ) : null}
+                  {day.isToday ? (
+                    <span
+                      data-today-indicator
+                      className="border-accent-primary h-1.5 w-1.5 rounded-full border"
+                    />
+                  ) : null}
+                </span>
               </button>
             </li>
           );

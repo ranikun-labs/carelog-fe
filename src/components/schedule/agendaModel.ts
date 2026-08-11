@@ -144,8 +144,12 @@ export interface WeekDay {
   isToday: boolean;
 }
 
-export function getWeekDays(today: Date): WeekDay[] {
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+export function getWeekDays(referenceDate: Date, today: Date = referenceDate): WeekDay[] {
+  const start = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    referenceDate.getDate(),
+  );
   const dayOfWeek = start.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   start.setDate(start.getDate() + mondayOffset);
@@ -160,6 +164,10 @@ export function getWeekDays(today: Date): WeekDay[] {
       isToday: getDateKeyFromDate(date) === todayDateKey,
     };
   });
+}
+
+export function getWeekDaysForDate(dateKey: string, today: Date): WeekDay[] {
+  return getWeekDays(parseDateKey(dateKey) ?? today, today);
 }
 
 export function getCustomerName(
@@ -191,6 +199,18 @@ export function formatAgendaTime(timestamp: string, locale: string): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return timestamp;
   return new Intl.DateTimeFormat(locale === 'ko' ? 'ko-KR' : 'en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
+export function formatAgendaDateTime(timestamp: string, locale: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp;
+  return new Intl.DateTimeFormat(locale === 'ko' ? 'ko-KR' : 'en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);

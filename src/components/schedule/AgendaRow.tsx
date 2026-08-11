@@ -37,28 +37,23 @@ export function AgendaRow({ event, customerName, now, onOpen }: AgendaRowProps) 
 
   return (
     <article
-      role="button"
-      tabIndex={0}
-      aria-label={t('schedule.openEvent', { title })}
       data-agenda-row
       data-event-id={event.id}
       data-event-status={event.status}
       className={cn(
-        'bg-surface border-border-subtle hover:bg-subtle/60 min-h-20 border-b border-l-[var(--status-rail-width)] px-4 py-3 text-left transition-colors',
+        'bg-surface border-border-subtle hover:bg-subtle/60 relative min-h-20 border-b border-l-[var(--status-rail-width)] px-4 py-3 text-left transition-colors',
         railClass,
-        'focus-visible:outline-accent-primary focus-visible:outline-2 focus-visible:outline-offset-[-2px]',
       )}
-      onClick={activate}
-      onKeyDown={(keyboardEvent) => {
-        if (keyboardEvent.target !== keyboardEvent.currentTarget) return;
-        if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-          keyboardEvent.preventDefault();
-          activate();
-        }
-      }}
     >
-      <div className="flex flex-col gap-1.5">
-        <div className="flex min-w-0 items-start justify-between gap-3">
+      <button
+        type="button"
+        aria-label={t('schedule.openEvent', { title })}
+        onClick={activate}
+        className="focus-visible:outline-accent-primary absolute inset-0 z-0 block h-full w-full cursor-pointer rounded-none border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-2"
+      />
+
+      <div className="pointer-events-none relative z-10 flex flex-col gap-1.5">
+        <div aria-hidden="true" className="flex min-w-0 items-start justify-between gap-3">
           {event.status === 'OCCURRED' && event.descriptor ? (
             <Badge tone="neutral">{event.descriptor}</Badge>
           ) : (
@@ -83,12 +78,12 @@ export function AgendaRow({ event, customerName, now, onOpen }: AgendaRowProps) 
           to={buildAppCustomerDetailPath(event.customerId)}
           onClick={(clickEvent) => clickEvent.stopPropagation()}
           onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()}
-          className="text-accent-primary-deep inline-flex min-h-11 w-fit items-center text-sm font-semibold underline-offset-2 hover:underline"
+          className="text-accent-primary-deep pointer-events-auto inline-flex min-h-11 w-fit min-w-11 items-center text-sm font-semibold underline-offset-2 hover:underline"
         >
           {customerName}
         </Link>
 
-        <p className="text-text-tertiary flex items-center gap-1 text-xs">
+        <p aria-hidden="true" className="text-text-tertiary flex items-center gap-1 text-xs">
           <time dateTime={coordinate}>{formatAgendaTime(coordinate, locale)}</time>
           <span aria-hidden="true">·</span>
           <span>{statusLabel}</span>

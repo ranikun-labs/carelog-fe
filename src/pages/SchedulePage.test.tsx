@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 
 import type { CustomerEvent } from '@/domain/customerEvent';
@@ -84,6 +84,52 @@ describe('SchedulePage', () => {
     });
     expect(screen.getByText('정리 필요한 일정 2개')).toBeVisible();
     expect(screen.getByText('가장 최근 지난 일정')).toBeVisible();
+  });
+
+  it('scrolls the overdue cue to the latest overdue row when dates contain multiple events', async () => {
+    const scrollTargets: string[] = [];
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: function (this: HTMLElement) {
+        scrollTargets.push(this.dataset.eventId ?? this.dataset.dateKey ?? '');
+      },
+    });
+
+    try {
+      renderPage({
+        events: [
+          {
+            id: 'overdue-earlier',
+            customerId: 'customer-1',
+            status: 'PLANNED',
+            scheduledAt: '2026-08-11T09:00:00+09:00',
+            descriptor: '더 이른 지난 일정',
+          },
+          {
+            id: 'overdue-latest',
+            customerId: 'customer-1',
+            status: 'PLANNED',
+            scheduledAt: '2026-08-11T11:00:00+09:00',
+            descriptor: '가장 최근 지난 일정',
+          },
+        ],
+      });
+      scrollTargets.length = 0;
+
+      fireEvent.click(screen.getByRole('button', { name: '정리 필요한 일정 2개' }));
+
+      await waitFor(() => expect(scrollTargets.at(-1)).toBe('overdue-latest'));
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+      }
+    }
   });
 
   it('separates empty and error states while keeping the navigation baseline', () => {
