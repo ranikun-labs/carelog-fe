@@ -56,6 +56,19 @@ export interface AuthPort {
   recoverSession: () => Promise<AuthCommandResult>;
 }
 
+export interface AuthTestControl {
+  reportFailure: (kind: AuthErrorKind, retryable?: boolean) => void;
+  retryBootstrap: () => void;
+  getRecoveryAttemptCount?: () => number;
+  getLogoutAttemptCount?: () => number;
+}
+
+declare global {
+  interface Window {
+    __CARELOG_TEST_AUTH_CONTROL__?: AuthTestControl;
+  }
+}
+
 export type InMemoryAuthCommandOutcome =
   | 'success'
   | 'invalid-credentials'
@@ -78,4 +91,8 @@ export interface InMemoryAuthAdapterOptions {
   login?: InMemoryAuthCommandOutcome;
   signup?: InMemoryAuthCommandOutcome;
   recovery?: Exclude<InMemoryAuthCommandOutcome, 'invalid-credentials' | 'generic-failure'>;
+  /** Test-only timing controls for exercising async auth boundaries. */
+  bootstrapDelayMs?: number;
+  recoveryDelayMs?: number;
+  logoutDelayMs?: number;
 }

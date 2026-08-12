@@ -5,7 +5,6 @@ import { BrowserRouter } from 'react-router';
 import { AppRouter } from '@/app/AppRouter';
 import type { AppInitialization } from '@/app/appInitialization';
 import type { AuthPort } from '@/auth/authTypes';
-import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
 import { readTestInitialization } from '@/app/testBootstrap';
 import { shouldHydrate } from '@/prerender/shouldHydrate';
 import '@/styles/globals.css';
@@ -19,6 +18,7 @@ async function startApplication() {
   if (import.meta.env.MODE === 'test') {
     testInitialization = readTestInitialization();
     if (testInitialization?.authAdapterOptions) {
+      const { createInMemoryAuthPort } = await import('@/auth/inMemoryAuthAdapter');
       authPort = createInMemoryAuthPort(testInitialization.authAdapterOptions);
     }
   }

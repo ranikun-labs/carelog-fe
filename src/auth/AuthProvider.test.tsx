@@ -1,8 +1,16 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { act, useState } from 'react';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
-import { AUTH_ERROR_KIND, AUTH_STATE, type AuthErrorKind } from '@/auth/authTypes';
+import {
+  AUTH_ERROR_KIND,
+  AUTH_STATE,
+  type AuthBootstrapResult,
+  type AuthCommandResult,
+  type AuthErrorKind,
+  type AuthPort,
+} from '@/auth/authTypes';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
+import { createUnavailableAuthPort } from '@/auth/unavailableAuthPort';
 import { CUSTOMER_FIXTURE_RECORDS } from '@/fixtures/scenarios';
 import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
 import { CustomerStoreProvider, useOptionalCustomerStore } from '@/state/CustomerStoreContext';
@@ -45,11 +53,14 @@ function Probe() {
       <button type="button" onClick={() => void auth.retryOperation()}>
         retry
       </button>
+      <button type="button" onClick={auth.retryBootstrap}>
+        retry bootstrap
+      </button>
     </div>
   );
 }
 
-function renderProbe(port: ReturnType<typeof createInMemoryAuthPort>) {
+function renderProbe(port: AuthPort) {
   return render(
     <AuthProvider authPort={port}>
       <Probe />
@@ -63,6 +74,30 @@ async function expectState(status: string) {
   );
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
+function createControlledBootstrapPort() {
+  const bootstraps: Array<ReturnType<typeof deferred<AuthBootstrapResult>>> = [];
+  const port: AuthPort = {
+    bootstrapSession: () => {
+      const request = deferred<AuthBootstrapResult>();
+      bootstraps.push(request);
+      return request.promise;
+    },
+    login: async (): Promise<AuthCommandResult> => ({ ok: true }),
+    signup: async (): Promise<AuthCommandResult> => ({ ok: true }),
+    logout: async () => undefined,
+    recoverSession: async (): Promise<AuthCommandResult> => ({ ok: true }),
+  };
+  return { port, bootstraps };
+}
+
 it('bootstraps an anonymous session without exposing a product boolean shortcut', async () => {
   const port = createInMemoryAuthPort({ bootstrap: 'anonymous' });
   renderProbe(port);
@@ -71,7 +106,7 @@ it('bootstraps an anonymous session without exposing a product boolean shortcut'
   expect(port.bootstrapAttemptCount).toBe(1);
 });
 
-it('recovers a 401 exactly once and returns to authenticated state on success', async () => {
+it('allows one recovery attempt per independent 401 episode', async () => {
   const port = createInMemoryAuthPort({ bootstrap: 'authenticated', recovery: 'success' });
   renderProbe(port);
   await expectState(AUTH_STATE.AUTHENTICATED);
@@ -87,7 +122,26 @@ it('recovers a 401 exactly once and returns to authenticated state on success', 
     screen.getByRole('button', { name: '401' }).click();
     await Promise.resolve();
   });
-  await expectState(AUTH_STATE.ANONYMOUS);
+  await expectState(AUTH_STATE.AUTHENTICATED);
+  expect(port.recoveryAttemptCount).toBe(2);
+});
+
+it('coalesces concurrent 401 signals into one recovery promise', async () => {
+  const port = createInMemoryAuthPort({
+    bootstrap: 'authenticated',
+    recovery: 'success',
+    recoveryDelayMs: 20,
+  });
+  renderProbe(port);
+  await expectState(AUTH_STATE.AUTHENTICATED);
+
+  await act(async () => {
+    screen.getByRole('button', { name: '401' }).click();
+    screen.getByRole('button', { name: '401' }).click();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+
+  expect(document.querySelector('[data-auth-state]')).toHaveTextContent(AUTH_STATE.AUTHENTICATED);
   expect(port.recoveryAttemptCount).toBe(1);
 });
 
@@ -127,6 +181,64 @@ it('clears the session on logout while leaving auth ownership separate from prod
   await expectState(AUTH_STATE.AUTHENTICATED);
   screen.getByRole('button', { name: 'logout' }).click();
   await expectState(AUTH_STATE.ANONYMOUS);
+});
+
+it('invokes logout once when the action is submitted repeatedly while pending', async () => {
+  const port = createInMemoryAuthPort({ bootstrap: 'authenticated', logoutDelayMs: 20 });
+  renderProbe(port);
+  await expectState(AUTH_STATE.AUTHENTICATED);
+
+  screen.getByRole('button', { name: 'logout' }).click();
+  screen.getByRole('button', { name: 'logout' }).click();
+  await expectState(AUTH_STATE.ANONYMOUS);
+  expect(port.logoutAttemptCount).toBe(1);
+});
+
+it('ignores a stale bootstrap result after a newer retry wins', async () => {
+  const { port, bootstraps } = createControlledBootstrapPort();
+  renderProbe(port);
+  await waitFor(() => expect(bootstraps).toHaveLength(1));
+
+  screen.getByRole('button', { name: 'retry bootstrap' }).click();
+  await waitFor(() => expect(bootstraps).toHaveLength(2));
+
+  await act(async () => {
+    bootstraps[1].resolve({ status: 'anonymous' });
+    await Promise.resolve();
+  });
+  await expectState(AUTH_STATE.ANONYMOUS);
+
+  await act(async () => {
+    bootstraps[0].resolve({ status: 'authenticated' });
+    await Promise.resolve();
+  });
+  expect(document.querySelector('[data-auth-state]')).toHaveTextContent(AUTH_STATE.ANONYMOUS);
+});
+
+it('ignores a late bootstrap result after the provider unmounts', async () => {
+  const { port, bootstraps } = createControlledBootstrapPort();
+  const { unmount } = renderProbe(port);
+  await waitFor(() => expect(bootstraps).toHaveLength(1));
+  unmount();
+
+  await act(async () => {
+    bootstraps[0].resolve({ status: 'authenticated' });
+    await Promise.resolve();
+  });
+  expect(document.querySelector('[data-auth-state]')).not.toBeInTheDocument();
+});
+
+it('uses an unavailable production boundary that cannot authenticate arbitrary credentials', async () => {
+  const port = createUnavailableAuthPort();
+  expect(await port.bootstrapSession()).toEqual({ status: 'anonymous' });
+  expect(await port.login({ account: 'anything@example.com', secret: 'anything' })).toEqual({
+    ok: false,
+    failure: { kind: AUTH_ERROR_KIND.UNKNOWN },
+  });
+  expect(await port.signup({ account: 'anything@example.com', secret: 'anything' })).toEqual({
+    ok: false,
+    failure: { kind: AUTH_ERROR_KIND.UNKNOWN },
+  });
 });
 
 it('preserves Customer and Event providers through authenticated failures and recovery', async () => {

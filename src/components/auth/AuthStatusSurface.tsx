@@ -72,6 +72,22 @@ export function AuthRecoveryScreen() {
   );
 }
 
+export function AuthRecoveryBanner() {
+  const { t } = useTranslation();
+  return (
+    <section
+      data-auth-recovery-banner
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className="border-accent-primary bg-accent-primary-bg text-text-primary grid shrink-0 gap-1 border-b px-4 py-3 sm:px-6"
+    >
+      <p className="text-sm font-bold">{t('auth.recovery.title')}</p>
+      <p className="text-text-secondary text-sm">{t('auth.recovery.description')}</p>
+    </section>
+  );
+}
+
 export function AuthBootstrapErrorScreen({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation();
   return (
@@ -122,7 +138,7 @@ export function AuthOperationErrorSurface({
   onDismiss,
 }: {
   failure: AuthFailure;
-  onRetry: () => void;
+  onRetry?: () => void;
   onDismiss: () => void;
 }) {
   const { t } = useTranslation();
@@ -139,9 +155,11 @@ export function AuthOperationErrorSurface({
         <p className="text-text-secondary mt-0.5 text-sm">{copy.description}</p>
       </div>
       <div className="flex shrink-0 gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={onRetry}>
-          {t('auth.operation.retry')}
-        </Button>
+        {onRetry ? (
+          <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+            {t('auth.operation.retry')}
+          </Button>
+        ) : null}
         <Button type="button" size="sm" variant="ghost" onClick={onDismiss}>
           {t('auth.operation.dismiss')}
         </Button>

@@ -12,6 +12,7 @@ import {
 export interface InMemoryAuthPort extends AuthPort {
   readonly bootstrapAttemptCount: number;
   readonly recoveryAttemptCount: number;
+  readonly logoutAttemptCount: number;
 }
 
 function failure(kind: AuthErrorKind): AuthFailure {
@@ -46,6 +47,11 @@ function recoveryOutcomeResult(
   return outcome === 'success' ? { ok: true } : { ok: false, failure: outcomeFailure(outcome) };
 }
 
+async function waitForTestDelay(milliseconds: number | undefined): Promise<void> {
+  if (!milliseconds || milliseconds <= 0) return;
+  await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export function createInMemoryAuthPort(options: InMemoryAuthAdapterOptions = {}): InMemoryAuthPort {
   const bootstrapMode = options.bootstrap ?? 'anonymous';
   const loginOutcome = options.login ?? 'success';
@@ -54,6 +60,7 @@ export function createInMemoryAuthPort(options: InMemoryAuthAdapterOptions = {})
   let authenticated = bootstrapMode === 'authenticated';
   let bootstrapAttemptCount = 0;
   let recoveryAttemptCount = 0;
+  let logoutAttemptCount = 0;
 
   const port: InMemoryAuthPort = {
     get bootstrapAttemptCount() {
@@ -62,8 +69,12 @@ export function createInMemoryAuthPort(options: InMemoryAuthAdapterOptions = {})
     get recoveryAttemptCount() {
       return recoveryAttemptCount;
     },
+    get logoutAttemptCount() {
+      return logoutAttemptCount;
+    },
     async bootstrapSession(): Promise<AuthBootstrapResult> {
       bootstrapAttemptCount += 1;
+      await waitForTestDelay(options.bootstrapDelayMs);
       if (authenticated) {
         return { status: 'authenticated' };
       }
@@ -87,10 +98,13 @@ export function createInMemoryAuthPort(options: InMemoryAuthAdapterOptions = {})
       return result;
     },
     async logout(): Promise<void> {
+      logoutAttemptCount += 1;
+      await waitForTestDelay(options.logoutDelayMs);
       authenticated = false;
     },
     async recoverSession(): Promise<AuthCommandResult> {
       recoveryAttemptCount += 1;
+      await waitForTestDelay(options.recoveryDelayMs);
       const result = recoveryOutcomeResult(recoveryOutcome);
       if (result.ok) authenticated = true;
       return result;

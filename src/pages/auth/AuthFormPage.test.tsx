@@ -51,6 +51,46 @@ it('shows a generic fixture failure and preserves entered values', async () => {
   expect(secret).toHaveValue('wrong-secret');
 });
 
+it('marks only the field that failed local validation as invalid', async () => {
+  renderAuth('/auth/login');
+  const account = await screen.findByLabelText('계정');
+  const secret = screen.getByLabelText('비밀번호');
+  fireEvent.submit(document.querySelector('[data-auth-form]')!);
+
+  expect(account).toHaveAttribute('aria-invalid', 'true');
+  expect(secret).not.toHaveAttribute('aria-invalid');
+  expect(account).toHaveAttribute('aria-describedby');
+});
+
+it('keeps global authentication failures from invalidating every field', async () => {
+  renderAuth('/auth/login', { login: 'invalid-credentials' });
+  const account = await screen.findByLabelText('계정');
+  const secret = screen.getByLabelText('비밀번호');
+  fireEvent.change(account, { target: { value: 'wrong-account' } });
+  fireEvent.change(secret, { target: { value: 'wrong-secret' } });
+  fireEvent.click(screen.getByRole('button', { name: '로그인' }));
+  await screen.findByRole('alert');
+
+  expect(account).not.toHaveAttribute('aria-invalid');
+  expect(secret).not.toHaveAttribute('aria-invalid');
+});
+
+it('marks only the confirmation field for a signup mismatch', async () => {
+  renderAuth('/auth/signup');
+  const account = await screen.findByLabelText('계정');
+  const secret = screen.getByLabelText('비밀번호');
+  const confirmation = screen.getByLabelText('비밀번호 확인');
+  fireEvent.change(account, { target: { value: 'fixture-account' } });
+  fireEvent.change(secret, { target: { value: 'fixture-secret' } });
+  fireEvent.change(confirmation, { target: { value: 'different-secret' } });
+  fireEvent.click(screen.getByRole('button', { name: '회원가입' }));
+  await screen.findByRole('alert');
+
+  expect(account).not.toHaveAttribute('aria-invalid');
+  expect(secret).not.toHaveAttribute('aria-invalid');
+  expect(confirmation).toHaveAttribute('aria-invalid', 'true');
+});
+
 it('does not render protected product content during anonymous direct navigation', async () => {
   renderAuth('/app/schedule');
   expect(document.querySelector('[data-app-shell]')).not.toBeInTheDocument();

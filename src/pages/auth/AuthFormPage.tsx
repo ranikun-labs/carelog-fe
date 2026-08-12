@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 
 export type AuthFormMode = 'login' | 'signup';
 
+type ErrorField = 'account' | 'secret' | 'secretConfirmation' | 'form';
+
 function resultMessageKey(
   result: AuthCommandResult,
 ): 'auth.form.invalidCredentials' | 'auth.form.genericFailure' | null {
@@ -26,6 +28,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
   const [secret, setSecret] = useState('');
   const [secretConfirmation, setSecretConfirmation] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [errorField, setErrorField] = useState<ErrorField | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const errorId = useId();
   const errorRef = useRef<HTMLParagraphElement>(null);
@@ -41,25 +44,32 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
     const normalizedAccount = account.trim();
     if (!normalizedAccount) {
       setError(t('auth.form.accountRequired'));
+      setErrorField('account');
       return;
     }
     if (!secret) {
       setError(t('auth.form.secretRequired'));
+      setErrorField('secret');
       return;
     }
     if (isSignup && secret !== secretConfirmation) {
       setError(t('auth.form.secretMismatch'));
+      setErrorField('secretConfirmation');
       return;
     }
 
     setError(null);
+    setErrorField(null);
     setIsSubmitting(true);
     const result = isSignup
       ? await signup({ account: normalizedAccount, secret })
       : await login({ account: normalizedAccount, secret });
     setIsSubmitting(false);
     const messageKey = resultMessageKey(result);
-    if (messageKey) setError(t(messageKey));
+    if (messageKey) {
+      setError(t(messageKey));
+      setErrorField('form');
+    }
   }
 
   return (
@@ -82,7 +92,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
       <form
         data-auth-form
         aria-busy={isSubmitting}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={error && errorField === 'form' ? errorId : undefined}
         onSubmit={(event) => void submit(event)}
         className="border-border-default bg-surface grid gap-5 rounded-xl border p-5 sm:p-6"
       >
@@ -97,7 +107,8 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             onChange={(event) => setAccount(event.target.value)}
             autoComplete="username"
             required
-            aria-invalid={error ? true : undefined}
+            aria-invalid={errorField === 'account' ? true : undefined}
+            aria-describedby={errorField === 'account' ? errorId : undefined}
             className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </div>
@@ -113,7 +124,8 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             onChange={(event) => setSecret(event.target.value)}
             autoComplete={isSignup ? 'new-password' : 'current-password'}
             required
-            aria-invalid={error ? true : undefined}
+            aria-invalid={errorField === 'secret' ? true : undefined}
+            aria-describedby={errorField === 'secret' ? errorId : undefined}
             className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </div>
@@ -130,7 +142,8 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
               onChange={(event) => setSecretConfirmation(event.target.value)}
               autoComplete="new-password"
               required
-              aria-invalid={error ? true : undefined}
+              aria-invalid={errorField === 'secretConfirmation' ? true : undefined}
+              aria-describedby={errorField === 'secretConfirmation' ? errorId : undefined}
               className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             />
           </div>

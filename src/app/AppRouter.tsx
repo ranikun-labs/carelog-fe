@@ -1,8 +1,8 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { AUTH_STATE, type AuthPort } from '@/auth/authTypes';
-import { resolvePostAuthPath, toSafeResumeIntent } from '@/auth/postAuthRouting';
+import { resolvePostAuthPath } from '@/auth/postAuthRouting';
 import type { AppInitialization } from '@/app/appInitialization';
 import { AppShellFrame, ProductStateProviders } from '@/components/layout/AppShell';
 import {
@@ -45,24 +45,16 @@ import { useCustomerStore } from '@/state/CustomerStoreContext';
 
 function ProtectedAppBoundary() {
   const auth = useAuth();
-  const location = useLocation();
 
   switch (auth.authState.status) {
     case AUTH_STATE.BOOTSTRAPPING:
       return <AuthBootstrapScreen />;
     case AUTH_STATE.RECOVERING:
-      return <AuthRecoveryScreen />;
+      return <AppShellFrame />;
     case AUTH_STATE.ERROR:
       return <AuthBootstrapErrorScreen onRetry={auth.retryBootstrap} />;
     case AUTH_STATE.ANONYMOUS: {
-      const safeResumeIntent = toSafeResumeIntent(location.pathname);
-      return (
-        <Navigate
-          replace
-          to={buildAuthEntryPath()}
-          state={safeResumeIntent ? { safeResumeIntent } : undefined}
-        />
-      );
+      return <Navigate replace to={buildAuthEntryPath()} />;
     }
     case AUTH_STATE.AUTHENTICATED:
       return <AppShellFrame />;

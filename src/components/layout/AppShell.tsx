@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { useLocation } from 'react-router';
 
 import { AuthOperationErrorSurface } from '@/components/auth/AuthStatusSurface';
+import { AuthRecoveryBanner } from '@/components/auth/AuthStatusSurface';
+import { AUTH_STATE } from '@/auth/authTypes';
 import { AdaptiveHost } from '@/components/layout/AdaptiveHost';
 import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import { SideNavigationRail } from '@/components/layout/SideNavigationRail';
@@ -37,10 +39,11 @@ export function AppShellFrame() {
       {auth?.operationError ? (
         <AuthOperationErrorSurface
           failure={auth.operationError.failure}
-          onRetry={() => void auth.retryOperation()}
+          onRetry={auth.operationError.retry ? () => void auth.retryOperation() : undefined}
           onDismiss={auth.clearOperationError}
         />
       ) : null}
+      {auth?.authState.status === AUTH_STATE.RECOVERING ? <AuthRecoveryBanner /> : null}
       <div data-app-host className="bg-page min-h-0 w-full flex-1 overflow-hidden">
         <div data-app-frame className="flex h-full w-full min-w-0">
           <SideNavigationRail />

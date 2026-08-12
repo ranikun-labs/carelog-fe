@@ -26,6 +26,31 @@ export async function useAuthAdapterScenario(
   }, authAdapterOptions);
 }
 
+export async function triggerAuthFailure(
+  page: Page,
+  kind: 'UNAUTHORIZED' | 'FORBIDDEN' | 'SERVER' | 'NETWORK',
+  retryable = false,
+) {
+  await page.evaluate(
+    ({ failureKind, canRetry }) => {
+      const control = window.__CARELOG_TEST_AUTH_CONTROL__;
+      if (!control) throw new Error('Test auth control is unavailable.');
+      control.reportFailure(failureKind, canRetry);
+    },
+    { failureKind: kind, canRetry: retryable },
+  );
+}
+
+export async function readAuthRecoveryAttemptCount(page: Page) {
+  return page.evaluate(
+    () => window.__CARELOG_TEST_AUTH_CONTROL__?.getRecoveryAttemptCount?.() ?? 0,
+  );
+}
+
+export async function readAuthLogoutAttemptCount(page: Page) {
+  return page.evaluate(() => window.__CARELOG_TEST_AUTH_CONTROL__?.getLogoutAttemptCount?.() ?? 0);
+}
+
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.addInitScript(() => {
