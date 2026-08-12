@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router';
+import { UserRound } from 'lucide-react';
 
 import { BOTTOM_TABS } from '@/constants/navigation';
+import { buildAppSettingsPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +36,17 @@ export function BottomNavigation() {
           );
         })}
       </ul>
+      <Link
+        to={buildAppSettingsPath()}
+        aria-current={pathname.startsWith(buildAppSettingsPath()) ? 'page' : undefined}
+        className={cn(
+          'text-text-secondary flex min-h-11 items-center justify-center gap-2 border-t px-4 py-2 text-sm font-semibold',
+          pathname.startsWith(buildAppSettingsPath()) && 'text-primary',
+        )}
+      >
+        <UserRound className="size-4" aria-hidden="true" />
+        {t('auth.account.entry')}
+      </Link>
     </nav>
   );
 }

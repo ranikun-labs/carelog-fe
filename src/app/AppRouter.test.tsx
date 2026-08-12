@@ -2,31 +2,34 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
 import { AppRouter } from '@/app/AppRouter';
+import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
+
+const authenticatedAuthPort = createInMemoryAuthPort({ bootstrap: 'authenticated' });
 
 describe('application router', () => {
-  it('renders the schedule at the app entry and schedule path', () => {
+  it('renders the schedule at the app entry and schedule path', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '일정' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
     unmount();
     render(
       <MemoryRouter initialEntries={['/app/schedule']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '일정' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
   });
 
-  it('resolves a canonical event id on the event detail route', () => {
+  it('resolves a canonical event id on the event detail route', async () => {
     render(
       <MemoryRouter initialEntries={['/app/events/event-tenant-transitioned']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
     expect(screen.getByText('예정')).toBeVisible();
     expect(screen.getByText('실제')).toBeVisible();
   });
@@ -34,7 +37,7 @@ describe('application router', () => {
   it('redirects root to the Korean public home', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(
@@ -45,7 +48,7 @@ describe('application router', () => {
   it('renders English and unsupported public locale boundaries', () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/en/features']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(
@@ -54,89 +57,89 @@ describe('application router', () => {
     unmount();
     render(
       <MemoryRouter initialEntries={['/fr']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: '페이지를 찾을 수 없습니다' })).toBeVisible();
   });
 
-  it('marks Customers active while on the customers list route', () => {
+  it('marks Customers active while on the customers list route', async () => {
     render(
       <MemoryRouter initialEntries={['/app/customers']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    const activeCustomerLink = screen
-      .getAllByRole('link', { name: '고객' })
-      .find((link) => link.getAttribute('aria-current') === 'page');
+    const activeCustomerLink = (await screen.findAllByRole('link', { name: '고객' })).find(
+      (link) => link.getAttribute('aria-current') === 'page',
+    );
     expect(activeCustomerLink).toHaveAttribute('aria-current', 'page');
   });
 
-  it('resolves a known customer id on the detail route via the shared fixtures', () => {
+  it('resolves a known customer id on the detail route via the shared fixtures', async () => {
     render(
       <MemoryRouter initialEntries={['/app/customers/customer-tenant-1']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('박세입')).toBeVisible();
+    expect(await screen.findByText('박세입')).toBeVisible();
     expect(document.querySelectorAll('[data-scroll-surface]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-bottom-navigation]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-side-navigation]')).toHaveLength(1);
   });
 
-  it('renders the app not-found surface for an unknown customer id', () => {
+  it('renders the app not-found surface for an unknown customer id', async () => {
     render(
       <MemoryRouter initialEntries={['/app/customers/does-not-exist']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '페이지를 찾을 수 없습니다' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '페이지를 찾을 수 없습니다' })).toBeVisible();
   });
 
-  it('renders the customer import and handoff placeholder routes', () => {
+  it('renders the customer import and handoff placeholder routes', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app/customers/c-1/import']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '고객 가져오기' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '고객 가져오기' })).toBeVisible();
     unmount();
     render(
       <MemoryRouter initialEntries={['/app/customers/c-1/handoff']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '인계' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '인계' })).toBeVisible();
   });
 
-  it('renders the review detail placeholder route', () => {
+  it('renders the review detail placeholder route', async () => {
     render(
       <MemoryRouter initialEntries={['/app/reviews/r-1']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '검토' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '검토' })).toBeVisible();
   });
 
-  it('renders the follow-ups placeholder route', () => {
+  it('renders the follow-ups placeholder route', async () => {
     render(
       <MemoryRouter initialEntries={['/app/follow-ups']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '후속 업무' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '후속 업무' })).toBeVisible();
   });
 
   it('supports first-use create, detail resolution, and edit propagation from one Customer state', async () => {
     render(
       <MemoryRouter initialEntries={['/app/customers']}>
-        <AppRouter initialCustomers={[]} initialEvents={[]} />
+        <AppRouter authPort={authenticatedAuthPort} initialCustomers={[]} initialEvents={[]} />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('아직 고객이 없습니다')).toBeVisible();
+    expect(await screen.findByText('아직 고객이 없습니다')).toBeVisible();
     fireEvent.click(screen.getByRole('link', { name: '첫 고객 추가' }));
-    expect(screen.getByRole('heading', { name: '첫 고객 추가' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '첫 고객 추가' })).toBeVisible();
 
     fireEvent.change(screen.getByLabelText('고객 이름'), {
       target: { value: '첫 번째 고객' },
@@ -160,7 +163,7 @@ describe('application router', () => {
     expect(customerId).toMatch(/^customer-/);
 
     fireEvent.click(screen.getByRole('link', { name: '고객 정보 수정' }));
-    expect(screen.getByRole('heading', { name: '고객 정보 수정' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '고객 정보 수정' })).toBeVisible();
     fireEvent.change(screen.getByLabelText('고객 이름'), {
       target: { value: '수정된 첫 고객' },
     });
@@ -184,14 +187,14 @@ describe('application router', () => {
     expect(screen.queryByText('첫 번째 고객')).not.toBeInTheDocument();
   });
 
-  it('routes Schedule Customer=0 to first-customer create without changing Event empty behavior', () => {
+  it('routes Schedule Customer=0 to first-customer create without changing Event empty behavior', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app/schedule']}>
-        <AppRouter initialCustomers={[]} initialEvents={[]} />
+        <AppRouter authPort={authenticatedAuthPort} initialCustomers={[]} initialEvents={[]} />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('먼저 고객을 추가해 주세요')).toBeVisible();
+    expect(await screen.findByText('먼저 고객을 추가해 주세요')).toBeVisible();
     expect(screen.getByRole('link', { name: '첫 고객 추가' })).toHaveAttribute(
       'href',
       '/app/customers/new',
@@ -200,28 +203,28 @@ describe('application router', () => {
 
     render(
       <MemoryRouter initialEntries={['/app/schedule']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '일정' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
     expect(screen.queryByText('먼저 고객을 추가해 주세요')).not.toBeInTheDocument();
   });
 
-  it('does not let a URL query override production customer or event seeds', () => {
+  it('does not let a URL query override production customer or event seeds', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app/customers?customerSeed=empty']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('박세입')).toBeVisible();
+    expect(await screen.findByText('박세입')).toBeVisible();
     expect(screen.queryByText('아직 고객이 없습니다')).not.toBeInTheDocument();
     unmount();
 
     render(
       <MemoryRouter initialEntries={['/app/events/event-tenant-transitioned?eventSeed=empty']}>
-        <AppRouter />
+        <AppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
   });
 });
