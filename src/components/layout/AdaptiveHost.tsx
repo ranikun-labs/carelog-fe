@@ -25,6 +25,7 @@ import {
 } from '@/constants/routes';
 import {
   AdaptiveHostProvider,
+  type AdaptiveSurfacePolicy,
   type AdaptiveHostContextValue,
   type AdaptiveMode,
   type AdaptiveNavigationState,
@@ -32,6 +33,7 @@ import {
   type SelectEventOptions,
   readAdaptiveNavigationState,
 } from '@/components/layout/adaptiveHostContext';
+import { cn } from '@/lib/utils';
 
 interface AdaptiveRootState {
   scheduleDateKey: string | null;
@@ -322,6 +324,8 @@ export function AdaptiveHost() {
   const mode: AdaptiveMode = shouldUseTwoPane(metrics) ? 'two-pane' : 'single';
   const twoPaneRoot = mode === 'two-pane' ? getTwoPaneRoot(routeInfo, activeRoot) : null;
   const hasSecondary = twoPaneRoot !== null && isSelectedRoute(routeInfo);
+  const surfacePolicy: AdaptiveSurfacePolicy =
+    routeInfo.kind === 'schedule' || routeInfo.kind === 'customers' ? 'scan' : 'readable';
 
   const navigationState = routeInfo.navigationState;
   const routeEventId = routeInfo.kind === 'event' ? (routeInfo.eventId ?? null) : null;
@@ -578,7 +582,11 @@ export function AdaptiveHost() {
     mode !== 'two-pane' || !twoPaneRoot ? (
       <div
         data-adaptive-single-frame
-        className="mx-auto h-full w-full min-w-0 md:max-w-[520px] lg:max-w-[560px]"
+        data-adaptive-single-frame-policy={surfacePolicy}
+        className={cn(
+          'mx-auto h-full w-full min-w-0 md:max-w-[520px]',
+          surfacePolicy === 'scan' ? 'lg:max-w-none' : 'lg:max-w-[560px]',
+        )}
       >
         <section
           ref={masterPaneRef}
@@ -593,13 +601,17 @@ export function AdaptiveHost() {
       <div
         data-adaptive-composition
         data-two-pane-root={twoPaneRoot}
-        className="grid h-full min-h-0 min-w-0 grid-cols-2"
+        data-adaptive-composition-layout={hasSecondary ? 'two-pane' : 'single'}
+        className={cn('grid h-full min-h-0 min-w-0', hasSecondary ? 'grid-cols-2' : 'grid-cols-1')}
       >
         <section
           ref={masterPaneRef}
           data-adaptive-pane="master"
           aria-label="주요 목록"
-          className="border-border-default min-h-0 min-w-0 overflow-hidden border-r"
+          className={cn(
+            'border-border-default min-h-0 min-w-0 overflow-hidden',
+            hasSecondary && 'border-r',
+          )}
         >
           {routeInfo.kind === 'schedule' || routeInfo.kind === 'customers' ? (
             children

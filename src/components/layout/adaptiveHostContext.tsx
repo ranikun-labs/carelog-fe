@@ -6,8 +6,11 @@ import {
   type Ref,
 } from 'react';
 
+import { cn } from '@/lib/utils';
+
 export type AdaptiveMode = 'single' | 'two-pane';
 export type AdaptiveRoot = 'schedule' | 'customers';
+export type AdaptiveSurfacePolicy = 'scan' | 'readable';
 
 export interface AdaptiveNavigationState {
   adaptiveRoot?: AdaptiveRoot;
@@ -93,6 +96,30 @@ export function AdaptiveSurface({
     >
       {children}
     </Tag>
+  );
+}
+
+export function AdaptiveSurfaceContent({
+  children,
+  policy,
+  className,
+  ...props
+}: ComponentPropsWithoutRef<'div'> & {
+  children: ReactNode;
+  policy: AdaptiveSurfacePolicy;
+}) {
+  return (
+    <div
+      {...props}
+      data-adaptive-surface-content={policy}
+      className={cn(
+        'mx-auto w-full min-w-0',
+        policy === 'scan' ? 'xl:max-w-6xl' : 'xl:max-w-xl',
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 

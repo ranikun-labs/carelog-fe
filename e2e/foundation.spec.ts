@@ -46,14 +46,15 @@ test('responsive app frame and scroll contract', async ({ page }) => {
     expect(sideBox).not.toBeNull();
     expect(contentBox!.x).toBe(frameBox!.x + sideBox!.width);
   }
-  if (viewport.width === 1180) {
+  const isTwoPane = viewport.width >= 1100 && viewport.height < viewport.width;
+  if (isTwoPane) {
     await expect(adaptiveHost).toHaveAttribute('data-adaptive-mode', 'two-pane');
     await expect(page.locator('[data-adaptive-composition]')).toHaveCount(1);
     await expect(page.locator('[data-adaptive-single-frame]')).toHaveCount(0);
   } else {
     await expect(adaptiveHost).toHaveAttribute('data-adaptive-mode', 'single');
     const expectedFrameWidth =
-      viewport.width < 768 ? viewport.width : viewport.width < 1024 ? 520 : 560;
+      viewport.width < 768 ? viewport.width : viewport.width < 1024 ? 520 : viewport.width - 80;
     const frameBox = await page.locator('[data-adaptive-single-frame]').boundingBox();
     expect(frameBox).not.toBeNull();
     expect(frameBox!.width).toBe(expectedFrameWidth);

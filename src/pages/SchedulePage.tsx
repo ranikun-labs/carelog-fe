@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { EmptyState } from '@/components/common/EmptyState';
-import { AdaptiveSurface, useOptionalAdaptiveHost } from '@/components/layout/adaptiveHostContext';
+import {
+  AdaptiveSurface,
+  AdaptiveSurfaceContent,
+  useOptionalAdaptiveHost,
+} from '@/components/layout/adaptiveHostContext';
 import { AgendaSkeleton } from '@/components/schedule/AgendaSkeleton';
 import { DateSection } from '@/components/schedule/DateSection';
 import {
@@ -253,96 +257,98 @@ export function SchedulePage({
       data-root-scroll-surface="schedule"
       className="bg-surface h-full min-h-full overflow-y-auto"
     >
-      <header className="px-4 pt-6 pb-4">
-        <p className="text-accent-primary text-xs font-semibold tracking-wide">
-          {t('schedule.eyebrow')}
-        </p>
-        <h1 className="text-text-primary mt-1 text-2xl font-bold">{t('schedule.title')}</h1>
-        <p className="text-text-secondary mt-1 text-sm">{t('schedule.description')}</p>
-      </header>
+      <AdaptiveSurfaceContent policy="scan">
+        <header className="px-4 pt-6 pb-4">
+          <p className="text-accent-primary text-xs font-semibold tracking-wide">
+            {t('schedule.eyebrow')}
+          </p>
+          <h1 className="text-text-primary mt-1 text-2xl font-bold">{t('schedule.title')}</h1>
+          <p className="text-text-secondary mt-1 text-sm">{t('schedule.description')}</p>
+        </header>
 
-      <WeekStrip
-        days={weekDays}
-        selectedDateKey={selectedDateKey}
-        eventDateKeys={eventDateKeys}
-        onSelect={selectDate}
-      />
+        <WeekStrip
+          days={weekDays}
+          selectedDateKey={selectedDateKey}
+          eventDateKeys={eventDateKeys}
+          onSelect={selectDate}
+        />
 
-      {loadState === 'loading' ? (
-        <AgendaSkeleton />
-      ) : loadState === 'error' ? (
-        <EmptyState
-          title={t('schedule.errorTitle')}
-          description={t('schedule.errorDescription')}
-          action={
-            <button
-              type="button"
-              className={cn(buttonVariants({ variant: 'text' }), 'mt-2')}
-              onClick={onRetry}
-            >
-              {t('schedule.retry')}
-            </button>
-          }
-        />
-      ) : hasNoCustomers ? (
-        <EmptyState
-          title={t('schedule.emptyCustomersTitle')}
-          description={t('schedule.emptyCustomersDescription')}
-          action={
-            <Link
-              to={buildAppCustomerCreatePath()}
-              className={cn(buttonVariants({ variant: 'secondary' }), 'mt-2')}
-              aria-label={t('schedule.emptyCustomersFirstAction')}
-              data-schedule-first-customer-cta
-            >
-              {t('schedule.emptyCustomersFirstAction')}
-            </Link>
-          }
-        />
-      ) : sourceEvents.length === 0 ? (
-        <EmptyState
-          title={t('schedule.emptyTitle')}
-          description={t('schedule.emptyDescription')}
-          action={
-            <Link
-              to={buildAppCustomersPath()}
-              className={cn(buttonVariants({ variant: 'secondary' }), 'mt-2')}
-              aria-label={t('schedule.emptyCustomersAction')}
-            >
-              {t('schedule.emptyCustomersAction')}
-            </Link>
-          }
-        />
-      ) : (
-        <>
-          <OverdueCue count={overdueEvents.length} onSelect={jumpToLatestOverdue} />
-
-          {!todayVisible ? (
-            <div className="px-4 pt-4">
+        {loadState === 'loading' ? (
+          <AgendaSkeleton />
+        ) : loadState === 'error' ? (
+          <EmptyState
+            title={t('schedule.errorTitle')}
+            description={t('schedule.errorDescription')}
+            action={
               <button
                 type="button"
-                onClick={() => selectDate(todayDateKey)}
-                className="text-accent-primary-deep focus-visible:outline-accent-primary min-h-11 text-sm font-semibold underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className={cn(buttonVariants({ variant: 'text' }), 'mt-2')}
+                onClick={onRetry}
               >
-                {t('schedule.todayReturn')}
+                {t('schedule.retry')}
               </button>
-            </div>
-          ) : null}
+            }
+          />
+        ) : hasNoCustomers ? (
+          <EmptyState
+            title={t('schedule.emptyCustomersTitle')}
+            description={t('schedule.emptyCustomersDescription')}
+            action={
+              <Link
+                to={buildAppCustomerCreatePath()}
+                className={cn(buttonVariants({ variant: 'secondary' }), 'mt-2')}
+                aria-label={t('schedule.emptyCustomersFirstAction')}
+                data-schedule-first-customer-cta
+              >
+                {t('schedule.emptyCustomersFirstAction')}
+              </Link>
+            }
+          />
+        ) : sourceEvents.length === 0 ? (
+          <EmptyState
+            title={t('schedule.emptyTitle')}
+            description={t('schedule.emptyDescription')}
+            action={
+              <Link
+                to={buildAppCustomersPath()}
+                className={cn(buttonVariants({ variant: 'secondary' }), 'mt-2')}
+                aria-label={t('schedule.emptyCustomersAction')}
+              >
+                {t('schedule.emptyCustomersAction')}
+              </Link>
+            }
+          />
+        ) : (
+          <>
+            <OverdueCue count={overdueEvents.length} onSelect={jumpToLatestOverdue} />
 
-          <div data-agenda className="mt-4 pb-6">
-            {sections.map((section) => (
-              <DateSection
-                key={section.dateKey}
-                section={section}
-                customers={scheduleCustomers}
-                now={now}
-                onOpen={openEvent}
-                highlightedEventId={highlightedEventId}
-              />
-            ))}
-          </div>
-        </>
-      )}
+            {!todayVisible ? (
+              <div className="px-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => selectDate(todayDateKey)}
+                  className="text-accent-primary-deep focus-visible:outline-accent-primary min-h-11 text-sm font-semibold underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                >
+                  {t('schedule.todayReturn')}
+                </button>
+              </div>
+            ) : null}
+
+            <div data-agenda className="mt-4 pb-6">
+              {sections.map((section) => (
+                <DateSection
+                  key={section.dateKey}
+                  section={section}
+                  customers={scheduleCustomers}
+                  now={now}
+                  onOpen={openEvent}
+                  highlightedEventId={highlightedEventId}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </AdaptiveSurfaceContent>
     </AdaptiveSurface>
   );
 }

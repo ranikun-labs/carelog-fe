@@ -33,5 +33,9 @@ export default defineConfig({
       name: 'desktop-1180-landscape',
       use: { browserName: 'chromium', viewport: { width: 1180, height: 800 } },
     },
+    {
+      name: 'desktop-1440-landscape',
+      use: { browserName: 'chromium', viewport: { width: 1440, height: 900 } },
+    },
   ],
 });

@@ -20,7 +20,7 @@ export function CustomerCard({ customer, isSelected = false, onSelect }: Custome
       <CardContent className="p-0">
         <Link
           className={cn(
-            'flex flex-col gap-2 p-4 focus-visible:outline-2',
+            'flex min-w-0 flex-col gap-2 p-4 focus-visible:outline-2 xl:flex-row xl:items-center xl:gap-4',
             isSelected && 'bg-accent-primary-bg',
           )}
           to={buildAppCustomerDetailPath(customer.id)}
@@ -31,12 +31,12 @@ export function CustomerCard({ customer, isSelected = false, onSelect }: Custome
             onSelect();
           }}
         >
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{customer.displayName}</span>
+          <div className="flex min-w-0 items-center gap-2 xl:flex-1">
+            <span className="font-medium break-words">{customer.displayName}</span>
             {customer.workspace.name ? <Badge tone="info">{customer.workspace.name}</Badge> : null}
           </div>
           {customer.interaction ? (
-            <p className="text-text-secondary text-sm">
+            <p className="text-text-secondary shrink-0 text-sm xl:whitespace-nowrap">
               {t('customers.recentContact')}:{' '}
               <time dateTime={customer.interaction.occurredAt}>
                 {formatDate(customer.interaction.occurredAt)}
@@ -44,7 +44,9 @@ export function CustomerCard({ customer, isSelected = false, onSelect }: Custome
             </p>
           ) : null}
           {customer.context?.summary ? (
-            <p className="text-text-secondary line-clamp-1 text-sm">{customer.context.summary}</p>
+            <p className="text-text-secondary line-clamp-1 min-w-0 text-sm xl:flex-1">
+              {customer.context.summary}
+            </p>
           ) : null}
         </Link>
       </CardContent>
