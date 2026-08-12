@@ -1,16 +1,31 @@
-import { Navigate, Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 
+import { AuthProvider, useAuth } from '@/auth/AuthProvider';
+import { AUTH_STATE, type AuthPort } from '@/auth/authTypes';
+import { resolvePostAuthPath, toSafeResumeIntent } from '@/auth/postAuthRouting';
 import type { AppInitialization } from '@/app/appInitialization';
-import { AppShell } from '@/components/layout/AppShell';
+import { AppShellFrame, ProductStateProviders } from '@/components/layout/AppShell';
+import {
+  AuthBootstrapErrorScreen,
+  AuthBootstrapScreen,
+  AuthRecoveryScreen,
+} from '@/components/auth/AuthStatusSurface';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 import { PublicLayout } from '@/components/layout/PublicLayout';
+import { AppLocaleProvider } from '@/i18n/AppLocaleProvider';
 import {
   APP_BASE,
   APP_ROUTE_PATHS,
+  AUTH_BASE,
+  AUTH_ROUTE_PATHS,
   DEFAULT_LOCALE,
   PUBLIC_ROUTE_PATHS,
+  buildAuthEntryPath,
   buildPublicHomePath,
   toRelativeUnder,
 } from '@/constants/routes';
+import { AuthEntryPage } from '@/pages/auth/AuthEntryPage';
+import { AuthFormPage } from '@/pages/auth/AuthFormPage';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { CustomerCreatePage } from '@/pages/CustomerCreatePage';
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
@@ -26,8 +41,53 @@ import { SchedulePage } from '@/pages/SchedulePage';
 import { FeaturesPage } from '@/pages/public/FeaturesPage';
 import { PublicHomePage } from '@/pages/public/PublicHomePage';
 import { PublicNotFoundPage } from '@/pages/public/PublicNotFoundPage';
+import { useCustomerStore } from '@/state/CustomerStoreContext';
 
-export function AppRouter({ initialCustomers, initialEvents }: AppInitialization = {}) {
+function ProtectedAppBoundary() {
+  const auth = useAuth();
+  const location = useLocation();
+
+  switch (auth.authState.status) {
+    case AUTH_STATE.BOOTSTRAPPING:
+      return <AuthBootstrapScreen />;
+    case AUTH_STATE.RECOVERING:
+      return <AuthRecoveryScreen />;
+    case AUTH_STATE.ERROR:
+      return <AuthBootstrapErrorScreen onRetry={auth.retryBootstrap} />;
+    case AUTH_STATE.ANONYMOUS: {
+      const safeResumeIntent = toSafeResumeIntent(location.pathname);
+      return (
+        <Navigate
+          replace
+          to={buildAuthEntryPath()}
+          state={safeResumeIntent ? { safeResumeIntent } : undefined}
+        />
+      );
+    }
+    case AUTH_STATE.AUTHENTICATED:
+      return <AppShellFrame />;
+  }
+}
+
+function AuthRouteBoundary() {
+  const auth = useAuth();
+  const customerCount = useCustomerStore().customers.length;
+
+  switch (auth.authState.status) {
+    case AUTH_STATE.BOOTSTRAPPING:
+      return <AuthBootstrapScreen />;
+    case AUTH_STATE.RECOVERING:
+      return <AuthRecoveryScreen />;
+    case AUTH_STATE.ERROR:
+      return <AuthBootstrapErrorScreen onRetry={auth.retryBootstrap} />;
+    case AUTH_STATE.AUTHENTICATED:
+      return <Navigate replace to={resolvePostAuthPath(customerCount)} />;
+    case AUTH_STATE.ANONYMOUS:
+      return <AuthLayout />;
+  }
+}
+
+function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate replace to={buildPublicHomePath(DEFAULT_LOCALE)} />} />
@@ -39,10 +99,23 @@ export function AppRouter({ initialCustomers, initialEvents }: AppInitialization
         />
         <Route path="*" element={<PublicNotFoundPage />} />
       </Route>
-      <Route
-        path={APP_BASE}
-        element={<AppShell initialCustomers={initialCustomers} initialEvents={initialEvents} />}
-      >
+      <Route path={AUTH_BASE} element={<AuthRouteBoundary />}>
+        <Route index element={<Navigate replace to={AUTH_ROUTE_PATHS.entry} />} />
+        <Route
+          path={toRelativeUnder(AUTH_BASE, AUTH_ROUTE_PATHS.entry)}
+          element={<AuthEntryPage />}
+        />
+        <Route
+          path={toRelativeUnder(AUTH_BASE, AUTH_ROUTE_PATHS.login)}
+          element={<AuthFormPage mode="login" />}
+        />
+        <Route
+          path={toRelativeUnder(AUTH_BASE, AUTH_ROUTE_PATHS.signup)}
+          element={<AuthFormPage mode="signup" />}
+        />
+        <Route path="*" element={<AuthEntryPage />} />
+      </Route>
+      <Route path={APP_BASE} element={<ProtectedAppBoundary />}>
         <Route index element={<SchedulePage />} />
         <Route
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.schedule)}
@@ -92,5 +165,21 @@ export function AppRouter({ initialCustomers, initialEvents }: AppInitialization
       </Route>
       <Route path="*" element={<PublicNotFoundPage />} />
     </Routes>
+  );
+}
+
+export function AppRouter({
+  initialCustomers,
+  initialEvents,
+  authPort,
+}: AppInitialization & { authPort?: AuthPort } = {}) {
+  return (
+    <AppLocaleProvider>
+      <AuthProvider authPort={authPort}>
+        <ProductStateProviders initialCustomers={initialCustomers} initialEvents={initialEvents}>
+          <AppRoutes />
+        </ProductStateProviders>
+      </AuthProvider>
+    </AppLocaleProvider>
   );
 }

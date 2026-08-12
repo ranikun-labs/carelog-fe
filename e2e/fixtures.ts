@@ -7,14 +7,33 @@ const TEST_NOW_MS = Date.parse(TEST_NOW);
 export async function useEmptyApplicationSeed(page: Page) {
   await page.addInitScript(() => {
     window.__CARELOG_TEST_INITIALIZATION__ = {
+      ...window.__CARELOG_TEST_INITIALIZATION__,
       initialCustomers: [],
       initialEvents: [],
     };
   });
 }
 
+export async function useAuthAdapterScenario(
+  page: Page,
+  authAdapterOptions: NonNullable<Window['__CARELOG_TEST_INITIALIZATION__']>['authAdapterOptions'],
+) {
+  await page.addInitScript((options) => {
+    window.__CARELOG_TEST_INITIALIZATION__ = {
+      ...window.__CARELOG_TEST_INITIALIZATION__,
+      authAdapterOptions: options,
+    };
+  }, authAdapterOptions);
+}
+
 export const test = base.extend({
   page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      window.__CARELOG_TEST_INITIALIZATION__ = {
+        ...window.__CARELOG_TEST_INITIALIZATION__,
+        authAdapterOptions: { bootstrap: 'authenticated' },
+      };
+    });
     await page.addInitScript(
       ({ nowMs }) => {
         const NativeDate = Date;

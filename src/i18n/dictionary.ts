@@ -29,6 +29,58 @@ export interface Messages {
   app: {
     home: { eyebrow: string; title: string; description: string; customersAction: string };
   };
+  auth: {
+    entry: {
+      eyebrow: string;
+      title: string;
+      description: string;
+      login: string;
+      signup: string;
+    };
+    form: {
+      back: string;
+      loginTitle: string;
+      loginDescription: string;
+      signupTitle: string;
+      signupDescription: string;
+      account: string;
+      secret: string;
+      secretConfirmation: string;
+      accountRequired: string;
+      secretRequired: string;
+      secretMismatch: string;
+      invalidCredentials: string;
+      genericFailure: string;
+      submitting: string;
+      loginAction: string;
+      signupAction: string;
+      haveAccount: string;
+      needAccount: string;
+      loginLink: string;
+      signupLink: string;
+    };
+    bootstrap: {
+      title: string;
+      description: string;
+      errorTitle: string;
+      errorDescription: string;
+      retry: string;
+    };
+    recovery: { title: string; description: string };
+    operation: {
+      forbiddenTitle: string;
+      forbiddenDescription: string;
+      serverTitle: string;
+      serverDescription: string;
+      networkTitle: string;
+      networkDescription: string;
+      genericTitle: string;
+      genericDescription: string;
+      retry: string;
+      dismiss: string;
+    };
+    account: { entry: string; title: string; description: string; logout: string };
+  };
   customers: {
     title: string;
     description: string;

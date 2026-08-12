@@ -12,6 +12,12 @@ export const PUBLIC_ROUTE_PATHS = {
 } as const;
 
 export const APP_BASE = '/app';
+export const AUTH_BASE = '/auth';
+export const AUTH_ROUTE_PATHS = {
+  entry: `${AUTH_BASE}/entry`,
+  login: `${AUTH_BASE}/login`,
+  signup: `${AUTH_BASE}/signup`,
+} as const;
 export const APP_ROUTE_PATHS = {
   home: APP_BASE,
   schedule: `${APP_BASE}/schedule`,
@@ -47,6 +53,9 @@ export const buildAppFollowUpsPath = () => APP_ROUTE_PATHS.followUps;
 export const buildAppSettingsPath = () => APP_ROUTE_PATHS.settings;
 export const buildAppEventDetailPath = (eventId: string) =>
   `${APP_BASE}/events/${encodeURIComponent(eventId)}`;
+export const buildAuthEntryPath = () => AUTH_ROUTE_PATHS.entry;
+export const buildAuthLoginPath = () => AUTH_ROUTE_PATHS.login;
+export const buildAuthSignupPath = () => AUTH_ROUTE_PATHS.signup;
 
 export function toRelativeUnder(base: string, path: string): string {
   return path.slice(base.length).replace(/^\//, '');

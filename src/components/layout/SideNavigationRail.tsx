@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router';
+import { UserRound } from 'lucide-react';
 
 import { BOTTOM_TABS } from '@/constants/navigation';
+import { buildAppSettingsPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 
@@ -11,7 +13,7 @@ export function SideNavigationRail() {
   return (
     <aside data-side-navigation className="bg-surface hidden w-20 shrink-0 border-r md:block">
       <nav aria-label={t('navigation.ariaLabel')} className="h-full px-2 py-4">
-        <ul className="flex flex-col gap-2">
+        <ul className="flex h-full flex-col gap-2">
           {BOTTOM_TABS.map((tab) => {
             const active = tab.match(pathname);
             const Icon = tab.icon;
@@ -32,6 +34,22 @@ export function SideNavigationRail() {
               </li>
             );
           })}
+          <li className="mt-auto">
+            <Link
+              to={buildAppSettingsPath()}
+              aria-current={pathname.startsWith(buildAppSettingsPath()) ? 'page' : undefined}
+              style={{ outlineColor: 'var(--accent-primary)' }}
+              className={cn(
+                'text-text-secondary flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-center text-[0.6875rem] font-semibold transition-colors',
+                pathname.startsWith(buildAppSettingsPath())
+                  ? 'bg-accent-primary-bg text-accent-primary-deep'
+                  : 'hover:bg-subtle',
+              )}
+            >
+              <UserRound className="size-5" aria-hidden="true" />
+              <span className="max-w-full truncate">{t('auth.account.entry')}</span>
+            </Link>
+          </li>
         </ul>
       </nav>
     </aside>
