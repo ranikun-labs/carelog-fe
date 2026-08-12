@@ -78,7 +78,7 @@ describe('application router', () => {
         <AppRouter />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '박세입' })).toBeVisible();
+    expect(screen.getByText('박세입')).toBeVisible();
     expect(document.querySelectorAll('[data-scroll-surface]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-bottom-navigation]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-side-navigation]')).toHaveLength(1);
@@ -129,8 +129,8 @@ describe('application router', () => {
 
   it('supports first-use create, detail resolution, and edit propagation from one Customer state', async () => {
     render(
-      <MemoryRouter initialEntries={['/app/customers?customerSeed=empty']}>
-        <AppRouter />
+      <MemoryRouter initialEntries={['/app/customers']}>
+        <AppRouter initialCustomers={[]} initialEvents={[]} />
       </MemoryRouter>,
     );
 
@@ -186,8 +186,8 @@ describe('application router', () => {
 
   it('routes Schedule Customer=0 to first-customer create without changing Event empty behavior', () => {
     const { unmount } = render(
-      <MemoryRouter initialEntries={['/app/schedule?customerSeed=empty']}>
-        <AppRouter />
+      <MemoryRouter initialEntries={['/app/schedule']}>
+        <AppRouter initialCustomers={[]} initialEvents={[]} />
       </MemoryRouter>,
     );
 
@@ -205,5 +205,23 @@ describe('application router', () => {
     );
     expect(screen.getByRole('heading', { name: '일정' })).toBeVisible();
     expect(screen.queryByText('먼저 고객을 추가해 주세요')).not.toBeInTheDocument();
+  });
+
+  it('does not let a URL query override production customer or event seeds', () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/app/customers?customerSeed=empty']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('박세입')).toBeVisible();
+    expect(screen.queryByText('아직 고객이 없습니다')).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <MemoryRouter initialEntries={['/app/events/event-tenant-transitioned?eventSeed=empty']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
   });
 });

@@ -20,7 +20,7 @@ export function CustomerEditPage() {
 
   function handleSubmit(values: CustomerFormValues) {
     const updatedCustomer = customerStore.editCustomer(currentCustomer.id, values);
-    if (!updatedCustomer) return;
+    if (!updatedCustomer) return false;
 
     navigate(buildAppCustomerDetailPath(updatedCustomer.id), {
       state: {
@@ -28,6 +28,7 @@ export function CustomerEditPage() {
         adaptiveCustomerId: updatedCustomer.id,
       },
     });
+    return true;
   }
 
   return (
@@ -45,6 +46,7 @@ export function CustomerEditPage() {
       <div className="flex-1 overflow-y-auto p-6">
         <CustomerForm
           mode="edit"
+          draftKey={`edit:${currentCustomer.id}`}
           initialValues={{
             displayName: currentCustomer.displayName,
             customerMemo: currentCustomer.customerMemo ?? '',

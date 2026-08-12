@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router';
 
+import type { AppInitialization } from '@/app/appInitialization';
 import { AppShell } from '@/components/layout/AppShell';
 import { PublicLayout } from '@/components/layout/PublicLayout';
 import {
@@ -26,7 +27,7 @@ import { FeaturesPage } from '@/pages/public/FeaturesPage';
 import { PublicHomePage } from '@/pages/public/PublicHomePage';
 import { PublicNotFoundPage } from '@/pages/public/PublicNotFoundPage';
 
-export function AppRouter() {
+export function AppRouter({ initialCustomers, initialEvents }: AppInitialization = {}) {
   return (
     <Routes>
       <Route path="/" element={<Navigate replace to={buildPublicHomePath(DEFAULT_LOCALE)} />} />
@@ -38,7 +39,10 @@ export function AppRouter() {
         />
         <Route path="*" element={<PublicNotFoundPage />} />
       </Route>
-      <Route path={APP_BASE} element={<AppShell />}>
+      <Route
+        path={APP_BASE}
+        element={<AppShell initialCustomers={initialCustomers} initialEvents={initialEvents} />}
+      >
         <Route index element={<SchedulePage />} />
         <Route
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.schedule)}

@@ -14,7 +14,7 @@ export function CustomerCreatePage() {
 
   function handleSubmit(values: CustomerFormValues) {
     const customer = customerStore.createCustomer(values);
-    if (!customer) return;
+    if (!customer) return false;
 
     navigate(buildAppCustomerDetailPath(customer.id), {
       state: {
@@ -22,6 +22,7 @@ export function CustomerCreatePage() {
         adaptiveCustomerId: customer.id,
       },
     });
+    return true;
   }
 
   return (
@@ -38,6 +39,7 @@ export function CustomerCreatePage() {
       <div className="flex-1 overflow-y-auto p-6">
         <CustomerForm
           mode="create"
+          draftKey="create"
           onSubmit={handleSubmit}
           onCancel={() => navigate(buildAppCustomersPath())}
         />

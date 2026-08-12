@@ -1,7 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/i18n/I18nContext';
+import {
+  useOptionalCustomerFormDraft,
+  type CustomerFormDraftKey,
+  type CustomerFormDraft,
+} from '@/state/CustomerFormDraftContext';
 
 export type CustomerFormMode = 'create' | 'edit';
 
@@ -13,36 +18,102 @@ export interface CustomerFormValues {
 interface CustomerFormProps {
   mode: CustomerFormMode;
   initialValues?: Partial<CustomerFormValues>;
-  onSubmit: (values: CustomerFormValues) => void;
+  draftKey?: CustomerFormDraftKey;
+  onSubmit: (values: CustomerFormValues) => boolean | void;
   onCancel: () => void;
 }
 
-export function CustomerForm({ mode, initialValues, onSubmit, onCancel }: CustomerFormProps) {
+function readInitialValues(
+  initialValues: Partial<CustomerFormValues> | undefined,
+  draft: CustomerFormDraft | undefined,
+): CustomerFormValues {
+  return {
+    displayName: draft?.displayName ?? initialValues?.displayName ?? '',
+    customerMemo: draft?.customerMemo ?? initialValues?.customerMemo ?? '',
+  };
+}
+
+export function CustomerForm({
+  mode,
+  initialValues,
+  draftKey,
+  onSubmit,
+  onCancel,
+}: CustomerFormProps) {
   const { t } = useTranslation();
-  const [displayName, setDisplayName] = useState(initialValues?.displayName ?? '');
-  const [customerMemo, setCustomerMemo] = useState(initialValues?.customerMemo ?? '');
+  const draftStore = useOptionalCustomerFormDraft();
+  const initialDraft = draftKey ? draftStore?.getDraft(draftKey) : undefined;
+  const initialFormValues = readInitialValues(initialValues, initialDraft);
+  const initialSignature = `${initialValues?.displayName ?? ''}\u0000${initialValues?.customerMemo ?? ''}`;
+  const [displayName, setDisplayName] = useState(initialFormValues.displayName);
+  const [customerMemo, setCustomerMemo] = useState(initialFormValues.customerMemo);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
+  const initializationRef = useRef({ draftKey, initialSignature });
   const isEdit = mode === 'edit';
+
+  useEffect(() => {
+    const previous = initializationRef.current;
+    if (previous.draftKey === draftKey && previous.initialSignature === initialSignature) return;
+
+    initializationRef.current = { draftKey, initialSignature };
+    const nextValues = readInitialValues(
+      initialValues,
+      draftKey ? draftStore?.getDraft(draftKey) : undefined,
+    );
+    setDisplayName(nextValues.displayName);
+    setCustomerMemo(nextValues.customerMemo);
+    setError(null);
+    setIsSubmitting(false);
+    submitLockRef.current = false;
+  }, [draftKey, draftStore, initialSignature, initialValues]);
+
+  function persistDraft(values: CustomerFormValues) {
+    if (draftStore && draftKey) draftStore.setDraft(draftKey, values);
+  }
+
+  function clearDraft() {
+    if (draftStore && draftKey) draftStore.clearDraft(draftKey);
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLockRef.current) return;
+
     const normalizedDisplayName = displayName.trim();
     if (!normalizedDisplayName) {
       setError(t('customers.form.displayNameRequired'));
       return;
     }
 
+    submitLockRef.current = true;
     setError(null);
-    onSubmit({
+    setIsSubmitting(true);
+    const result = onSubmit({
       displayName: normalizedDisplayName,
       customerMemo: customerMemo.trim(),
     });
+    if (result === false) {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+    clearDraft();
+  }
+
+  function cancel() {
+    if (submitLockRef.current) return;
+    clearDraft();
+    onCancel();
   }
 
   return (
     <form
       data-customer-form
       data-customer-form-mode={mode}
+      data-customer-form-key={draftKey}
+      aria-busy={isSubmitting}
       onSubmit={submit}
       className="border-border-default bg-surface rounded-lg border p-4"
     >
@@ -54,11 +125,14 @@ export function CustomerForm({ mode, initialValues, onSubmit, onCancel }: Custom
             name="displayName"
             data-customer-field="displayName"
             value={displayName}
-            onChange={(inputEvent) => setDisplayName(inputEvent.target.value)}
+            onChange={(inputEvent) => {
+              const nextDisplayName = inputEvent.target.value;
+              setDisplayName(nextDisplayName);
+              persistDraft({ displayName: nextDisplayName, customerMemo });
+            }}
             placeholder={t('customers.form.displayNamePlaceholder')}
             aria-invalid={error ? true : undefined}
             required
-            autoFocus
             className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </label>
@@ -70,7 +144,11 @@ export function CustomerForm({ mode, initialValues, onSubmit, onCancel }: Custom
             name="customerMemo"
             data-customer-field="customerMemo"
             value={customerMemo}
-            onChange={(inputEvent) => setCustomerMemo(inputEvent.target.value)}
+            onChange={(inputEvent) => {
+              const nextCustomerMemo = inputEvent.target.value;
+              setCustomerMemo(nextCustomerMemo);
+              persistDraft({ displayName, customerMemo: nextCustomerMemo });
+            }}
             rows={4}
             placeholder={t('customers.form.memoPlaceholder')}
             className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -85,10 +163,16 @@ export function CustomerForm({ mode, initialValues, onSubmit, onCancel }: Custom
       ) : null}
 
       <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button type="button" variant="ghost" onClick={onCancel} data-customer-form-cancel>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={cancel}
+          disabled={isSubmitting}
+          data-customer-form-cancel
+        >
           {t('customers.form.cancel')}
         </Button>
-        <Button type="submit" data-customer-form-submit>
+        <Button type="submit" disabled={isSubmitting} data-customer-form-submit>
           {isEdit ? t('customers.form.save') : t('customers.form.create')}
         </Button>
       </div>
