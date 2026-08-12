@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { SchedulePage } from '@/pages/SchedulePage';
+import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 
 const now = new Date('2026-08-11T12:00:00+09:00');
 const customers = [{ id: 'customer-1', displayName: '박세입' }];
@@ -35,21 +36,23 @@ function renderPage(props: React.ComponentProps<typeof SchedulePage> = {}) {
   return render(
     <MemoryRouter initialEntries={['/app/schedule']}>
       <I18nProvider locale="ko">
-        <Routes>
-          <Route
-            path="/app/schedule"
-            element={
-              <SchedulePage
-                {...props}
-                now={now}
-                customers={props.customers ?? customers}
-                events={props.events ?? events}
-              />
-            }
-          />
-          <Route path="/app/events/:eventId" element={<p>event detail route</p>} />
-          <Route path="/app/customers/:customerId" element={<p>customer detail route</p>} />
-        </Routes>
+        <CustomerStoreProvider>
+          <Routes>
+            <Route
+              path="/app/schedule"
+              element={
+                <SchedulePage
+                  {...props}
+                  now={now}
+                  customers={props.customers ?? customers}
+                  events={props.events ?? events}
+                />
+              }
+            />
+            <Route path="/app/events/:eventId" element={<p>event detail route</p>} />
+            <Route path="/app/customers/:customerId" element={<p>customer detail route</p>} />
+          </Routes>
+        </CustomerStoreProvider>
       </I18nProvider>
     </MemoryRouter>,
   );
@@ -133,7 +136,7 @@ describe('SchedulePage', () => {
   });
 
   it('separates empty and error states while keeping the navigation baseline', () => {
-    const { unmount } = renderPage({ events: [], customers: [] });
+    const { unmount } = renderPage({ events: [], customers });
     expect(screen.getByText('아직 일정이 없습니다')).toBeVisible();
     expect(screen.getByRole('link', { name: '고객 보기' })).toHaveAttribute(
       'href',
@@ -145,6 +148,17 @@ describe('SchedulePage', () => {
     renderPage({ loadState: 'error' });
     expect(screen.getByText('일정을 불러오지 못했습니다')).toBeVisible();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeVisible();
+    expect(screen.queryByText('아직 일정이 없습니다')).not.toBeInTheDocument();
+  });
+
+  it('routes Customer=0 to the first-customer flow instead of the event-empty contract', () => {
+    renderPage({ events: [], customers: [] });
+
+    expect(screen.getByText('먼저 고객을 추가해 주세요')).toBeVisible();
+    expect(screen.getByRole('link', { name: '첫 고객 추가' })).toHaveAttribute(
+      'href',
+      '/app/customers/new',
+    );
     expect(screen.queryByText('아직 일정이 없습니다')).not.toBeInTheDocument();
   });
 

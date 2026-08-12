@@ -13,6 +13,18 @@ export interface Customer {
   id: string;
   workspaceId: string;
   displayName: string;
+  /** Explicit user-written customer note; legacy context is not promoted here. */
+  customerMemo?: string;
+}
+
+/**
+ * Customer application state keeps legacy fixture-backed views beside the mutable Customer
+ * identity. New customers can omit those legacy snapshots until a later integration supplies them.
+ */
+export interface CustomerRecord extends Customer {
+  workspace: Workspace;
+  context?: CustomerContext;
+  interaction?: Interaction;
 }
 
 export interface CustomerContext {

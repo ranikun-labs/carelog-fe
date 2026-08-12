@@ -44,7 +44,7 @@ interface AdaptiveRootState {
   eventDetailScrollTop: number;
 }
 
-type RouteKind = 'schedule' | 'customers' | 'customer-detail' | 'event' | 'other';
+type RouteKind = 'schedule' | 'customers' | 'customer-detail' | 'customer-form' | 'event' | 'other';
 
 interface RouteInfo {
   kind: RouteKind;
@@ -58,6 +58,11 @@ type EventFocusTarget =
   | { eventId: string; kind: 'occurrence-time' }
   | { eventId: string; kind: 'occurrence-cancel' }
   | { eventId: string; kind: 'occurrence-confirm' };
+
+type CustomerFormFocusTarget = {
+  formKey: string;
+  field: 'displayName' | 'customerMemo';
+};
 
 const INITIAL_ROOT_STATE: AdaptiveRootState = {
   scheduleDateKey: null,
@@ -176,6 +181,32 @@ function findEventFocusTarget(host: HTMLElement, target: EventFocusTarget): HTML
   return eventSurface.querySelector<HTMLElement>(selector);
 }
 
+function readCustomerFormFocusTarget(host: HTMLElement | null): CustomerFormFocusTarget | null {
+  if (typeof document === 'undefined' || !host) return null;
+
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement) || !host.contains(activeElement)) return null;
+
+  const form = activeElement.closest<HTMLElement>('[data-customer-form]');
+  const formKey = form?.dataset.customerFormKey;
+  const field = activeElement.closest<HTMLElement>('[data-customer-field]')?.dataset.customerField;
+  if (!form || !formKey || (field !== 'displayName' && field !== 'customerMemo')) return null;
+
+  return { formKey, field };
+}
+
+function findCustomerFormFocusTarget(
+  host: HTMLElement,
+  target: CustomerFormFocusTarget,
+): HTMLElement | null {
+  const form = Array.from(
+    host.querySelectorAll<HTMLElement>('[data-customer-form][data-customer-form-key]'),
+  ).find((candidate) => candidate.dataset.customerFormKey === target.formKey);
+  if (!form) return null;
+
+  return form.querySelector<HTMLElement>(`[data-customer-field="${target.field}"]`);
+}
+
 function decodePathSegment(value: string | undefined): string | undefined {
   if (!value) return undefined;
   try {
@@ -192,6 +223,23 @@ function getRouteInfo(pathname: string, state: unknown): RouteInfo {
     return {
       kind: 'event',
       eventId: decodePathSegment(eventMatch.params.eventId),
+      navigationState,
+    };
+  }
+
+  const customerCreateMatch = matchPath(
+    { path: APP_ROUTE_PATHS.customerCreate, end: true },
+    pathname,
+  );
+  if (customerCreateMatch) {
+    return { kind: 'customer-form', navigationState };
+  }
+
+  const customerEditMatch = matchPath({ path: APP_ROUTE_PATHS.customerEdit, end: true }, pathname);
+  if (customerEditMatch) {
+    return {
+      kind: 'customer-form',
+      customerId: decodePathSegment(customerEditMatch.params.customerId),
       navigationState,
     };
   }
@@ -219,7 +267,13 @@ function getRouteInfo(pathname: string, state: unknown): RouteInfo {
 }
 
 function getActiveRoot(routeInfo: RouteInfo): AdaptiveRoot {
-  if (routeInfo.kind === 'customers' || routeInfo.kind === 'customer-detail') return 'customers';
+  if (
+    routeInfo.kind === 'customers' ||
+    routeInfo.kind === 'customer-detail' ||
+    routeInfo.kind === 'customer-form'
+  ) {
+    return 'customers';
+  }
   if (routeInfo.kind === 'event') return routeInfo.navigationState.adaptiveRoot ?? 'schedule';
   return 'schedule';
 }
@@ -227,14 +281,22 @@ function getActiveRoot(routeInfo: RouteInfo): AdaptiveRoot {
 function getTwoPaneRoot(routeInfo: RouteInfo, activeRoot: AdaptiveRoot): AdaptiveRoot | null {
   if (routeInfo.kind === 'schedule') return 'schedule';
   if (routeInfo.kind === 'event') return activeRoot;
-  if (routeInfo.kind === 'customers' || routeInfo.kind === 'customer-detail') {
+  if (
+    routeInfo.kind === 'customers' ||
+    routeInfo.kind === 'customer-detail' ||
+    routeInfo.kind === 'customer-form'
+  ) {
     return 'customers';
   }
   return null;
 }
 
 function isSelectedRoute(routeInfo: RouteInfo): boolean {
-  return routeInfo.kind === 'event' || routeInfo.kind === 'customer-detail';
+  return (
+    routeInfo.kind === 'event' ||
+    routeInfo.kind === 'customer-detail' ||
+    routeInfo.kind === 'customer-form'
+  );
 }
 
 export function AdaptiveHost() {
@@ -242,8 +304,10 @@ export function AdaptiveHost() {
   const location = useLocation();
   const navigate = useNavigate();
   const focusedEventTargetRef = useRef<EventFocusTarget | null>(null);
+  const focusedCustomerFormTargetRef = useRef<CustomerFormFocusTarget | null>(null);
   const captureFocusedEventTarget = useCallback(() => {
     focusedEventTargetRef.current = readEventFocusTarget(hostRef.current);
+    focusedCustomerFormTargetRef.current = readCustomerFormFocusTarget(hostRef.current);
   }, []);
   const metrics = useViewportMetrics(hostRef, captureFocusedEventTarget);
   const [rootState, setRootState] = useState<AdaptiveRootState>(INITIAL_ROOT_STATE);
@@ -262,7 +326,7 @@ export function AdaptiveHost() {
   const navigationState = routeInfo.navigationState;
   const routeEventId = routeInfo.kind === 'event' ? (routeInfo.eventId ?? null) : null;
   const routeCustomerId =
-    routeInfo.kind === 'customer-detail'
+    routeInfo.kind === 'customer-detail' || routeInfo.kind === 'customer-form'
       ? (routeInfo.customerId ?? null)
       : activeRoot === 'customers'
         ? (navigationState.adaptiveCustomerId ?? null)
@@ -448,8 +512,9 @@ export function AdaptiveHost() {
     if (previousMode === mode) return;
 
     const focusTarget = focusedEventTargetRef.current;
+    const customerFormFocusTarget = focusedCustomerFormTargetRef.current;
     focusedEventTargetRef.current = null;
-    if (!focusTarget || routeInfo.kind !== 'event' || routeEventId !== focusTarget.eventId) return;
+    focusedCustomerFormTargetRef.current = null;
 
     const activeElement = document.activeElement;
     if (
@@ -459,6 +524,15 @@ export function AdaptiveHost() {
     ) {
       return;
     }
+
+    if (customerFormFocusTarget && routeInfo.kind === 'customer-form') {
+      findCustomerFormFocusTarget(hostRef.current!, customerFormFocusTarget)?.focus({
+        preventScroll: true,
+      });
+      return;
+    }
+
+    if (!focusTarget || routeInfo.kind !== 'event' || routeEventId !== focusTarget.eventId) return;
 
     findEventFocusTarget(hostRef.current!, focusTarget)?.focus({ preventScroll: true });
   }, [mode, routeInfo.kind, routeEventId]);

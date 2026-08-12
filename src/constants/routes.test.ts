@@ -1,6 +1,8 @@
 import {
   APP_ROUTE_PATHS,
+  buildAppCustomerCreatePath,
   buildAppCustomerDetailPath,
+  buildAppCustomerEditPath,
   buildAppCustomerHandoffPath,
   buildAppCustomerImportPath,
   buildAppCustomersPath,
@@ -21,6 +23,8 @@ describe('route contract', () => {
     expect(buildAppHomePath()).toBe('/app');
     expect(buildAppSchedulePath()).toBe('/app/schedule');
     expect(buildAppCustomersPath()).toBe('/app/customers');
+    expect(buildAppCustomerCreatePath()).toBe('/app/customers/new');
+    expect(buildAppCustomerEditPath('c-1')).toBe('/app/customers/c-1/edit');
     expect(buildAppFollowUpsPath()).toBe('/app/follow-ups');
     expect(APP_ROUTE_PATHS.customerDetail).toBe('/app/customers/:customerId');
     expect(APP_ROUTE_PATHS.reviewDetail).toBe('/app/reviews/:reviewId');

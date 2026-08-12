@@ -14,7 +14,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: `node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port ${port}`,
+    command: `pnpm build:e2e && pnpm exec vite preview --host 127.0.0.1 --port ${port} --outDir dist-e2e`,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
   },

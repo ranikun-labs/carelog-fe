@@ -4,14 +4,17 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { landlordTenantScenario } from '@/fixtures/scenarios';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerDetailPage, type CustomerDetailPageProps } from '@/pages/CustomerDetailPage';
+import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 
 function renderAt(customerId: string, props: CustomerDetailPageProps = {}) {
   render(
     <MemoryRouter initialEntries={[`/app/customers/${customerId}`]}>
       <I18nProvider locale="ko">
-        <Routes>
-          <Route path="/app/customers/:customerId" element={<CustomerDetailPage {...props} />} />
-        </Routes>
+        <CustomerStoreProvider>
+          <Routes>
+            <Route path="/app/customers/:customerId" element={<CustomerDetailPage {...props} />} />
+          </Routes>
+        </CustomerStoreProvider>
       </I18nProvider>
     </MemoryRouter>,
   );

@@ -4,6 +4,15 @@ export const TEST_NOW = '2026-08-11T12:00:00+09:00';
 
 const TEST_NOW_MS = Date.parse(TEST_NOW);
 
+export async function useEmptyApplicationSeed(page: Page) {
+  await page.addInitScript(() => {
+    window.__CARELOG_TEST_INITIALIZATION__ = {
+      initialCustomers: [],
+      initialEvents: [],
+    };
+  });
+}
+
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.addInitScript(
