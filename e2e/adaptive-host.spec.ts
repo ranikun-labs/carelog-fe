@@ -61,7 +61,10 @@ test('adaptive host applies the width and orientation contract', async ({ page }
 test('customer event selection replaces the right surface without a third pane', async ({
   page,
 }) => {
-  test.skip(page.viewportSize()?.width !== 1180, 'composition check runs at the desktop target');
+  test.skip(
+    ![1180, 1440].includes(page.viewportSize()?.width ?? 0),
+    'composition check runs at the desktop targets',
+  );
 
   await page.goto('/app/customers');
   await page.getByRole('link', { name: /박세입/ }).click();

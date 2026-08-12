@@ -196,9 +196,14 @@ export function EventForm({ mode, customerName, event, now, onSubmit, onCancel }
         </p>
       ) : null}
 
-      <Button type="submit" className="mt-4 w-full" data-event-form-submit>
-        {isEdit ? t('eventForm.save') : t('eventForm.create')}
-      </Button>
+      <div
+        className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+        data-event-form-actions
+      >
+        <Button type="submit" className="w-full sm:w-auto" data-event-form-submit>
+          {isEdit ? t('eventForm.save') : t('eventForm.create')}
+        </Button>
+      </div>
     </form>
   );
 }

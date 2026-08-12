@@ -20,7 +20,7 @@ async function expectCustomerDetailShell(page: Page) {
     await expect(visibleSideNavigation).toHaveCount(1);
   }
 
-  const twoPane = viewport!.width === 1180 && viewport!.height < viewport!.width;
+  const twoPane = viewport!.width >= 1100 && viewport!.height < viewport!.width;
   await expect(page.locator('[data-scroll-surface]')).toHaveCount(twoPane ? 2 : 1);
   await expect(page.locator('main')).toHaveCount(1);
 

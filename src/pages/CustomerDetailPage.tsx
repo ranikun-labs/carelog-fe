@@ -6,7 +6,11 @@ import { CustomerMemo } from '@/components/customers/CustomerMemo';
 import { CustomerTimeline } from '@/components/customers/CustomerTimeline';
 import { CustomerUpcoming } from '@/components/customers/CustomerUpcoming';
 import { PageHeader } from '@/components/common/PageHeader';
-import { AdaptiveSurface, useOptionalAdaptiveHost } from '@/components/layout/adaptiveHostContext';
+import {
+  AdaptiveSurface,
+  AdaptiveSurfaceContent,
+  useOptionalAdaptiveHost,
+} from '@/components/layout/adaptiveHostContext';
 import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -122,38 +126,40 @@ export function CustomerDetailPage({
         data-root-scroll-surface="customers-detail"
         className="flex-1 overflow-y-auto p-6"
       >
-        <section data-customer-identity aria-label={t('customers.detail.title')}>
-          {currentCustomer.workspace.name ? (
-            <Badge tone="info">{currentCustomer.workspace.name}</Badge>
+        <AdaptiveSurfaceContent policy="readable">
+          <section data-customer-identity aria-label={t('customers.detail.title')}>
+            {currentCustomer.workspace.name ? (
+              <Badge tone="info">{currentCustomer.workspace.name}</Badge>
+            ) : null}
+            <CustomerContextSection context={currentCustomer.context} />
+          </section>
+
+          <div className="mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!createEvent}
+              data-add-event
+              onClick={() => setIsCreating(true)}
+            >
+              {t('customers.detail.addEvent')}
+            </Button>
+          </div>
+
+          {isCreating && createEvent ? (
+            <EventForm
+              mode="create"
+              customerName={currentCustomer.displayName}
+              now={now}
+              onSubmit={handleCreate}
+              onCancel={() => setIsCreating(false)}
+            />
           ) : null}
-          <CustomerContextSection context={currentCustomer.context} />
-        </section>
 
-        <div className="mt-6">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!createEvent}
-            data-add-event
-            onClick={() => setIsCreating(true)}
-          >
-            {t('customers.detail.addEvent')}
-          </Button>
-        </div>
-
-        {isCreating && createEvent ? (
-          <EventForm
-            mode="create"
-            customerName={currentCustomer.displayName}
-            now={now}
-            onSubmit={handleCreate}
-            onCancel={() => setIsCreating(false)}
-          />
-        ) : null}
-
-        <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
-        <CustomerMemo memo={explicitMemo} />
-        <CustomerTimeline events={customerEvents} onOpenEvent={openEvent} />
+          <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
+          <CustomerMemo memo={explicitMemo} />
+          <CustomerTimeline events={customerEvents} onOpenEvent={openEvent} />
+        </AdaptiveSurfaceContent>
       </div>
     </AdaptiveSurface>
   );

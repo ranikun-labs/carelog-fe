@@ -1,7 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
-import { AdaptiveSurface, useOptionalAdaptiveHost } from '@/components/layout/adaptiveHostContext';
+import {
+  AdaptiveSurface,
+  AdaptiveSurfaceContent,
+  useOptionalAdaptiveHost,
+} from '@/components/layout/adaptiveHostContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EventDetail } from '@/components/schedule/EventDetail';
 import { getAgendaDateKey, getEventTitle } from '@/components/schedule/agendaModel';
@@ -139,20 +143,24 @@ export function EventDetailPage({
         data-root-scroll-surface="event-detail"
         className="flex-1 overflow-y-auto p-4 md:p-6"
       >
-        <EventDetail
-          event={currentEvent}
-          customerName={currentCustomer.displayName}
-          customerPath={buildAppCustomerDetailPath(currentCustomer.id)}
-          now={now}
-          onOpenCustomer={
-            adaptiveHost ? () => adaptiveHost.openCustomerFromEvent(currentCustomer.id) : undefined
-          }
-          onEdit={editEvent && currentEvent.status !== 'CANCELLED' ? handleEdit : undefined}
-          onCancelEvent={
-            cancelEvent && currentEvent.status === 'PLANNED' ? handleCancel : undefined
-          }
-          onOccurEvent={occurEvent && currentEvent.status === 'PLANNED' ? handleOccur : undefined}
-        />
+        <AdaptiveSurfaceContent policy="readable">
+          <EventDetail
+            event={currentEvent}
+            customerName={currentCustomer.displayName}
+            customerPath={buildAppCustomerDetailPath(currentCustomer.id)}
+            now={now}
+            onOpenCustomer={
+              adaptiveHost
+                ? () => adaptiveHost.openCustomerFromEvent(currentCustomer.id)
+                : undefined
+            }
+            onEdit={editEvent && currentEvent.status !== 'CANCELLED' ? handleEdit : undefined}
+            onCancelEvent={
+              cancelEvent && currentEvent.status === 'PLANNED' ? handleCancel : undefined
+            }
+            onOccurEvent={occurEvent && currentEvent.status === 'PLANNED' ? handleOccur : undefined}
+          />
+        </AdaptiveSurfaceContent>
       </div>
     </AdaptiveSurface>
   );
