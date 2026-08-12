@@ -1,5 +1,6 @@
 import type {
   Customer,
+  CustomerRecord,
   CustomerContext,
   FollowUp,
   Interaction,
@@ -122,3 +123,13 @@ export const SCENARIO_FIXTURES: readonly ScenarioFixture[] = [
   landlordTenantScenario,
   therapistPatientScenario,
 ];
+
+/** The fixture adapter's application-facing Customer seed. */
+export const CUSTOMER_FIXTURE_RECORDS: readonly CustomerRecord[] = SCENARIO_FIXTURES.map(
+  ({ customer, workspace, context, interaction }) => ({
+    ...customer,
+    workspace,
+    context,
+    interaction,
+  }),
+);

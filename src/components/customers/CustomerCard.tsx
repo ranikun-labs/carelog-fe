@@ -3,21 +3,20 @@ import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { buildAppCustomerDetailPath } from '@/constants/routes';
-import type { ScenarioFixture } from '@/fixtures/scenarios';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn, formatDate } from '@/lib/utils';
+import type { CustomerRecord } from '@/types/customer';
 
 interface CustomerCardProps {
-  scenario: ScenarioFixture;
+  customer: CustomerRecord;
   isSelected?: boolean;
   onSelect?: () => void;
 }
 
-export function CustomerCard({ scenario, isSelected = false, onSelect }: CustomerCardProps) {
+export function CustomerCard({ customer, isSelected = false, onSelect }: CustomerCardProps) {
   const { t } = useTranslation();
-  const { customer, workspace, context, interaction } = scenario;
   return (
-    <Card>
+    <Card data-customer-card data-customer-id={customer.id}>
       <CardContent className="p-0">
         <Link
           className={cn(
@@ -34,13 +33,19 @@ export function CustomerCard({ scenario, isSelected = false, onSelect }: Custome
         >
           <div className="flex items-center gap-2">
             <span className="font-medium">{customer.displayName}</span>
-            <Badge tone="info">{workspace.name}</Badge>
+            {customer.workspace.name ? <Badge tone="info">{customer.workspace.name}</Badge> : null}
           </div>
-          <p className="text-text-secondary text-sm">
-            {t('customers.recentContact')}:{' '}
-            <time dateTime={interaction.occurredAt}>{formatDate(interaction.occurredAt)}</time>
-          </p>
-          <p className="text-text-secondary line-clamp-1 text-sm">{context.summary}</p>
+          {customer.interaction ? (
+            <p className="text-text-secondary text-sm">
+              {t('customers.recentContact')}:{' '}
+              <time dateTime={customer.interaction.occurredAt}>
+                {formatDate(customer.interaction.occurredAt)}
+              </time>
+            </p>
+          ) : null}
+          {customer.context?.summary ? (
+            <p className="text-text-secondary line-clamp-1 text-sm">{customer.context.summary}</p>
+          ) : null}
         </Link>
       </CardContent>
     </Card>

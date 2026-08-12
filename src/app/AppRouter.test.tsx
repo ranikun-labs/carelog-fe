@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
 import { AppRouter } from '@/app/AppRouter';
@@ -125,5 +125,85 @@ describe('application router', () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: '후속 업무' })).toBeVisible();
+  });
+
+  it('supports first-use create, detail resolution, and edit propagation from one Customer state', async () => {
+    render(
+      <MemoryRouter initialEntries={['/app/customers?customerSeed=empty']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('아직 고객이 없습니다')).toBeVisible();
+    fireEvent.click(screen.getByRole('link', { name: '첫 고객 추가' }));
+    expect(screen.getByRole('heading', { name: '첫 고객 추가' })).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('고객 이름'), {
+      target: { value: '첫 번째 고객' },
+    });
+    fireEvent.change(screen.getByLabelText('고객 메모'), {
+      target: { value: '직접 작성한 메모' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '고객 추가' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: '첫 번째 고객' })).toBeVisible(),
+    );
+    expect(screen.getByTestId('customer-memo-copy')).toHaveTextContent('직접 작성한 메모');
+    expect(
+      screen.queryByRole('heading', { name: '페이지를 찾을 수 없습니다' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '일정 추가' })).toBeEnabled();
+
+    const detail = screen.getByTestId('customer-memo-copy').closest('[data-customer-detail-page]');
+    const customerId = detail?.getAttribute('data-selected-customer-id');
+    expect(customerId).toMatch(/^customer-/);
+
+    fireEvent.click(screen.getByRole('link', { name: '고객 정보 수정' }));
+    expect(screen.getByRole('heading', { name: '고객 정보 수정' })).toBeVisible();
+    fireEvent.change(screen.getByLabelText('고객 이름'), {
+      target: { value: '수정된 첫 고객' },
+    });
+    fireEvent.change(screen.getByLabelText('고객 메모'), {
+      target: { value: '수정된 메모' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: '수정된 첫 고객' })).toBeVisible(),
+    );
+    expect(
+      screen
+        .getByTestId('customer-memo-copy')
+        .closest('[data-customer-detail-page]')
+        ?.getAttribute('data-selected-customer-id'),
+    ).toBe(customerId);
+
+    fireEvent.click(screen.getByRole('button', { name: '고객 목록으로 돌아가기' }));
+    expect(screen.getByText('수정된 첫 고객')).toBeVisible();
+    expect(screen.queryByText('첫 번째 고객')).not.toBeInTheDocument();
+  });
+
+  it('routes Schedule Customer=0 to first-customer create without changing Event empty behavior', () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/app/schedule?customerSeed=empty']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('먼저 고객을 추가해 주세요')).toBeVisible();
+    expect(screen.getByRole('link', { name: '첫 고객 추가' })).toHaveAttribute(
+      'href',
+      '/app/customers/new',
+    );
+    unmount();
+
+    render(
+      <MemoryRouter initialEntries={['/app/schedule']}>
+        <AppRouter />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: '일정' })).toBeVisible();
+    expect(screen.queryByText('먼저 고객을 추가해 주세요')).not.toBeInTheDocument();
   });
 });

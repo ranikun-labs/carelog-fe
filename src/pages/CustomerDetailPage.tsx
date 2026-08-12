@@ -1,8 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { CustomerContextSection } from '@/components/customers/CustomerContextSection';
 import { CustomerMemo } from '@/components/customers/CustomerMemo';
 import { CustomerTimeline } from '@/components/customers/CustomerTimeline';
@@ -10,12 +8,14 @@ import { CustomerUpcoming } from '@/components/customers/CustomerUpcoming';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AdaptiveSurface, useOptionalAdaptiveHost } from '@/components/layout/adaptiveHostContext';
 import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
-import { buildAppCustomersPath } from '@/constants/routes';
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { buildAppCustomerEditPath, buildAppCustomersPath } from '@/constants/routes';
 import type { CustomerEvent } from '@/domain/customerEvent';
-import { SCENARIO_FIXTURES } from '@/fixtures/scenarios';
 import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
 import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
+import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 import type { EventCreationInput } from '@/state/eventStore';
 
@@ -37,10 +37,11 @@ export function CustomerDetailPage({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const adaptiveHost = useOptionalAdaptiveHost();
+  const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
   const [isCreating, setIsCreating] = useState(false);
   const scrollSurfaceRef = useRef<HTMLDivElement>(null);
-  const scenario = SCENARIO_FIXTURES.find((entry) => entry.customer.id === customerId);
+  const customer = customerStore.getCustomer(customerId);
 
   useLayoutEffect(() => {
     const scrollSurface = scrollSurfaceRef.current;
@@ -58,16 +59,16 @@ export function CustomerDetailPage({
     return () => scrollSurface.removeEventListener('scroll', updateScrollPosition);
   }, [adaptiveHost]);
 
-  if (!scenario) return <AppNotFoundPage />;
-
-  const customer = scenario;
+  if (!customer) return <AppNotFoundPage />;
+  const currentCustomer = customer;
   const sourceEvents =
     eventStore && events === SCHEDULE_FIXTURE.events ? eventStore.events : events;
-  const customerEvents = sourceEvents.filter((event) => event.customerId === customer.customer.id);
+  const customerEvents = sourceEvents.filter((event) => event.customerId === currentCustomer.id);
   const createEvent = onCreateEvent ?? (eventStore ? eventStore.createEvent : undefined);
+  const explicitMemo = memo ?? currentCustomer.customerMemo;
 
   const openEvent = adaptiveHost
-    ? (event: CustomerEvent) => adaptiveHost.selectCustomerEvent(customer.customer.id, event.id)
+    ? (event: CustomerEvent) => adaptiveHost.selectCustomerEvent(currentCustomer.id, event.id)
     : undefined;
 
   function handleCreate(values: EventFormSubmitValues) {
@@ -77,14 +78,14 @@ export function CustomerDetailPage({
       values.status === 'PLANNED'
         ? {
             status: 'PLANNED',
-            customerId: customer.customer.id,
+            customerId: currentCustomer.id,
             scheduledAt: values.scheduledAt ?? '',
             ...(values.descriptor ? { descriptor: values.descriptor } : {}),
             ...(values.note ? { note: values.note } : {}),
           }
         : {
             status: 'OCCURRED',
-            customerId: customer.customer.id,
+            customerId: currentCustomer.id,
             occurredAt: values.occurredAt ?? '',
             ...(values.descriptor ? { descriptor: values.descriptor } : {}),
             ...(values.note ? { note: values.note } : {}),
@@ -98,13 +99,22 @@ export function CustomerDetailPage({
     <AdaptiveSurface
       majorSurface="customer-detail"
       data-customer-detail-page
-      data-selected-customer-id={customer.customer.id}
+      data-selected-customer-id={currentCustomer.id}
       className="flex h-full flex-col"
     >
       <PageHeader
-        title={customer.customer.displayName}
+        title={currentCustomer.displayName}
         backLabel={t('customers.back')}
         onBack={() => navigate(buildAppCustomersPath())}
+        trailing={
+          <Link
+            to={buildAppCustomerEditPath(currentCustomer.id)}
+            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+            data-edit-customer
+          >
+            {t('customers.detail.edit')}
+          </Link>
+        }
       />
       <div
         ref={scrollSurfaceRef}
@@ -113,8 +123,10 @@ export function CustomerDetailPage({
         className="flex-1 overflow-y-auto p-6"
       >
         <section data-customer-identity aria-label={t('customers.detail.title')}>
-          <Badge tone="info">{customer.workspace.name}</Badge>
-          <CustomerContextSection context={customer.context} />
+          {currentCustomer.workspace.name ? (
+            <Badge tone="info">{currentCustomer.workspace.name}</Badge>
+          ) : null}
+          <CustomerContextSection context={currentCustomer.context} />
         </section>
 
         <div className="mt-6">
@@ -132,7 +144,7 @@ export function CustomerDetailPage({
         {isCreating && createEvent ? (
           <EventForm
             mode="create"
-            customerName={customer.customer.displayName}
+            customerName={currentCustomer.displayName}
             now={now}
             onSubmit={handleCreate}
             onCancel={() => setIsCreating(false)}
@@ -140,7 +152,7 @@ export function CustomerDetailPage({
         ) : null}
 
         <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
-        <CustomerMemo memo={memo} />
+        <CustomerMemo memo={explicitMemo} />
         <CustomerTimeline events={customerEvents} onOpenEvent={openEvent} />
       </div>
     </AdaptiveSurface>

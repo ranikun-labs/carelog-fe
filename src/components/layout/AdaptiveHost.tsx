@@ -44,7 +44,7 @@ interface AdaptiveRootState {
   eventDetailScrollTop: number;
 }
 
-type RouteKind = 'schedule' | 'customers' | 'customer-detail' | 'event' | 'other';
+type RouteKind = 'schedule' | 'customers' | 'customer-detail' | 'customer-form' | 'event' | 'other';
 
 interface RouteInfo {
   kind: RouteKind;
@@ -196,6 +196,23 @@ function getRouteInfo(pathname: string, state: unknown): RouteInfo {
     };
   }
 
+  const customerCreateMatch = matchPath(
+    { path: APP_ROUTE_PATHS.customerCreate, end: true },
+    pathname,
+  );
+  if (customerCreateMatch) {
+    return { kind: 'customer-form', navigationState };
+  }
+
+  const customerEditMatch = matchPath({ path: APP_ROUTE_PATHS.customerEdit, end: true }, pathname);
+  if (customerEditMatch) {
+    return {
+      kind: 'customer-form',
+      customerId: decodePathSegment(customerEditMatch.params.customerId),
+      navigationState,
+    };
+  }
+
   const customerDetailMatch = matchPath(
     { path: APP_ROUTE_PATHS.customerDetail, end: true },
     pathname,
@@ -219,7 +236,13 @@ function getRouteInfo(pathname: string, state: unknown): RouteInfo {
 }
 
 function getActiveRoot(routeInfo: RouteInfo): AdaptiveRoot {
-  if (routeInfo.kind === 'customers' || routeInfo.kind === 'customer-detail') return 'customers';
+  if (
+    routeInfo.kind === 'customers' ||
+    routeInfo.kind === 'customer-detail' ||
+    routeInfo.kind === 'customer-form'
+  ) {
+    return 'customers';
+  }
   if (routeInfo.kind === 'event') return routeInfo.navigationState.adaptiveRoot ?? 'schedule';
   return 'schedule';
 }
@@ -227,14 +250,22 @@ function getActiveRoot(routeInfo: RouteInfo): AdaptiveRoot {
 function getTwoPaneRoot(routeInfo: RouteInfo, activeRoot: AdaptiveRoot): AdaptiveRoot | null {
   if (routeInfo.kind === 'schedule') return 'schedule';
   if (routeInfo.kind === 'event') return activeRoot;
-  if (routeInfo.kind === 'customers' || routeInfo.kind === 'customer-detail') {
+  if (
+    routeInfo.kind === 'customers' ||
+    routeInfo.kind === 'customer-detail' ||
+    routeInfo.kind === 'customer-form'
+  ) {
     return 'customers';
   }
   return null;
 }
 
 function isSelectedRoute(routeInfo: RouteInfo): boolean {
-  return routeInfo.kind === 'event' || routeInfo.kind === 'customer-detail';
+  return (
+    routeInfo.kind === 'event' ||
+    routeInfo.kind === 'customer-detail' ||
+    routeInfo.kind === 'customer-form'
+  );
 }
 
 export function AdaptiveHost() {
@@ -262,7 +293,7 @@ export function AdaptiveHost() {
   const navigationState = routeInfo.navigationState;
   const routeEventId = routeInfo.kind === 'event' ? (routeInfo.eventId ?? null) : null;
   const routeCustomerId =
-    routeInfo.kind === 'customer-detail'
+    routeInfo.kind === 'customer-detail' || routeInfo.kind === 'customer-form'
       ? (routeInfo.customerId ?? null)
       : activeRoot === 'customers'
         ? (navigationState.adaptiveCustomerId ?? null)

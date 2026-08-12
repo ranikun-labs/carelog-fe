@@ -11,7 +11,9 @@ import {
   toRelativeUnder,
 } from '@/constants/routes';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
+import { CustomerCreatePage } from '@/pages/CustomerCreatePage';
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
+import { CustomerEditPage } from '@/pages/CustomerEditPage';
 import { CustomerHandoffPage } from '@/pages/CustomerHandoffPage';
 import { CustomerImportPage } from '@/pages/CustomerImportPage';
 import { CustomersPage } from '@/pages/CustomersPage';
@@ -45,6 +47,14 @@ export function AppRouter() {
         <Route
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customers)}
           element={<CustomersPage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerCreate)}
+          element={<CustomerCreatePage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerEdit)}
+          element={<CustomerEditPage />}
         />
         <Route
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.customerDetail)}

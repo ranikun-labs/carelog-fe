@@ -32,17 +32,34 @@ export interface Messages {
   customers: {
     title: string;
     description: string;
+    add: string;
+    emptyTitle: string;
+    emptyDescription: string;
+    firstCustomerAction: string;
     back: string;
     recentContact: string;
     detail: {
       title: string;
       contextTitle: string;
       contextUpdatedAt: string;
+      edit: string;
       addEvent: string;
       upcomingTitle: string;
       noUpcoming: string;
       additionalUpcoming: string;
       memoTitle: string;
+    };
+    form: {
+      createTitle: string;
+      editTitle: string;
+      displayName: string;
+      displayNamePlaceholder: string;
+      memo: string;
+      memoPlaceholder: string;
+      displayNameRequired: string;
+      cancel: string;
+      create: string;
+      save: string;
     };
     import: { title: string };
     handoff: { title: string };
@@ -68,6 +85,9 @@ export interface Messages {
     emptyTitle: string;
     emptyDescription: string;
     emptyCustomersAction: string;
+    emptyCustomersTitle: string;
+    emptyCustomersDescription: string;
+    emptyCustomersFirstAction: string;
     loadingLabel: string;
     errorTitle: string;
     errorDescription: string;

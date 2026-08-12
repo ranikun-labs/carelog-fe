@@ -3,11 +3,13 @@ import { useTranslation } from '@/i18n/I18nContext';
 import { formatDate } from '@/lib/utils';
 
 interface CustomerContextSectionProps {
-  context: CustomerContext;
+  context?: CustomerContext;
 }
 
 export function CustomerContextSection({ context }: CustomerContextSectionProps) {
   const { t } = useTranslation();
+  if (!context) return null;
+
   return (
     <section className="mt-6">
       <h2 className="text-lg font-semibold">{t('customers.detail.contextTitle')}</h2>

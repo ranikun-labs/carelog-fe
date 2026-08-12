@@ -11,6 +11,7 @@ import type { CustomerEvent, CustomerEventEdit } from '@/domain/customerEvent';
 import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
 import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
+import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 
 export interface EventDetailPageProps {
@@ -24,7 +25,7 @@ export interface EventDetailPageProps {
 
 export function EventDetailPage({
   events = SCHEDULE_FIXTURE.events,
-  customers = SCHEDULE_FIXTURE.customers,
+  customers,
   now = new Date(),
   onEditEvent,
   onCancelEvent,
@@ -34,13 +35,16 @@ export function EventDetailPage({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const adaptiveHost = useOptionalAdaptiveHost();
+  const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
   const scrollSurfaceRef = useRef<HTMLDivElement>(null);
   const sourceEvents =
     eventStore && events === SCHEDULE_FIXTURE.events ? eventStore.events : events;
+  const sourceCustomers =
+    customers ?? customerStore.customers.map(({ id, displayName }) => ({ id, displayName }));
   const event = sourceEvents.find((candidate) => candidate.id === eventId);
   const customer = event
-    ? customers.find((candidate) => candidate.id === event.customerId)
+    ? sourceCustomers.find((candidate) => candidate.id === event.customerId)
     : undefined;
 
   useLayoutEffect(() => {

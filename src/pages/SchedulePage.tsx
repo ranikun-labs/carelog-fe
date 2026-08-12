@@ -15,11 +15,16 @@ import {
 import { OverdueCue } from '@/components/schedule/OverdueCue';
 import { WeekStrip } from '@/components/schedule/WeekStrip';
 import { buttonVariants } from '@/components/ui/button';
-import { buildAppCustomersPath, buildAppEventDetailPath } from '@/constants/routes';
+import {
+  buildAppCustomerCreatePath,
+  buildAppCustomersPath,
+  buildAppEventDetailPath,
+} from '@/constants/routes';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
+import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 
 export type ScheduleLoadState = 'ready' | 'loading' | 'error';
@@ -48,7 +53,7 @@ function readScheduleNavigationState(value: unknown): ScheduleNavigationState | 
 
 export function SchedulePage({
   events,
-  customers = SCHEDULE_FIXTURE.customers,
+  customers,
   now = new Date(),
   loadState = 'ready',
   onRetry,
@@ -57,7 +62,11 @@ export function SchedulePage({
   const navigate = useNavigate();
   const location = useLocation();
   const adaptiveHost = useOptionalAdaptiveHost();
+  const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
+  const scheduleCustomers: readonly ScheduleCustomer[] =
+    customers ?? customerStore.customers.map(({ id, displayName }) => ({ id, displayName }));
+  const hasNoCustomers = scheduleCustomers.length === 0;
   const sourceEvents =
     eventStore && (events === undefined || events === SCHEDULE_FIXTURE.events)
       ? eventStore.events
@@ -275,6 +284,21 @@ export function SchedulePage({
             </button>
           }
         />
+      ) : hasNoCustomers ? (
+        <EmptyState
+          title={t('schedule.emptyCustomersTitle')}
+          description={t('schedule.emptyCustomersDescription')}
+          action={
+            <Link
+              to={buildAppCustomerCreatePath()}
+              className={cn(buttonVariants({ variant: 'secondary' }), 'mt-2')}
+              aria-label={t('schedule.emptyCustomersFirstAction')}
+              data-schedule-first-customer-cta
+            >
+              {t('schedule.emptyCustomersFirstAction')}
+            </Link>
+          }
+        />
       ) : sourceEvents.length === 0 ? (
         <EmptyState
           title={t('schedule.emptyTitle')}
@@ -310,7 +334,7 @@ export function SchedulePage({
               <DateSection
                 key={section.dateKey}
                 section={section}
-                customers={customers}
+                customers={scheduleCustomers}
                 now={now}
                 onOpen={openEvent}
                 highlightedEventId={highlightedEventId}
