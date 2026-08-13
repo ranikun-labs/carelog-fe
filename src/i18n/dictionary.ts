@@ -134,6 +134,7 @@ export interface Messages {
     overdueBadge: string;
     overdueMeta: string;
     todayReturn: string;
+    addEvent: string;
     emptyTitle: string;
     emptyDescription: string;
     emptyCustomersAction: string;
@@ -154,6 +155,14 @@ export interface Messages {
       occurred: string;
       cancelled: string;
     };
+  };
+  eventCreate: {
+    back: string;
+    customerTitle: string;
+    customerDescription: string;
+    firstCustomerTitle: string;
+    firstCustomerDescription: string;
+    firstCustomerAction: string;
   };
   eventDetail: {
     back: string;

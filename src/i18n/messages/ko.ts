@@ -149,6 +149,7 @@ export const ko: Messages = {
     overdueBadge: '정리 필요',
     overdueMeta: '예정 시각 지남',
     todayReturn: '오늘로 돌아가기',
+    addEvent: '+ 일정',
     emptyTitle: '아직 일정이 없습니다',
     emptyDescription: '고객에서 일정을 추가할 수 있습니다',
     emptyCustomersAction: '고객 보기',
@@ -169,6 +170,14 @@ export const ko: Messages = {
       occurred: '기록됨',
       cancelled: '취소됨',
     },
+  },
+  eventCreate: {
+    back: '일정으로 돌아가기',
+    customerTitle: '대상 고객 선택',
+    customerDescription: '일정을 추가할 고객을 선택해 주세요.',
+    firstCustomerTitle: '먼저 고객을 추가해 주세요',
+    firstCustomerDescription: '첫 고객을 추가하면 일정을 시작할 수 있습니다.',
+    firstCustomerAction: '첫 고객 추가',
   },
   eventDetail: {
     back: '일정으로 돌아가기',

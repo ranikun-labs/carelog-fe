@@ -18,6 +18,7 @@ export interface AdaptiveNavigationState {
   adaptiveEventId?: string;
   targetEventId?: string;
   targetDateKey?: string;
+  targetScrollTop?: number;
 }
 
 export interface AdaptiveHostContextValue {
@@ -138,5 +139,8 @@ export function readAdaptiveNavigationState(value: unknown): AdaptiveNavigationS
       : {}),
     ...(typeof state.targetEventId === 'string' ? { targetEventId: state.targetEventId } : {}),
     ...(typeof state.targetDateKey === 'string' ? { targetDateKey: state.targetDateKey } : {}),
+    ...(typeof state.targetScrollTop === 'number' && Number.isFinite(state.targetScrollTop)
+      ? { targetScrollTop: Math.max(0, state.targetScrollTop) }
+      : {}),
   };
 }

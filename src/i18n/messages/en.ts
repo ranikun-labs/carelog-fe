@@ -149,6 +149,7 @@ export const en: Messages = {
     overdueBadge: 'Needs attention',
     overdueMeta: 'Past scheduled time',
     todayReturn: 'Return to today',
+    addEvent: '+ Event',
     emptyTitle: 'No events yet',
     emptyDescription: 'Events can be added from a customer.',
     emptyCustomersAction: 'View customers',
@@ -169,6 +170,14 @@ export const en: Messages = {
       occurred: 'Recorded',
       cancelled: 'Cancelled',
     },
+  },
+  eventCreate: {
+    back: 'Back to schedule',
+    customerTitle: 'Choose a customer',
+    customerDescription: 'Choose the customer for this event.',
+    firstCustomerTitle: 'Add a customer first',
+    firstCustomerDescription: 'Add your first customer to start planning events.',
+    firstCustomerAction: 'Add first customer',
   },
   eventDetail: {
     back: 'Back to schedule',

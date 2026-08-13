@@ -37,6 +37,7 @@ import { FollowUpsPage } from '@/pages/FollowUpsPage';
 import { ReviewDetailPage } from '@/pages/ReviewDetailPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { EventDetailPage } from '@/pages/EventDetailPage';
+import { EventCreatePage } from '@/pages/EventCreatePage';
 import { SchedulePage } from '@/pages/SchedulePage';
 import { FeaturesPage } from '@/pages/public/FeaturesPage';
 import { PublicHomePage } from '@/pages/public/PublicHomePage';
@@ -148,6 +149,10 @@ function AppRoutes() {
         <Route
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.settings)}
           element={<SettingsPage />}
+        />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.eventCreate)}
+          element={<EventCreatePage />}
         />
         <Route
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.eventDetail)}

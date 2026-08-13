@@ -1,10 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
+import type { EventFormDraft } from '@/state/EventCreateDraftContext';
 
 export type EventFormMode = 'create' | 'edit';
 
@@ -16,37 +17,69 @@ export interface EventFormSubmitValues {
   occurredAt?: string;
 }
 
+export interface EventFormInitialValues {
+  descriptor?: string;
+  note?: string;
+  scheduledAt?: string;
+  occurredAt?: string;
+}
+
 interface EventFormProps {
   mode: EventFormMode;
   customerName: string;
   event?: CustomerEvent;
   now: Date;
+  initialValues?: EventFormInitialValues;
+  fixedCreateStatus?: 'PLANNED';
+  onDraftChange?: (draft: EventFormDraft) => void;
   onSubmit: (values: EventFormSubmitValues) => void;
   onCancel: () => void;
 }
 
-export function EventForm({ mode, customerName, event, now, onSubmit, onCancel }: EventFormProps) {
+export function EventForm({
+  mode,
+  customerName,
+  event,
+  now,
+  initialValues,
+  fixedCreateStatus,
+  onDraftChange,
+  onSubmit,
+  onCancel,
+}: EventFormProps) {
   const { t } = useTranslation();
-  const initialStatus = event?.status === 'OCCURRED' ? 'OCCURRED' : 'PLANNED';
+  const initialStatus =
+    event?.status === 'OCCURRED' ? 'OCCURRED' : (fixedCreateStatus ?? 'PLANNED');
   const [status, setStatus] = useState<'PLANNED' | 'OCCURRED'>(initialStatus);
-  const [descriptor, setDescriptor] = useState(event?.descriptor ?? '');
-  const [note, setNote] = useState(event?.note ?? '');
+  const [descriptor, setDescriptor] = useState(
+    event?.descriptor ?? initialValues?.descriptor ?? '',
+  );
+  const [note, setNote] = useState(event?.note ?? initialValues?.note ?? '');
   const [scheduledAt, setScheduledAt] = useState(
     event?.status === 'PLANNED'
       ? toDateTimeLocalValue(event.scheduledAt)
-      : toDateTimeLocalValue(event?.scheduledAt ?? '') || toDateTimeLocalValue(now.toISOString()),
+      : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
+          toDateTimeLocalValue(now.toISOString()),
   );
   const [occurredAt, setOccurredAt] = useState(
     event?.status === 'OCCURRED'
       ? toDateTimeLocalValue(event.occurredAt)
-      : toDateTimeLocalValue(now.toISOString()),
+      : toDateTimeLocalValue(initialValues?.occurredAt ?? now.toISOString()),
   );
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
   const isEdit = mode === 'edit';
   const isOccurredEdit = event?.status === 'OCCURRED';
+  const isFixedCreateStatus = !isEdit && fixedCreateStatus !== undefined;
+
+  useEffect(() => {
+    onDraftChange?.({ descriptor, note, scheduledAt });
+  }, [descriptor, note, onDraftChange, scheduledAt]);
 
   function submit(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
+    if (submitLockRef.current) return;
     const time = status === 'PLANNED' ? scheduledAt : occurredAt;
     if (!time) {
       setError(
@@ -56,6 +89,8 @@ export function EventForm({ mode, customerName, event, now, onSubmit, onCancel }
     }
 
     setError(null);
+    submitLockRef.current = true;
+    setIsSubmitting(true);
     onSubmit({
       status,
       descriptor: descriptor.trim(),
@@ -70,6 +105,7 @@ export function EventForm({ mode, customerName, event, now, onSubmit, onCancel }
     <form
       data-event-form
       data-event-form-mode={mode}
+      aria-busy={isSubmitting}
       onSubmit={submit}
       className="border-border-default bg-surface mt-4 rounded-lg border p-4"
     >
@@ -82,12 +118,19 @@ export function EventForm({ mode, customerName, event, now, onSubmit, onCancel }
             {t('eventForm.customer', { customer: customerName })}
           </p>
         </div>
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          data-event-form-cancel
+        >
           {t('eventForm.cancel')}
         </Button>
       </div>
 
-      {!isEdit ? (
+      {!isEdit && !isFixedCreateStatus ? (
         <fieldset className="mt-4">
           <legend className="text-text-primary text-sm font-semibold">
             {t('eventForm.kindLabel')}
@@ -200,7 +243,12 @@ export function EventForm({ mode, customerName, event, now, onSubmit, onCancel }
         className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
         data-event-form-actions
       >
-        <Button type="submit" className="w-full sm:w-auto" data-event-form-submit>
+        <Button
+          type="submit"
+          className="w-full sm:w-auto"
+          data-event-form-submit
+          disabled={isSubmitting}
+        >
           {isEdit ? t('eventForm.save') : t('eventForm.create')}
         </Button>
       </div>
