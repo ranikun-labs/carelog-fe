@@ -18,10 +18,11 @@ import {
 } from '@/components/schedule/agendaModel';
 import { OverdueCue } from '@/components/schedule/OverdueCue';
 import { WeekStrip } from '@/components/schedule/WeekStrip';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   buildAppCustomerCreatePath,
   buildAppCustomersPath,
+  buildAppEventCreatePath,
   buildAppEventDetailPath,
 } from '@/constants/routes';
 import type { CustomerEvent } from '@/domain/customerEvent';
@@ -44,6 +45,7 @@ export interface SchedulePageProps {
 interface ScheduleNavigationState {
   targetEventId?: string;
   targetDateKey?: string;
+  targetScrollTop?: number;
 }
 
 function readScheduleNavigationState(value: unknown): ScheduleNavigationState | undefined {
@@ -52,6 +54,9 @@ function readScheduleNavigationState(value: unknown): ScheduleNavigationState | 
   return {
     ...(typeof state.targetEventId === 'string' ? { targetEventId: state.targetEventId } : {}),
     ...(typeof state.targetDateKey === 'string' ? { targetDateKey: state.targetDateKey } : {}),
+    ...(typeof state.targetScrollTop === 'number' && Number.isFinite(state.targetScrollTop)
+      ? { targetScrollTop: Math.max(0, state.targetScrollTop) }
+      : {}),
   };
 }
 
@@ -81,15 +86,20 @@ export function SchedulePage({
     adaptiveHost?.schedule.selectedDateKey ?? scheduleNavigation?.targetDateKey ?? todayDateKey,
   );
   const selectedDateKey = adaptiveHost?.schedule.selectedDateKey ?? localSelectedDateKey;
-  const [todayVisible, setTodayVisible] = useState(true);
+  const initialScrollTop =
+    scheduleNavigation?.targetScrollTop ?? adaptiveHost?.schedule.scrollTop ?? 0;
+  const initialAgendaTargetId =
+    scheduleNavigation?.targetEventId ?? adaptiveHost?.schedule.selectedEventId ?? null;
+  const [todayVisible, setTodayVisible] = useState(() =>
+    scheduleNavigation?.targetScrollTop === undefined ? true : selectedDateKey === todayDateKey,
+  );
   const [selectionRequest, setSelectionRequest] = useState(0);
   const scrollSurfaceRef = useRef<HTMLElement>(null);
   const didInitialAnchor = useRef(false);
   const didSkipInitialScroll = useRef(false);
-  const shouldScrollToSelection = useRef(true);
-  const pendingAgendaTargetId = useRef<string | null>(
-    scheduleNavigation?.targetEventId ?? adaptiveHost?.schedule.selectedEventId ?? null,
-  );
+  const pendingAgendaTargetId = useRef<string | null>(initialAgendaTargetId);
+  const shouldScrollToSelection = useRef(!(initialScrollTop > 0 && !initialAgendaTargetId));
+  const explicitlySelectedDateKey = useRef<string | null>(null);
   const highlightedEventId = eventStore?.highlightedEventId ?? null;
 
   const setSelectedDateKey = useCallback(
@@ -116,8 +126,8 @@ export function SchedulePage({
     const scrollSurface = scrollSurfaceRef.current;
     if (!scrollSurface) return;
 
-    if (!pendingAgendaTargetId.current && adaptiveHost?.schedule.scrollTop) {
-      scrollSurface.scrollTop = adaptiveHost.schedule.scrollTop;
+    if (!pendingAgendaTargetId.current && initialScrollTop > 0) {
+      scrollSurface.scrollTop = initialScrollTop;
     }
 
     const updateScrollPosition = () => {
@@ -125,7 +135,7 @@ export function SchedulePage({
     };
     scrollSurface.addEventListener('scroll', updateScrollPosition, { passive: true });
     return () => scrollSurface.removeEventListener('scroll', updateScrollPosition);
-  }, [adaptiveHost]);
+  }, [adaptiveHost, initialScrollTop]);
 
   useEffect(() => {
     if (loadState !== 'ready' || sourceEvents.length === 0) return;
@@ -143,7 +153,7 @@ export function SchedulePage({
     if (!element || typeof element.scrollIntoView !== 'function') return;
 
     element.scrollIntoView({
-      behavior: didInitialAnchor.current ? 'smooth' : 'auto',
+      behavior: targetEventId && didInitialAnchor.current ? 'smooth' : 'auto',
       block: targetEventId || !didInitialAnchor.current ? 'center' : 'start',
     });
     pendingAgendaTargetId.current = null;
@@ -221,6 +231,7 @@ export function SchedulePage({
 
   const selectDate = useCallback(
     (dateKey: string, targetEventId?: string) => {
+      explicitlySelectedDateKey.current = dateKey;
       pendingAgendaTargetId.current = targetEventId ?? null;
       shouldScrollToSelection.current = true;
       setSelectionRequest((request) => request + 1);
@@ -242,6 +253,28 @@ export function SchedulePage({
     [adaptiveHost, navigate],
   );
 
+  const openEventCreate = useCallback(() => {
+    const renderedSelectedDateKey = scrollSurfaceRef.current?.querySelector<HTMLElement>(
+      '[data-week-strip] button[aria-current="date"]',
+    )?.dataset.dateKey;
+    const entryDateKey =
+      explicitlySelectedDateKey.current ?? renderedSelectedDateKey ?? selectedDateKey;
+    const entryScrollTop =
+      scrollSurfaceRef.current?.scrollTop ?? adaptiveHost?.schedule.scrollTop ?? 0;
+    if (adaptiveHost) {
+      adaptiveHost.setScheduleDate(entryDateKey);
+      adaptiveHost.setScheduleScrollTop(entryScrollTop);
+    }
+
+    navigate(buildAppEventCreatePath(), {
+      state: {
+        adaptiveRoot: 'schedule',
+        targetDateKey: entryDateKey,
+        targetScrollTop: entryScrollTop,
+      },
+    });
+  }, [adaptiveHost, navigate, selectedDateKey]);
+
   const jumpToLatestOverdue = useCallback(() => {
     const latestOverdue = overdueEvents[0];
     if (!latestOverdue) return;
@@ -258,12 +291,25 @@ export function SchedulePage({
       className="bg-surface h-full min-h-full overflow-y-auto"
     >
       <AdaptiveSurfaceContent policy="scan">
-        <header className="px-4 pt-6 pb-4">
-          <p className="text-accent-primary text-xs font-semibold tracking-wide">
-            {t('schedule.eyebrow')}
-          </p>
-          <h1 className="text-text-primary mt-1 text-2xl font-bold">{t('schedule.title')}</h1>
-          <p className="text-text-secondary mt-1 text-sm">{t('schedule.description')}</p>
+        <header className="flex items-start justify-between gap-4 px-4 pt-6 pb-4">
+          <div className="min-w-0">
+            <p className="text-accent-primary text-xs font-semibold tracking-wide">
+              {t('schedule.eyebrow')}
+            </p>
+            <h1 className="text-text-primary mt-1 text-2xl font-bold">{t('schedule.title')}</h1>
+            <p className="text-text-secondary mt-1 text-sm">{t('schedule.description')}</p>
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            className="shrink-0"
+            aria-label={t('schedule.addEvent')}
+            data-schedule-add-event
+            onClick={openEventCreate}
+          >
+            {t('schedule.addEvent')}
+          </Button>
         </header>
 
         <WeekStrip

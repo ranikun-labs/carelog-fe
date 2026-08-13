@@ -11,6 +11,7 @@ import { SideNavigationRail } from '@/components/layout/SideNavigationRail';
 import { AppLocaleProvider } from '@/i18n/AppLocaleProvider';
 import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
 import { CustomerStoreProvider, useOptionalCustomerStore } from '@/state/CustomerStoreContext';
+import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 import { useOptionalAuth } from '@/auth/AuthProvider';
@@ -25,7 +26,9 @@ export function ProductStateProviders({
   return (
     <CustomerStoreProvider initialCustomers={initialCustomers}>
       <EventStoreProvider initialEvents={initialEvents}>
-        <CustomerFormDraftProvider key={location.pathname}>{children}</CustomerFormDraftProvider>
+        <CustomerFormDraftProvider key={location.pathname}>
+          <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+        </CustomerFormDraftProvider>
       </EventStoreProvider>
     </CustomerStoreProvider>
   );

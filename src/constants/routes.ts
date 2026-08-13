@@ -29,6 +29,7 @@ export const APP_ROUTE_PATHS = {
   customerHandoff: `${APP_BASE}/customers/:customerId/handoff`,
   reviewDetail: `${APP_BASE}/reviews/:reviewId`,
   followUps: `${APP_BASE}/follow-ups`,
+  eventCreate: `${APP_BASE}/events/new`,
   settings: `${APP_BASE}/settings`,
   eventDetail: `${APP_BASE}/events/:eventId`,
 } as const;
@@ -50,6 +51,7 @@ export const buildAppCustomerHandoffPath = (customerId: string) =>
 export const buildAppReviewDetailPath = (reviewId: string) =>
   `${APP_BASE}/reviews/${encodeURIComponent(reviewId)}`;
 export const buildAppFollowUpsPath = () => APP_ROUTE_PATHS.followUps;
+export const buildAppEventCreatePath = () => APP_ROUTE_PATHS.eventCreate;
 export const buildAppSettingsPath = () => APP_ROUTE_PATHS.settings;
 export const buildAppEventDetailPath = (eventId: string) =>
   `${APP_BASE}/events/${encodeURIComponent(eventId)}`;

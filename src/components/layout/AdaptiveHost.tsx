@@ -46,7 +46,14 @@ interface AdaptiveRootState {
   eventDetailScrollTop: number;
 }
 
-type RouteKind = 'schedule' | 'customers' | 'customer-detail' | 'customer-form' | 'event' | 'other';
+type RouteKind =
+  | 'schedule'
+  | 'customers'
+  | 'customer-detail'
+  | 'customer-form'
+  | 'event-create'
+  | 'event'
+  | 'other';
 
 interface RouteInfo {
   kind: RouteKind;
@@ -64,6 +71,14 @@ type EventFocusTarget =
 type CustomerFormFocusTarget = {
   formKey: string;
   field: 'displayName' | 'customerMemo';
+};
+
+type EventFormFocusTarget = {
+  field: 'descriptor' | 'scheduledAt' | 'occurredAt' | 'note' | 'submit' | 'cancel';
+};
+
+type CustomerSelectorFocusTarget = {
+  customerId: string;
 };
 
 const INITIAL_ROOT_STATE: AdaptiveRootState = {
@@ -209,6 +224,67 @@ function findCustomerFormFocusTarget(
   return form.querySelector<HTMLElement>(`[data-customer-field="${target.field}"]`);
 }
 
+function readEventFormFocusTarget(host: HTMLElement | null): EventFormFocusTarget | null {
+  if (typeof document === 'undefined' || !host) return null;
+
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement) || !host.contains(activeElement)) return null;
+
+  const form = activeElement.closest<HTMLElement>('[data-event-form]');
+  if (!form) return null;
+
+  const field = activeElement.closest<HTMLElement>('[data-event-field]')?.dataset.eventField;
+  if (
+    field === 'descriptor' ||
+    field === 'scheduledAt' ||
+    field === 'occurredAt' ||
+    field === 'note'
+  ) {
+    return { field };
+  }
+  if (activeElement.closest('[data-event-form-submit]')) return { field: 'submit' };
+  if (activeElement.closest('[data-event-form-cancel]')) return { field: 'cancel' };
+
+  return null;
+}
+
+function findEventFormFocusTarget(
+  host: HTMLElement,
+  target: EventFormFocusTarget,
+): HTMLElement | null {
+  const selector =
+    target.field === 'submit'
+      ? '[data-event-form-submit]'
+      : target.field === 'cancel'
+        ? '[data-event-form-cancel]'
+        : `[data-event-field="${target.field}"]`;
+  return host.querySelector<HTMLElement>(selector);
+}
+
+function readCustomerSelectorFocusTarget(
+  host: HTMLElement | null,
+): CustomerSelectorFocusTarget | null {
+  if (typeof document === 'undefined' || !host) return null;
+
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement) || !host.contains(activeElement)) return null;
+
+  const option = activeElement.closest<HTMLElement>('[data-customer-selector-option]');
+  const customerId = option?.dataset.customerId;
+  return customerId ? { customerId } : null;
+}
+
+function findCustomerSelectorFocusTarget(
+  host: HTMLElement,
+  target: CustomerSelectorFocusTarget,
+): HTMLElement | null {
+  return (
+    Array.from(
+      host.querySelectorAll<HTMLElement>('[data-customer-selector-option][data-customer-id]'),
+    ).find((candidate) => candidate.dataset.customerId === target.customerId) ?? null
+  );
+}
+
 function decodePathSegment(value: string | undefined): string | undefined {
   if (!value) return undefined;
   try {
@@ -220,6 +296,11 @@ function decodePathSegment(value: string | undefined): string | undefined {
 
 function getRouteInfo(pathname: string, state: unknown): RouteInfo {
   const navigationState = readAdaptiveNavigationState(state);
+  const eventCreateMatch = matchPath({ path: APP_ROUTE_PATHS.eventCreate, end: true }, pathname);
+  if (eventCreateMatch) {
+    return { kind: 'event-create', navigationState };
+  }
+
   const eventMatch = matchPath({ path: APP_ROUTE_PATHS.eventDetail, end: true }, pathname);
   if (eventMatch) {
     return {
@@ -281,7 +362,7 @@ function getActiveRoot(routeInfo: RouteInfo): AdaptiveRoot {
 }
 
 function getTwoPaneRoot(routeInfo: RouteInfo, activeRoot: AdaptiveRoot): AdaptiveRoot | null {
-  if (routeInfo.kind === 'schedule') return 'schedule';
+  if (routeInfo.kind === 'schedule' || routeInfo.kind === 'event-create') return 'schedule';
   if (routeInfo.kind === 'event') return activeRoot;
   if (
     routeInfo.kind === 'customers' ||
@@ -296,6 +377,7 @@ function getTwoPaneRoot(routeInfo: RouteInfo, activeRoot: AdaptiveRoot): Adaptiv
 function isSelectedRoute(routeInfo: RouteInfo): boolean {
   return (
     routeInfo.kind === 'event' ||
+    routeInfo.kind === 'event-create' ||
     routeInfo.kind === 'customer-detail' ||
     routeInfo.kind === 'customer-form'
   );
@@ -306,9 +388,13 @@ export function AdaptiveHost() {
   const location = useLocation();
   const navigate = useNavigate();
   const focusedEventTargetRef = useRef<EventFocusTarget | null>(null);
+  const focusedEventFormTargetRef = useRef<EventFormFocusTarget | null>(null);
+  const focusedCustomerSelectorTargetRef = useRef<CustomerSelectorFocusTarget | null>(null);
   const focusedCustomerFormTargetRef = useRef<CustomerFormFocusTarget | null>(null);
   const captureFocusedEventTarget = useCallback(() => {
     focusedEventTargetRef.current = readEventFocusTarget(hostRef.current);
+    focusedEventFormTargetRef.current = readEventFormFocusTarget(hostRef.current);
+    focusedCustomerSelectorTargetRef.current = readCustomerSelectorFocusTarget(hostRef.current);
     focusedCustomerFormTargetRef.current = readCustomerFormFocusTarget(hostRef.current);
   }, []);
   const metrics = useViewportMetrics(hostRef, captureFocusedEventTarget);
@@ -516,8 +602,12 @@ export function AdaptiveHost() {
     if (previousMode === mode) return;
 
     const focusTarget = focusedEventTargetRef.current;
+    const eventFormFocusTarget = focusedEventFormTargetRef.current;
+    const customerSelectorFocusTarget = focusedCustomerSelectorTargetRef.current;
     const customerFormFocusTarget = focusedCustomerFormTargetRef.current;
     focusedEventTargetRef.current = null;
+    focusedEventFormTargetRef.current = null;
+    focusedCustomerSelectorTargetRef.current = null;
     focusedCustomerFormTargetRef.current = null;
 
     const activeElement = document.activeElement;
@@ -531,6 +621,20 @@ export function AdaptiveHost() {
 
     if (customerFormFocusTarget && routeInfo.kind === 'customer-form') {
       findCustomerFormFocusTarget(hostRef.current!, customerFormFocusTarget)?.focus({
+        preventScroll: true,
+      });
+      return;
+    }
+
+    if (eventFormFocusTarget) {
+      findEventFormFocusTarget(hostRef.current!, eventFormFocusTarget)?.focus({
+        preventScroll: true,
+      });
+      return;
+    }
+
+    if (customerSelectorFocusTarget && routeInfo.kind === 'event-create') {
+      findCustomerSelectorFocusTarget(hostRef.current!, customerSelectorFocusTarget)?.focus({
         preventScroll: true,
       });
       return;
