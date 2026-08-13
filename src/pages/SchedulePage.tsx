@@ -342,7 +342,7 @@ export function SchedulePage({
             action={
               <Link
                 to={buildAppCustomerCreatePath()}
-                className={cn(buttonVariants({ variant: 'secondary' }), 'mt-2')}
+                className={cn(buttonVariants({ variant: 'primary' }), 'mt-2')}
                 aria-label={t('schedule.emptyCustomersFirstAction')}
                 data-schedule-first-customer-cta
               >

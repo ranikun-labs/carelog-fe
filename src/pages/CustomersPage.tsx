@@ -53,9 +53,10 @@ export function CustomersPage() {
           </div>
           <Link
             to={buildAppCustomerCreatePath()}
-            className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'shrink-0')}
+            className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'shrink-0')}
+            data-customer-add-cta
           >
-            {t('customers.add')}
+            + {t('customers.add')}
           </Link>
         </header>
 
@@ -67,7 +68,7 @@ export function CustomersPage() {
               action={
                 <Link
                   to={buildAppCustomerCreatePath()}
-                  className={cn(buttonVariants({ size: 'lg' }), 'mt-2')}
+                  className={cn(buttonVariants({ variant: 'primary', size: 'lg' }), 'mt-2')}
                   data-first-customer-cta
                 >
                   {t('customers.firstCustomerAction')}

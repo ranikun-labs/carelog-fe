@@ -19,6 +19,20 @@ function renderPage() {
 }
 
 describe('CustomersPage', () => {
+  it('promotes the non-empty create entrypoint to the primary CTA', () => {
+    renderPage();
+
+    const cta = screen.getByRole('link', { name: '+ 고객 추가' });
+    expect(cta).toHaveAttribute('href', '/app/customers/new');
+    expect(cta).toHaveAttribute('data-customer-add-cta');
+    expect(cta).toHaveClass('bg-accent-primary', 'min-h-11');
+    expect(cta).toHaveClass(
+      'focus-visible:outline-2',
+      'focus-visible:outline-offset-2',
+      'focus-visible:outline-accent-primary',
+    );
+  });
+
   it('lists both scenario customers with their workspace as a scenario badge', () => {
     renderPage();
     expect(screen.getByText(landlordTenantScenario.customer.displayName)).toBeVisible();
@@ -47,10 +61,9 @@ describe('CustomersPage', () => {
     );
 
     expect(screen.getByText('아직 고객이 없습니다')).toBeVisible();
-    expect(screen.getByRole('link', { name: '첫 고객 추가' })).toHaveAttribute(
-      'href',
-      '/app/customers/new',
-    );
+    const cta = screen.getByRole('link', { name: '첫 고객 추가' });
+    expect(cta).toHaveAttribute('href', '/app/customers/new');
+    expect(cta).toHaveClass('bg-accent-primary', 'min-h-[54px]');
     expect(screen.queryByText(landlordTenantScenario.customer.displayName)).not.toBeInTheDocument();
   });
 });

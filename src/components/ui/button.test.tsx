@@ -33,6 +33,7 @@ describe('Button', () => {
     expect(button).toHaveClass(
       'focus-visible:outline-2',
       'focus-visible:outline-offset-2',
+      'focus-visible:outline-solid',
       'focus-visible:outline-accent-primary',
     );
     expect(button).not.toHaveClass('focus-visible:outline-destructive');
