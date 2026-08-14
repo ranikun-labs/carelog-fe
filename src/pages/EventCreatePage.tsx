@@ -102,10 +102,10 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
   );
 
   const handleCreate = useCallback(
-    (values: EventFormSubmitValues) => {
+    async (values: EventFormSubmitValues) => {
       if (!selectedCustomer || values.status !== 'PLANNED' || !values.scheduledAt) return;
 
-      const createdEvent = eventStore.createEvent({
+      const createdEvent = await eventStore.createEvent({
         status: 'PLANNED',
         customerId: selectedCustomer.id,
         scheduledAt: values.scheduledAt,

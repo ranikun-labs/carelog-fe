@@ -1,102 +1,349 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useEffect,
+  type ReactNode,
+} from 'react';
 
 import type { CustomerEvent, CustomerEventEdit } from '@/domain/customerEvent';
-import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
+import { classifyCarelogError } from '@/integrations/carelog/errorMapping';
+import { createInMemoryCustomerEventPort } from '@/integrations/carelog/inMemoryPorts';
 import {
-  buildCreatedCustomerEvent,
-  cancelEventById,
-  createCustomerEventId,
+  createCustomerHistoryQuery,
+  createCustomerUpcomingQuery,
+  type CustomerEventPort,
+} from '@/integrations/carelog/customerEventPort';
+import {
+  buildCustomerUpcomingRange,
+  type CarelogTimeRange,
+} from '@/integrations/carelog/timeRange';
+import {
   createEventStoreState,
-  editEventById,
   eventStoreReducer,
-  occurEventById,
   type EventCreationInput,
 } from '@/state/eventStore';
+
+export type EventLoadState = 'idle' | 'loading' | 'ready' | 'error';
+
+export interface CustomerEventSnapshot {
+  upcoming: readonly CustomerEvent[];
+  history: readonly CustomerEvent[];
+}
 
 export interface EventStoreValue {
   events: readonly CustomerEvent[];
   highlightedEventId: string | null;
-  createEvent: (input: EventCreationInput) => CustomerEvent;
-  editEvent: (eventId: string, changes: CustomerEventEdit) => CustomerEvent | undefined;
-  cancelEvent: (eventId: string) => CustomerEvent | undefined;
-  occurEvent: (eventId: string, occurredAt?: string) => CustomerEvent | undefined;
+  remoteReadsEnabled: boolean;
+  scheduleLoadState: EventLoadState;
+  detailLoadState: EventLoadState;
+  mutationPending: boolean;
+  error: unknown | null;
+  errorCode: ReturnType<typeof classifyCarelogError> | null;
+  getEvent: (eventId: string) => CustomerEvent | undefined;
+  getCustomerSnapshot: (customerId: string) => CustomerEventSnapshot | undefined;
+  loadSchedule: (range: CarelogTimeRange) => Promise<void>;
+  loadCustomerDetail: (customerId: string, now: Date) => Promise<void>;
+  loadEvent: (eventId: string) => Promise<CustomerEvent>;
+  createEvent: (input: EventCreationInput) => Promise<CustomerEvent>;
+  editEvent: (eventId: string, changes: CustomerEventEdit) => Promise<CustomerEvent>;
+  cancelEvent: (eventId: string) => Promise<CustomerEvent>;
+  occurEvent: (eventId: string, occurredAt?: string) => Promise<CustomerEvent>;
   clearHighlight: (eventId?: string) => void;
+  clearError: () => void;
 }
 
 const EventStoreContext = createContext<EventStoreValue | null>(null);
 
 export function EventStoreProvider({
   children,
-  initialEvents = SCHEDULE_FIXTURE.events,
+  initialEvents,
+  port: providedPort,
+  onFailure,
 }: {
   children: ReactNode;
   initialEvents?: readonly CustomerEvent[];
+  port?: CustomerEventPort;
+  onFailure?: (error: unknown) => void;
 }) {
-  const [state, dispatch] = useReducer(eventStoreReducer, initialEvents, createEventStoreState);
+  const isExplicitPort = providedPort !== undefined;
+  const port = useMemo(
+    () => providedPort ?? createInMemoryCustomerEventPort(initialEvents ?? []),
+    [initialEvents, providedPort],
+  );
+  const seed = initialEvents ?? [];
+  const [state, dispatch] = useReducer(eventStoreReducer, seed, createEventStoreState);
+  const [scheduleLoadState, setScheduleLoadState] = useState<EventLoadState>(
+    !isExplicitPort || initialEvents !== undefined ? 'ready' : 'loading',
+  );
+  const [detailLoadState, setDetailLoadState] = useState<EventLoadState>('idle');
+  const [mutationPending, setMutationPending] = useState(false);
+  const [error, setError] = useState<unknown | null>(null);
+  const [errorCode, setErrorCode] = useState<ReturnType<typeof classifyCarelogError> | null>(null);
+  const [snapshots, setSnapshots] = useState<Record<string, CustomerEventSnapshot>>({});
+  const mountedRef = useRef(true);
+  const scheduleReadGenerationRef = useRef(0);
+  const detailReadGenerationRef = useRef(0);
+  const eventReadGenerationRef = useRef(0);
+  const mutationEpochRef = useRef(0);
 
-  const highlight = useCallback((eventId: string) => {
-    dispatch({ type: 'highlight', eventId });
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
+  const remoteReadsEnabled = isExplicitPort && initialEvents === undefined;
+
+  const recordError = useCallback(
+    (nextError: unknown) => {
+      setError(nextError);
+      setErrorCode(classifyCarelogError(nextError));
+      onFailure?.(nextError);
+    },
+    [onFailure],
+  );
+
+  const getEvent = useCallback(
+    (eventId: string) => state.events.find((event) => event.id === eventId),
+    [state.events],
+  );
+
+  const getCustomerSnapshot = useCallback(
+    (customerId: string) => snapshots[customerId],
+    [snapshots],
+  );
+
+  const loadSchedule = useCallback(
+    async (range: CarelogTimeRange) => {
+      const readGeneration = ++scheduleReadGenerationRef.current;
+      const mutationEpoch = mutationEpochRef.current;
+      setScheduleLoadState('loading');
+      setError(null);
+      setErrorCode(null);
+      try {
+        const events = await port.list({ from: range.from, to: range.to, limit: 100 });
+        if (
+          !mountedRef.current ||
+          readGeneration !== scheduleReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return;
+        }
+        dispatch({ type: 'replace-all', events });
+        setScheduleLoadState('ready');
+      } catch (nextError) {
+        if (
+          !mountedRef.current ||
+          readGeneration !== scheduleReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return;
+        }
+        recordError(nextError);
+        setScheduleLoadState('error');
+        throw nextError;
+      }
+    },
+    [port, recordError],
+  );
+
+  const loadCustomerDetail = useCallback(
+    async (customerId: string, now: Date) => {
+      const readGeneration = ++detailReadGenerationRef.current;
+      const mutationEpoch = mutationEpochRef.current;
+      setDetailLoadState('loading');
+      setError(null);
+      setErrorCode(null);
+      const range = buildCustomerUpcomingRange(now, 366);
+      try {
+        const [upcoming, history] = await Promise.all([
+          port.list(createCustomerUpcomingQuery(customerId, range, 100)),
+          port.list(createCustomerHistoryQuery(customerId, 50)),
+        ]);
+        if (
+          !mountedRef.current ||
+          readGeneration !== detailReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return;
+        }
+        setSnapshots((current) => ({ ...current, [customerId]: { upcoming, history } }));
+        for (const event of [...upcoming, ...history]) dispatch({ type: 'upsert', event });
+        setDetailLoadState('ready');
+      } catch (nextError) {
+        if (
+          !mountedRef.current ||
+          readGeneration !== detailReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return;
+        }
+        recordError(nextError);
+        setDetailLoadState('error');
+        throw nextError;
+      }
+    },
+    [port, recordError],
+  );
+
+  const loadEvent = useCallback(
+    async (eventId: string) => {
+      const readGeneration = ++eventReadGenerationRef.current;
+      const mutationEpoch = mutationEpochRef.current;
+      try {
+        const event = await port.get(eventId);
+        if (
+          !mountedRef.current ||
+          readGeneration !== eventReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return event;
+        }
+        dispatch({ type: 'upsert', event });
+        return event;
+      } catch (nextError) {
+        if (
+          !mountedRef.current ||
+          readGeneration !== eventReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          throw nextError;
+        }
+        recordError(nextError);
+        throw nextError;
+      }
+    },
+    [port, recordError],
+  );
+
+  const runMutation = useCallback(
+    async (operation: () => Promise<CustomerEvent>) => {
+      setMutationPending(true);
+      setError(null);
+      setErrorCode(null);
+      try {
+        const event = await operation();
+        if (!mountedRef.current) return event;
+        mutationEpochRef.current += 1;
+        dispatch({ type: 'upsert', event });
+        dispatch({ type: 'highlight', eventId: event.id });
+        setSnapshots((current) => {
+          const snapshot = current[event.customerId];
+          if (!snapshot) return current;
+          const withoutEvent = (events: readonly CustomerEvent[]) =>
+            events.filter((candidate) => candidate.id !== event.id);
+          const next =
+            event.status === 'PLANNED'
+              ? {
+                  upcoming: [...withoutEvent(snapshot.upcoming), event],
+                  history: withoutEvent(snapshot.history),
+                }
+              : {
+                  upcoming: withoutEvent(snapshot.upcoming),
+                  history: [...withoutEvent(snapshot.history), event],
+                };
+          return { ...current, [event.customerId]: next };
+        });
+        return event;
+      } catch (nextError) {
+        if (!mountedRef.current) throw nextError;
+        recordError(nextError);
+        throw nextError;
+      } finally {
+        if (mountedRef.current) setMutationPending(false);
+      }
+    },
+    [recordError],
+  );
 
   const createEvent = useCallback(
-    (input: EventCreationInput) => {
-      const event = buildCreatedCustomerEvent(createCustomerEventId(state.events), input);
-      dispatch({ type: 'create', event });
-      highlight(event.id);
-      return event;
-    },
-    [highlight, state.events],
+    (input: EventCreationInput) => runMutation(() => port.create(input)),
+    [port, runMutation],
   );
 
   const editEvent = useCallback(
-    (eventId: string, changes: CustomerEventEdit) => {
-      const event = editEventById(state.events, eventId, changes);
-      if (!event) return undefined;
-      dispatch({ type: 'replace', event });
-      highlight(event.id);
-      return event;
+    async (eventId: string, changes: CustomerEventEdit) => {
+      const current = getEvent(eventId);
+      if (!current) throw new Error(`Event is not available: ${eventId}`);
+      return runMutation(() => port.edit(current, changes));
     },
-    [highlight, state.events],
+    [getEvent, port, runMutation],
   );
 
   const cancelEvent = useCallback(
-    (eventId: string) => {
-      const event = cancelEventById(state.events, eventId);
-      if (!event) return undefined;
-      dispatch({ type: 'replace', event });
-      highlight(event.id);
-      return event;
-    },
-    [highlight, state.events],
+    (eventId: string) => runMutation(() => port.cancel(eventId)),
+    [port, runMutation],
   );
 
   const occurEvent = useCallback(
     (eventId: string, occurredAt?: string) => {
-      const event = occurEventById(state.events, eventId, occurredAt);
-      if (!event) return undefined;
-      dispatch({ type: 'replace', event });
-      highlight(event.id);
-      return event;
+      const current = getEvent(eventId);
+      if (!current || current.status !== 'PLANNED') {
+        return Promise.reject(new Error(`Event cannot be recorded: ${eventId}`));
+      }
+      return runMutation(() => port.occur(eventId, occurredAt ?? current.scheduledAt));
     },
-    [highlight, state.events],
+    [getEvent, port, runMutation],
   );
 
   const clearHighlight = useCallback((eventId?: string) => {
     dispatch({ type: 'clear-highlight', eventId });
   }, []);
 
+  const clearError = useCallback(() => {
+    setError(null);
+    setErrorCode(null);
+  }, []);
+
   const value = useMemo<EventStoreValue>(
     () => ({
       events: state.events,
       highlightedEventId: state.highlightedEventId,
+      remoteReadsEnabled,
+      scheduleLoadState,
+      detailLoadState,
+      mutationPending,
+      error,
+      errorCode,
+      getEvent,
+      getCustomerSnapshot,
+      loadSchedule,
+      loadCustomerDetail,
+      loadEvent,
       createEvent,
       editEvent,
       cancelEvent,
       occurEvent,
       clearHighlight,
+      clearError,
     }),
-    [cancelEvent, clearHighlight, createEvent, editEvent, occurEvent, state],
+    [
+      cancelEvent,
+      clearError,
+      clearHighlight,
+      createEvent,
+      detailLoadState,
+      editEvent,
+      error,
+      errorCode,
+      getCustomerSnapshot,
+      getEvent,
+      loadCustomerDetail,
+      loadEvent,
+      loadSchedule,
+      mutationPending,
+      occurEvent,
+      remoteReadsEnabled,
+      scheduleLoadState,
+      state.events,
+      state.highlightedEventId,
+    ],
   );
 
   return <EventStoreContext.Provider value={value}>{children}</EventStoreContext.Provider>;

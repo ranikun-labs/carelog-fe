@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 
-import { landlordTenantScenario } from '@/fixtures/scenarios';
+import { CUSTOMER_FIXTURE_RECORDS, landlordTenantScenario } from '@/fixtures/scenarios';
+import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerDetailPage, type CustomerDetailPageProps } from '@/pages/CustomerDetailPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
@@ -10,9 +11,14 @@ function renderAt(customerId: string, props: CustomerDetailPageProps = {}) {
   render(
     <MemoryRouter initialEntries={[`/app/customers/${customerId}`]}>
       <I18nProvider locale="ko">
-        <CustomerStoreProvider>
+        <CustomerStoreProvider initialCustomers={CUSTOMER_FIXTURE_RECORDS}>
           <Routes>
-            <Route path="/app/customers/:customerId" element={<CustomerDetailPage {...props} />} />
+            <Route
+              path="/app/customers/:customerId"
+              element={
+                <CustomerDetailPage {...props} events={props.events ?? SCHEDULE_FIXTURE.events} />
+              }
+            />
           </Routes>
         </CustomerStoreProvider>
       </I18nProvider>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import {
   useOptionalCustomerFormDraft,
@@ -19,7 +20,7 @@ interface CustomerFormProps {
   mode: CustomerFormMode;
   initialValues?: Partial<CustomerFormValues>;
   draftKey?: CustomerFormDraftKey;
-  onSubmit: (values: CustomerFormValues) => boolean | void;
+  onSubmit: (values: CustomerFormValues) => boolean | void | Promise<boolean | void>;
   onCancel: () => void;
 }
 
@@ -90,16 +91,37 @@ export function CustomerForm({
     submitLockRef.current = true;
     setError(null);
     setIsSubmitting(true);
-    const result = onSubmit({
-      displayName: normalizedDisplayName,
-      customerMemo: customerMemo.trim(),
-    });
-    if (result === false) {
+    let result: boolean | void | Promise<boolean | void>;
+    try {
+      result = onSubmit({
+        displayName: normalizedDisplayName,
+        customerMemo: customerMemo.trim(),
+      });
+    } catch (submitError: unknown) {
+      setError(t(getCarelogMessageKey(submitError)));
       submitLockRef.current = false;
       setIsSubmitting(false);
       return;
     }
-    clearDraft();
+    const settle = (outcome: boolean | void) => {
+      if (outcome === false) {
+        submitLockRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+      clearDraft();
+    };
+    if (result && typeof result === 'object' && 'then' in result) {
+      void Promise.resolve(result)
+        .then(settle)
+        .catch((submitError: unknown) => {
+          setError(t(getCarelogMessageKey(submitError)));
+          submitLockRef.current = false;
+          setIsSubmitting(false);
+        });
+    } else {
+      settle(result);
+    }
   }
 
   function cancel() {

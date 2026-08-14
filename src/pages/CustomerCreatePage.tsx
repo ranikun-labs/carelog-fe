@@ -12,9 +12,8 @@ export function CustomerCreatePage() {
   const navigate = useNavigate();
   const customerStore = useCustomerStore();
 
-  function handleSubmit(values: CustomerFormValues) {
-    const customer = customerStore.createCustomer(values);
-    if (!customer) return false;
+  async function handleSubmit(values: CustomerFormValues) {
+    const customer = await customerStore.createCustomer(values);
 
     navigate(buildAppCustomerDetailPath(customer.id), {
       state: {

@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -40,6 +40,24 @@ const forbiddenTerms = [
   ['손절', '가'].join(''),
 ];
 const forbidden = new RegExp(forbiddenTerms.join('|'), 'iu');
+const productionBundleForbiddenTerms = [
+  'customer-tenant-1',
+  'customer-patient-1',
+  'event-tenant-transitioned',
+  'event-tenant-cancelled',
+  'event-patient-immediate',
+  'workspace-1',
+  'workspace-2',
+  'workspace-local',
+  'fixture-account',
+  '해담빌라',
+  '단단정형',
+  'FixtureStateProviders',
+  'createFixtureProductPorts',
+  'fixturePorts',
+  'fixtures/scenarios',
+  'fixtures/schedule',
+];
 const failures = [];
 
 function walk(directory) {
@@ -57,9 +75,41 @@ function walk(directory) {
 }
 
 walk(root);
+
+function scanProductionBundle(directoryName, required) {
+  const directory = join(root, directoryName);
+  if (!existsSync(directory)) {
+    if (required) failures.push(`${directoryName}: production build output is missing`);
+    else console.log(`[verify-leakage] ${directoryName} was removed by prerender after SSR use.`);
+    return;
+  }
+
+  walkBundle(directory);
+}
+
+function walkBundle(directory) {
+  for (const name of readdirSync(directory)) {
+    const path = join(directory, name);
+    if (statSync(path).isDirectory()) {
+      walkBundle(path);
+      continue;
+    }
+
+    const content = readFileSync(path, 'utf8');
+    for (const term of productionBundleForbiddenTerms) {
+      if (content.includes(term)) {
+        failures.push(`${relative(root, path)}: fixture-only production bundle term ${term}`);
+      }
+    }
+  }
+}
+
+scanProductionBundle('dist', true);
+scanProductionBundle('dist-ssr', false);
+
 if (failures.length > 0) {
   console.error(failures.join('\n'));
   process.exitCode = 1;
 } else {
-  console.log('[verify-leakage] runtime, tests, and metadata are product-neutral.');
+  console.log('[verify-leakage] source and production bundles contain no fixture-only artifacts.');
 }

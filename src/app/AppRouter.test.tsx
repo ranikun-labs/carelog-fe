@@ -3,21 +3,26 @@ import { MemoryRouter } from 'react-router';
 
 import { AppRouter } from '@/app/AppRouter';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
+import { FixtureStateProviders } from '@/components/layout/FixtureStateProviders';
 
 const authenticatedAuthPort = createInMemoryAuthPort({ bootstrap: 'authenticated' });
+
+function TestAppRouter(props: React.ComponentProps<typeof AppRouter>) {
+  return <AppRouter {...props} stateProviders={FixtureStateProviders} />;
+}
 
 describe('application router', () => {
   it('renders the schedule at the app entry and schedule path', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
     unmount();
     render(
       <MemoryRouter initialEntries={['/app/schedule']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
@@ -26,7 +31,7 @@ describe('application router', () => {
   it('resolves a canonical event id on the event detail route', async () => {
     render(
       <MemoryRouter initialEntries={['/app/events/event-tenant-transitioned']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
@@ -37,7 +42,7 @@ describe('application router', () => {
   it('redirects root to the Korean public home', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(
@@ -48,7 +53,7 @@ describe('application router', () => {
   it('renders English and unsupported public locale boundaries', () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/en/features']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(
@@ -57,7 +62,7 @@ describe('application router', () => {
     unmount();
     render(
       <MemoryRouter initialEntries={['/fr']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: '페이지를 찾을 수 없습니다' })).toBeVisible();
@@ -66,7 +71,7 @@ describe('application router', () => {
   it('marks Customers active while on the customers list route', async () => {
     render(
       <MemoryRouter initialEntries={['/app/customers']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     const activeCustomerLink = (await screen.findAllByRole('link', { name: '고객' })).find(
@@ -78,7 +83,7 @@ describe('application router', () => {
   it('resolves a known customer id on the detail route via the shared fixtures', async () => {
     render(
       <MemoryRouter initialEntries={['/app/customers/customer-tenant-1']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByText('박세입')).toBeVisible();
@@ -90,7 +95,7 @@ describe('application router', () => {
   it('renders the app not-found surface for an unknown customer id', async () => {
     render(
       <MemoryRouter initialEntries={['/app/customers/does-not-exist']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '페이지를 찾을 수 없습니다' })).toBeVisible();
@@ -99,14 +104,14 @@ describe('application router', () => {
   it('renders the customer import and handoff placeholder routes', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app/customers/c-1/import']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '고객 가져오기' })).toBeVisible();
     unmount();
     render(
       <MemoryRouter initialEntries={['/app/customers/c-1/handoff']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '인계' })).toBeVisible();
@@ -115,7 +120,7 @@ describe('application router', () => {
   it('renders the review detail placeholder route', async () => {
     render(
       <MemoryRouter initialEntries={['/app/reviews/r-1']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '검토' })).toBeVisible();
@@ -124,7 +129,7 @@ describe('application router', () => {
   it('renders the follow-ups placeholder route', async () => {
     render(
       <MemoryRouter initialEntries={['/app/follow-ups']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '후속 업무' })).toBeVisible();
@@ -133,7 +138,7 @@ describe('application router', () => {
   it('supports first-use create, detail resolution, and edit propagation from one Customer state', async () => {
     render(
       <MemoryRouter initialEntries={['/app/customers']}>
-        <AppRouter authPort={authenticatedAuthPort} initialCustomers={[]} initialEvents={[]} />
+        <TestAppRouter authPort={authenticatedAuthPort} initialCustomers={[]} initialEvents={[]} />
       </MemoryRouter>,
     );
 
@@ -190,7 +195,7 @@ describe('application router', () => {
   it('routes Schedule Customer=0 to first-customer create without changing Event empty behavior', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app/schedule']}>
-        <AppRouter authPort={authenticatedAuthPort} initialCustomers={[]} initialEvents={[]} />
+        <TestAppRouter authPort={authenticatedAuthPort} initialCustomers={[]} initialEvents={[]} />
       </MemoryRouter>,
     );
 
@@ -203,7 +208,7 @@ describe('application router', () => {
 
     render(
       <MemoryRouter initialEntries={['/app/schedule']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
@@ -213,7 +218,7 @@ describe('application router', () => {
   it('does not let a URL query override production customer or event seeds', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app/customers?customerSeed=empty']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByText('박세입')).toBeVisible();
@@ -222,7 +227,7 @@ describe('application router', () => {
 
     render(
       <MemoryRouter initialEntries={['/app/events/event-tenant-transitioned?eventSeed=empty']}>
-        <AppRouter authPort={authenticatedAuthPort} />
+        <TestAppRouter authPort={authenticatedAuthPort} />
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();

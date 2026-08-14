@@ -33,7 +33,7 @@ export function CustomerCard({ customer, isSelected = false, onSelect }: Custome
         >
           <div className="flex min-w-0 items-center gap-2 xl:flex-1">
             <span className="font-medium break-words">{customer.displayName}</span>
-            {customer.workspace.name ? <Badge tone="info">{customer.workspace.name}</Badge> : null}
+            {customer.workspace?.name ? <Badge tone="info">{customer.workspace.name}</Badge> : null}
           </div>
           {customer.interaction ? (
             <p className="text-text-secondary shrink-0 text-sm xl:whitespace-nowrap">

@@ -13,7 +13,6 @@ import type { CustomerEvent } from '@/domain/customerEvent';
 const now = new Date('2026-08-11T12:00:00+09:00');
 const customer: CustomerRecord = {
   id: 'customer-1',
-  workspaceId: 'workspace-1',
   displayName: '박세입',
   workspace: { id: 'workspace-1', name: 'Carelog' },
 };

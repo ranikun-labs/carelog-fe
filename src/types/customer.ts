@@ -11,10 +11,14 @@ export interface Workspace {
 
 export interface Customer {
   id: string;
-  workspaceId: string;
   displayName: string;
   /** Explicit user-written customer note; legacy context is not promoted here. */
   customerMemo?: string;
+}
+
+export interface ScheduleCustomer {
+  id: string;
+  displayName: string;
 }
 
 /**
@@ -22,7 +26,8 @@ export interface Customer {
  * identity. New customers can omit those legacy snapshots until a later integration supplies them.
  */
 export interface CustomerRecord extends Customer {
-  workspace: Workspace;
+  /** Legacy fixture snapshot; production Customer records do not carry a workspace. */
+  workspace?: Workspace;
   context?: CustomerContext;
   interaction?: Interaction;
 }

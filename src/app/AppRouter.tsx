@@ -4,7 +4,11 @@ import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { AUTH_STATE, type AuthPort } from '@/auth/authTypes';
 import { resolvePostAuthPath } from '@/auth/postAuthRouting';
 import type { AppInitialization } from '@/app/appInitialization';
-import { AppShellFrame, ProductStateProviders } from '@/components/layout/AppShell';
+import { AppShellFrame } from '@/components/layout/AppShell';
+import {
+  ProductionStateProviders,
+  type ProductStateProvider,
+} from '@/components/layout/ProductionStateProviders';
 import {
   AuthBootstrapErrorScreen,
   AuthBootstrapScreen,
@@ -169,13 +173,15 @@ export function AppRouter({
   initialCustomers,
   initialEvents,
   authPort,
-}: AppInitialization & { authPort?: AuthPort } = {}) {
+  stateProviders,
+}: AppInitialization & { authPort?: AuthPort; stateProviders?: ProductStateProvider } = {}) {
+  const StateProviders = stateProviders ?? ProductionStateProviders;
   return (
     <AppLocaleProvider>
       <AuthProvider authPort={authPort}>
-        <ProductStateProviders initialCustomers={initialCustomers} initialEvents={initialEvents}>
+        <StateProviders {...(stateProviders ? { initialCustomers, initialEvents } : {})}>
           <AppRoutes />
-        </ProductStateProviders>
+        </StateProviders>
       </AuthProvider>
     </AppLocaleProvider>
   );

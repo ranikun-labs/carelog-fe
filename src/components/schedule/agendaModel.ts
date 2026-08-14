@@ -3,7 +3,7 @@ import {
   type CustomerEvent,
   type PlannedCustomerEvent,
 } from '@/domain/customerEvent';
-import type { ScheduleCustomer } from '@/fixtures/schedule';
+import type { ScheduleCustomer } from '@/types/customer';
 import { formatDate } from '@/lib/utils';
 
 export type AgendaRail = 'planned' | 'warning' | 'neutral';

@@ -1,38 +1,18 @@
-import type { AppInitialization } from '@/app/appInitialization';
-import type { ReactNode } from 'react';
-import { useLocation } from 'react-router';
-
+import { useOptionalAuth } from '@/auth/AuthProvider';
 import { AuthOperationErrorSurface } from '@/components/auth/AuthStatusSurface';
 import { AuthRecoveryBanner } from '@/components/auth/AuthStatusSurface';
 import { AUTH_STATE } from '@/auth/authTypes';
 import { AdaptiveHost } from '@/components/layout/AdaptiveHost';
 import { BottomNavigation } from '@/components/layout/BottomNavigation';
+import {
+  ProductionStateProviders,
+  type ProductStateProvider,
+  type ProductStateProviderProps,
+} from '@/components/layout/ProductionStateProviders';
 import { SideNavigationRail } from '@/components/layout/SideNavigationRail';
 import { AppLocaleProvider } from '@/i18n/AppLocaleProvider';
-import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
-import { CustomerStoreProvider, useOptionalCustomerStore } from '@/state/CustomerStoreContext';
-import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
-import { EventStoreProvider } from '@/state/EventStoreContext';
+import { useOptionalCustomerStore } from '@/state/CustomerStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
-import { useOptionalAuth } from '@/auth/AuthProvider';
-
-export function ProductStateProviders({
-  children,
-  initialCustomers,
-  initialEvents,
-}: AppInitialization & { children: ReactNode }) {
-  const location = useLocation();
-
-  return (
-    <CustomerStoreProvider initialCustomers={initialCustomers}>
-      <EventStoreProvider initialEvents={initialEvents}>
-        <CustomerFormDraftProvider key={location.pathname}>
-          <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
-        </CustomerFormDraftProvider>
-      </EventStoreProvider>
-    </CustomerStoreProvider>
-  );
-}
 
 export function AppShellFrame() {
   const auth = useOptionalAuth();
@@ -64,17 +44,22 @@ export function AppShellFrame() {
 }
 
 /** Standalone shell export retained for component-level tests and embedders. */
-export function AppShell({ initialCustomers, initialEvents }: AppInitialization = {}) {
+export function AppShell({
+  initialCustomers,
+  initialEvents,
+  stateProviders,
+}: Omit<ProductStateProviderProps, 'children'> & { stateProviders?: ProductStateProvider } = {}) {
   const customerStore = useOptionalCustomerStore();
   const eventStore = useOptionalEventStore();
   const frame = <AppShellFrame />;
+  const StateProviders = stateProviders ?? ProductionStateProviders;
   const content =
     customerStore && eventStore ? (
       frame
     ) : (
-      <ProductStateProviders initialCustomers={initialCustomers} initialEvents={initialEvents}>
+      <StateProviders {...(stateProviders ? { initialCustomers, initialEvents } : {})}>
         {frame}
-      </ProductStateProviders>
+      </StateProviders>
     );
 
   return <AppLocaleProvider>{content}</AppLocaleProvider>;

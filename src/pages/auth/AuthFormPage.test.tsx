@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 
 import { AppRouter } from '@/app/AppRouter';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
+import { FixtureStateProviders } from '@/components/layout/FixtureStateProviders';
 
 function renderAuth(
   path: string,
@@ -13,6 +14,7 @@ function renderAuth(
     <MemoryRouter initialEntries={[path]}>
       <AppRouter
         authPort={createInMemoryAuthPort({ bootstrap: 'anonymous', ...options })}
+        stateProviders={FixtureStateProviders}
         {...(initialCustomers ? { initialCustomers, initialEvents: [] } : {})}
       />
     </MemoryRouter>,
