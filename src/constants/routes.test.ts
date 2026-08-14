@@ -8,6 +8,7 @@ import {
   buildAppCustomersPath,
   buildAppEventCreatePath,
   buildAppEventDetailPath,
+  buildAppAssistantPath,
   buildAppFollowUpsPath,
   buildAppHomePath,
   buildAppReviewDetailPath,
@@ -28,6 +29,7 @@ describe('route contract', () => {
     expect(buildAppCustomerEditPath('c-1')).toBe('/app/customers/c-1/edit');
     expect(buildAppFollowUpsPath()).toBe('/app/follow-ups');
     expect(buildAppEventCreatePath()).toBe('/app/events/new');
+    expect(buildAppAssistantPath()).toBe('/app/assistant');
     expect(APP_ROUTE_PATHS.customerDetail).toBe('/app/customers/:customerId');
     expect(APP_ROUTE_PATHS.reviewDetail).toBe('/app/reviews/:reviewId');
     expect(APP_ROUTE_PATHS.eventDetail).toBe('/app/events/:eventId');

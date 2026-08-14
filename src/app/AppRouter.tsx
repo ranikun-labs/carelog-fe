@@ -27,6 +27,7 @@ import {
 import { AuthEntryPage } from '@/pages/auth/AuthEntryPage';
 import { AuthFormPage } from '@/pages/auth/AuthFormPage';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
+import { AssistantPage } from '@/pages/AssistantPage';
 import { CustomerCreatePage } from '@/pages/CustomerCreatePage';
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerEditPage } from '@/pages/CustomerEditPage';
@@ -158,6 +159,10 @@ function AppRoutes() {
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.eventDetail)}
           element={<EventDetailPage />}
         />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.assistant)}
+          element={<AssistantPage />}
+        />
         <Route path="*" element={<AppNotFoundPage />} />
       </Route>
       <Route path="*" element={<PublicNotFoundPage />} />
@@ -168,12 +173,17 @@ function AppRoutes() {
 export function AppRouter({
   initialCustomers,
   initialEvents,
+  assistantAdapter,
   authPort,
 }: AppInitialization & { authPort?: AuthPort } = {}) {
   return (
     <AppLocaleProvider>
       <AuthProvider authPort={authPort}>
-        <ProductStateProviders initialCustomers={initialCustomers} initialEvents={initialEvents}>
+        <ProductStateProviders
+          initialCustomers={initialCustomers}
+          initialEvents={initialEvents}
+          assistantAdapter={assistantAdapter}
+        >
           <AppRoutes />
         </ProductStateProviders>
       </AuthProvider>

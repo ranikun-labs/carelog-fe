@@ -29,6 +29,53 @@ export interface Messages {
   app: {
     home: { eyebrow: string; title: string; description: string; customersAction: string };
   };
+  assistant: {
+    title: string;
+    back: string;
+    contextTitle: string;
+    customerContext: string;
+    plannedEventContext: string;
+    occurredEventContext: string;
+    suggestedTitle: string;
+    suggestedActions: {
+      customer: {
+        recentFlow: string;
+        nextQuestions: string;
+        prepare: string;
+        important: string;
+      };
+      plannedEvent: {
+        prepare: string;
+        questions: string;
+        connect: string;
+      };
+      occurredEvent: {
+        summarize: string;
+        nextQuestions: string;
+        followUp: string;
+      };
+    };
+    questionLabel: string;
+    questionPlaceholder: string;
+    ask: string;
+    loading: string;
+    initialDescription: string;
+    resultTitle: string;
+    fixtureNotice: string;
+    addToMemo: string;
+    memoEditorTitle: string;
+    memoPlaceholder: string;
+    saveMemo: string;
+    cancelMemo: string;
+    savedCustomerMemo: string;
+    savedEventMemo: string;
+    saveError: string;
+    errorTitle: string;
+    errorDescription: string;
+    retry: string;
+    unavailableTitle: string;
+    unavailableDescription: string;
+  };
   auth: {
     entry: {
       eyebrow: string;
@@ -96,6 +143,7 @@ export interface Messages {
       contextUpdatedAt: string;
       edit: string;
       addEvent: string;
+      askAssistant: string;
       upcomingTitle: string;
       noUpcoming: string;
       additionalUpcoming: string;
@@ -171,6 +219,8 @@ export interface Messages {
     statusCancelled: string;
     edit: string;
     cancel: string;
+    prepareAssistant: string;
+    askAboutRecord: string;
     markOccurred: string;
     confirmOccurrence: string;
     closeOccurrence: string;

@@ -14,7 +14,12 @@ import {
 import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { buildAppCustomerEditPath, buildAppCustomersPath } from '@/constants/routes';
+import {
+  buildAppAssistantPath,
+  buildAppCustomerEditPath,
+  buildAppCustomersPath,
+} from '@/constants/routes';
+import type { AssistantNavigationState } from '@/assistant/assistantTypes';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
 import { useTranslation } from '@/i18n/I18nContext';
@@ -24,6 +29,7 @@ import { useOptionalEventStore } from '@/state/EventStoreContext';
 import type { EventCreationInput } from '@/state/eventStore';
 
 export interface CustomerDetailPageProps {
+  customerId?: string;
   events?: readonly CustomerEvent[];
   now?: Date;
   /** Explicit customer-level memo evidence; legacy context is intentionally not a fallback. */
@@ -32,12 +38,14 @@ export interface CustomerDetailPageProps {
 }
 
 export function CustomerDetailPage({
+  customerId: customerIdProp,
   events = SCHEDULE_FIXTURE.events,
   now = new Date(),
   memo,
   onCreateEvent,
 }: CustomerDetailPageProps) {
-  const { customerId = '' } = useParams();
+  const { customerId: routeCustomerId = '' } = useParams();
+  const customerId = customerIdProp ?? routeCustomerId;
   const { t } = useTranslation();
   const navigate = useNavigate();
   const adaptiveHost = useOptionalAdaptiveHost();
@@ -74,6 +82,25 @@ export function CustomerDetailPage({
   const openEvent = adaptiveHost
     ? (event: CustomerEvent) => adaptiveHost.selectCustomerEvent(currentCustomer.id, event.id)
     : undefined;
+
+  const assistantNavigation: AssistantNavigationState = {
+    context: { kind: 'customer', customerId: currentCustomer.id },
+    returnTo: { kind: 'customer-detail', customerId: currentCustomer.id },
+  };
+
+  function openAssistant() {
+    if (adaptiveHost) {
+      adaptiveHost.openAssistant(assistantNavigation);
+      return;
+    }
+    navigate(buildAppAssistantPath(), {
+      state: {
+        adaptiveRoot: 'customers',
+        adaptiveCustomerId: currentCustomer.id,
+        assistant: assistantNavigation,
+      },
+    });
+  }
 
   function handleCreate(values: EventFormSubmitValues) {
     if (!createEvent) return;
@@ -134,7 +161,7 @@ export function CustomerDetailPage({
             <CustomerContextSection context={currentCustomer.context} />
           </section>
 
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
@@ -143,6 +170,14 @@ export function CustomerDetailPage({
               onClick={() => setIsCreating(true)}
             >
               {t('customers.detail.addEvent')}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              data-assistant-entry="customer"
+              onClick={openAssistant}
+            >
+              {t('customers.detail.askAssistant')}
             </Button>
           </div>
 

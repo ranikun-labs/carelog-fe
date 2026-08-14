@@ -9,17 +9,22 @@ import {
 } from 'react';
 import { matchPath, Outlet, useLocation, useNavigate } from 'react-router';
 
+import type { AssistantNavigationState } from '@/assistant/assistantTypes';
 import {
   hasVisibleMajorSurface,
   shouldUseTwoPane,
   type ViewportMetrics,
 } from '@/components/layout/adaptiveHostModel';
+import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomersPage } from '@/pages/CustomersPage';
+import { EventDetailPage } from '@/pages/EventDetailPage';
 import { SchedulePage } from '@/pages/SchedulePage';
 import {
   APP_BASE,
   APP_ROUTE_PATHS,
+  buildAppAssistantPath,
   buildAppCustomerDetailPath,
+  buildAppCustomersPath,
   buildAppEventDetailPath,
   buildAppSchedulePath,
 } from '@/constants/routes';
@@ -53,6 +58,7 @@ type RouteKind =
   | 'customer-form'
   | 'event-create'
   | 'event'
+  | 'assistant'
   | 'other';
 
 interface RouteInfo {
@@ -296,6 +302,10 @@ function decodePathSegment(value: string | undefined): string | undefined {
 
 function getRouteInfo(pathname: string, state: unknown): RouteInfo {
   const navigationState = readAdaptiveNavigationState(state);
+  const assistantMatch = matchPath({ path: APP_ROUTE_PATHS.assistant, end: true }, pathname);
+  if (assistantMatch) {
+    return { kind: 'assistant', navigationState };
+  }
   const eventCreateMatch = matchPath({ path: APP_ROUTE_PATHS.eventCreate, end: true }, pathname);
   if (eventCreateMatch) {
     return { kind: 'event-create', navigationState };
@@ -350,6 +360,11 @@ function getRouteInfo(pathname: string, state: unknown): RouteInfo {
 }
 
 function getActiveRoot(routeInfo: RouteInfo): AdaptiveRoot {
+  if (routeInfo.kind === 'assistant') {
+    return routeInfo.navigationState.assistant?.returnTo.kind === 'customer-detail'
+      ? 'customers'
+      : (routeInfo.navigationState.adaptiveRoot ?? 'schedule');
+  }
   if (
     routeInfo.kind === 'customers' ||
     routeInfo.kind === 'customer-detail' ||
@@ -362,6 +377,9 @@ function getActiveRoot(routeInfo: RouteInfo): AdaptiveRoot {
 }
 
 function getTwoPaneRoot(routeInfo: RouteInfo, activeRoot: AdaptiveRoot): AdaptiveRoot | null {
+  if (routeInfo.kind === 'assistant') {
+    return routeInfo.navigationState.assistant ? activeRoot : null;
+  }
   if (routeInfo.kind === 'schedule' || routeInfo.kind === 'event-create') return 'schedule';
   if (routeInfo.kind === 'event') return activeRoot;
   if (
@@ -379,7 +397,8 @@ function isSelectedRoute(routeInfo: RouteInfo): boolean {
     routeInfo.kind === 'event' ||
     routeInfo.kind === 'event-create' ||
     routeInfo.kind === 'customer-detail' ||
-    routeInfo.kind === 'customer-form'
+    routeInfo.kind === 'customer-form' ||
+    (routeInfo.kind === 'assistant' && routeInfo.navigationState.assistant !== undefined)
   );
 }
 
@@ -418,9 +437,11 @@ export function AdaptiveHost() {
   const routeCustomerId =
     routeInfo.kind === 'customer-detail' || routeInfo.kind === 'customer-form'
       ? (routeInfo.customerId ?? null)
-      : activeRoot === 'customers'
-        ? (navigationState.adaptiveCustomerId ?? null)
-        : null;
+      : routeInfo.kind === 'assistant'
+        ? (navigationState.assistant?.context.customerId ?? null)
+        : activeRoot === 'customers'
+          ? (navigationState.adaptiveCustomerId ?? null)
+          : null;
   const selectedCustomerId = routeCustomerId ?? rootState.customerId;
   const selectedCustomerEventId =
     activeRoot === 'customers' && routeEventId ? routeEventId : rootState.customerEventId;
@@ -524,6 +545,66 @@ export function AdaptiveHost() {
     });
   }
 
+  function openAssistant(navigation: AssistantNavigationState) {
+    const root: AdaptiveRoot =
+      navigation.returnTo.kind === 'customer-detail' ? 'customers' : activeRoot;
+    const eventId = navigation.context.kind === 'customer' ? undefined : navigation.context.eventId;
+
+    setRootState((current) => ({
+      ...current,
+      customerId: navigation.context.customerId,
+      ...(root === 'customers' && eventId ? { customerEventId: eventId } : {}),
+      ...(root === 'schedule' && eventId ? { scheduleEventId: eventId } : {}),
+    }));
+    navigate(buildAppAssistantPath(), {
+      state: {
+        adaptiveRoot: root,
+        adaptiveCustomerId: navigation.context.customerId,
+        ...(eventId ? { adaptiveEventId: eventId } : {}),
+        assistant: navigation,
+      } satisfies AdaptiveNavigationState,
+    });
+  }
+
+  function goBackFromAssistant() {
+    const navigation = navigationState.assistant;
+    if (!navigation) {
+      navigate(activeRoot === 'customers' ? buildAppCustomersPath() : buildAppSchedulePath());
+      return;
+    }
+
+    const returnTarget = navigation.returnTo;
+    if (returnTarget.kind === 'customer-detail') {
+      setRootState((current) => ({
+        ...current,
+        customerId: returnTarget.customerId,
+      }));
+      navigate(buildAppCustomerDetailPath(returnTarget.customerId), {
+        state: {
+          adaptiveRoot: 'customers',
+          adaptiveCustomerId: returnTarget.customerId,
+        } satisfies AdaptiveNavigationState,
+      });
+      return;
+    }
+
+    const root = navigationState.adaptiveRoot ?? 'schedule';
+    setRootState((current) => ({
+      ...current,
+      customerId: returnTarget.customerId,
+      ...(root === 'customers'
+        ? { customerEventId: returnTarget.eventId }
+        : { scheduleEventId: returnTarget.eventId }),
+    }));
+    navigate(buildAppEventDetailPath(returnTarget.eventId), {
+      state: {
+        adaptiveRoot: root,
+        adaptiveCustomerId: returnTarget.customerId,
+        adaptiveEventId: returnTarget.eventId,
+      } satisfies AdaptiveNavigationState,
+    });
+  }
+
   const setScheduleDate = useCallback((dateKey: string) => {
     setRootState((current) =>
       current.scheduleDateKey === dateKey ? current : { ...current, scheduleDateKey: dateKey },
@@ -586,6 +667,8 @@ export function AdaptiveHost() {
     openCustomerFromEvent,
     goBackFromEvent,
     returnFromEvent,
+    openAssistant,
+    goBackFromAssistant,
     setScheduleDate,
     setScheduleScrollTop,
     setCustomerListScrollTop,
@@ -679,9 +762,6 @@ export function AdaptiveHost() {
   }, [compositionKey, hasSecondary, mode]);
 
   const children = <Outlet />;
-  // The secondary slot is intentionally limited to existing Event/Customer surfaces.
-  // A future AI surface can occupy this slot without adding a third pane, but RPL-61
-  // does not create AI state, requests, or content.
   const composition =
     mode !== 'two-pane' || !twoPaneRoot ? (
       <div
@@ -719,6 +799,8 @@ export function AdaptiveHost() {
         >
           {routeInfo.kind === 'schedule' || routeInfo.kind === 'customers' ? (
             children
+          ) : routeInfo.kind === 'assistant' && navigationState.assistant ? (
+            <AssistantReturnSurface navigation={navigationState.assistant} />
           ) : twoPaneRoot === 'schedule' ? (
             <SchedulePage />
           ) : (
@@ -764,4 +846,11 @@ function hasSecondaryMajorSurface(
 ): boolean {
   const element = pane && 'current' in pane ? pane.current : pane;
   return hasVisibleMajorSurface(element);
+}
+
+function AssistantReturnSurface({ navigation }: { navigation: AssistantNavigationState }) {
+  if (navigation.returnTo.kind === 'customer-detail') {
+    return <CustomerDetailPage customerId={navigation.returnTo.customerId} />;
+  }
+  return <EventDetailPage eventId={navigation.returnTo.eventId} />;
 }

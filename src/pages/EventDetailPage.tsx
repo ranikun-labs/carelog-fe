@@ -10,7 +10,12 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { EventDetail } from '@/components/schedule/EventDetail';
 import { getAgendaDateKey, getEventTitle } from '@/components/schedule/agendaModel';
 import type { EventFormSubmitValues } from '@/components/schedule/EventForm';
-import { buildAppCustomerDetailPath, buildAppSchedulePath } from '@/constants/routes';
+import {
+  buildAppAssistantPath,
+  buildAppCustomerDetailPath,
+  buildAppSchedulePath,
+} from '@/constants/routes';
+import type { AssistantNavigationState } from '@/assistant/assistantTypes';
 import type { CustomerEvent, CustomerEventEdit } from '@/domain/customerEvent';
 import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
 import { useTranslation } from '@/i18n/I18nContext';
@@ -19,6 +24,7 @@ import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 
 export interface EventDetailPageProps {
+  eventId?: string;
   events?: readonly CustomerEvent[];
   customers?: readonly ScheduleCustomer[];
   now?: Date;
@@ -28,6 +34,7 @@ export interface EventDetailPageProps {
 }
 
 export function EventDetailPage({
+  eventId: eventIdProp,
   events = SCHEDULE_FIXTURE.events,
   customers,
   now = new Date(),
@@ -35,7 +42,8 @@ export function EventDetailPage({
   onCancelEvent,
   onOccurEvent,
 }: EventDetailPageProps) {
-  const { eventId = '' } = useParams();
+  const { eventId: routeEventId = '' } = useParams();
+  const eventId = eventIdProp ?? routeEventId;
   const { t } = useTranslation();
   const navigate = useNavigate();
   const adaptiveHost = useOptionalAdaptiveHost();
@@ -121,6 +129,35 @@ export function EventDetailPage({
     return updatedEvent;
   }
 
+  function openAssistant() {
+    if (currentEvent.status === 'CANCELLED') return;
+    const assistantNavigation: AssistantNavigationState = {
+      context: {
+        kind: currentEvent.status === 'PLANNED' ? 'planned-event' : 'occurred-event',
+        customerId: currentCustomer.id,
+        eventId: currentEvent.id,
+      },
+      returnTo: {
+        kind: 'event-detail',
+        customerId: currentCustomer.id,
+        eventId: currentEvent.id,
+      },
+    };
+
+    if (adaptiveHost) {
+      adaptiveHost.openAssistant(assistantNavigation);
+      return;
+    }
+    navigate(buildAppAssistantPath(), {
+      state: {
+        adaptiveRoot: 'schedule',
+        adaptiveCustomerId: currentCustomer.id,
+        adaptiveEventId: currentEvent.id,
+        assistant: assistantNavigation,
+      },
+    });
+  }
+
   return (
     <AdaptiveSurface
       majorSurface="event-detail"
@@ -149,6 +186,7 @@ export function EventDetailPage({
             customerName={currentCustomer.displayName}
             customerPath={buildAppCustomerDetailPath(currentCustomer.id)}
             now={now}
+            onOpenAssistant={currentEvent.status === 'CANCELLED' ? undefined : openAssistant}
             onOpenCustomer={
               adaptiveHost
                 ? () => adaptiveHost.openCustomerFromEvent(currentCustomer.id)

@@ -14,6 +14,7 @@ const rootElement = document.getElementById('root')!;
 async function startApplication() {
   let testInitialization: ReturnType<typeof readTestInitialization> | undefined;
   let authPort: AuthPort | undefined;
+  let assistantAdapter: AppInitialization['assistantAdapter'];
 
   if (import.meta.env.MODE === 'test') {
     testInitialization = readTestInitialization();
@@ -21,12 +22,19 @@ async function startApplication() {
       const { createInMemoryAuthPort } = await import('@/auth/inMemoryAuthAdapter');
       authPort = createInMemoryAuthPort(testInitialization.authAdapterOptions);
     }
+    if (testInitialization?.assistantAdapterOptions) {
+      const { createDeterministicAssistantAdapter } = await import('@/assistant/assistantAdapter');
+      assistantAdapter = createDeterministicAssistantAdapter(
+        testInitialization.assistantAdapterOptions,
+      );
+    }
   }
 
   const initialization: AppInitialization | undefined = testInitialization
     ? {
         initialCustomers: testInitialization.initialCustomers,
         initialEvents: testInitialization.initialEvents,
+        assistantAdapter,
       }
     : undefined;
   const tree = (

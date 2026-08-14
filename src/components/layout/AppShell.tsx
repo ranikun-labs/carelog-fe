@@ -1,7 +1,7 @@
 import type { AppInitialization } from '@/app/appInitialization';
 import type { ReactNode } from 'react';
-import { useLocation } from 'react-router';
 
+import { AssistantAdapterProvider } from '@/assistant/AssistantAdapterContext';
 import { AuthOperationErrorSurface } from '@/components/auth/AuthStatusSurface';
 import { AuthRecoveryBanner } from '@/components/auth/AuthStatusSurface';
 import { AUTH_STATE } from '@/auth/authTypes';
@@ -20,15 +20,16 @@ export function ProductStateProviders({
   children,
   initialCustomers,
   initialEvents,
+  assistantAdapter,
 }: AppInitialization & { children: ReactNode }) {
-  const location = useLocation();
-
   return (
     <CustomerStoreProvider initialCustomers={initialCustomers}>
       <EventStoreProvider initialEvents={initialEvents}>
-        <CustomerFormDraftProvider key={location.pathname}>
-          <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
-        </CustomerFormDraftProvider>
+        <AssistantAdapterProvider adapter={assistantAdapter}>
+          <CustomerFormDraftProvider>
+            <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+          </CustomerFormDraftProvider>
+        </AssistantAdapterProvider>
       </EventStoreProvider>
     </CustomerStoreProvider>
   );
@@ -64,7 +65,11 @@ export function AppShellFrame() {
 }
 
 /** Standalone shell export retained for component-level tests and embedders. */
-export function AppShell({ initialCustomers, initialEvents }: AppInitialization = {}) {
+export function AppShell({
+  initialCustomers,
+  initialEvents,
+  assistantAdapter,
+}: AppInitialization = {}) {
   const customerStore = useOptionalCustomerStore();
   const eventStore = useOptionalEventStore();
   const frame = <AppShellFrame />;
@@ -72,7 +77,11 @@ export function AppShell({ initialCustomers, initialEvents }: AppInitialization 
     customerStore && eventStore ? (
       frame
     ) : (
-      <ProductStateProviders initialCustomers={initialCustomers} initialEvents={initialEvents}>
+      <ProductStateProviders
+        initialCustomers={initialCustomers}
+        initialEvents={initialEvents}
+        assistantAdapter={assistantAdapter}
+      >
         {frame}
       </ProductStateProviders>
     );

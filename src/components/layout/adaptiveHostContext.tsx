@@ -6,6 +6,10 @@ import {
   type Ref,
 } from 'react';
 
+import {
+  readAssistantNavigationState,
+  type AssistantNavigationState,
+} from '@/assistant/assistantTypes';
 import { cn } from '@/lib/utils';
 
 export type AdaptiveMode = 'single' | 'two-pane';
@@ -19,6 +23,7 @@ export interface AdaptiveNavigationState {
   targetEventId?: string;
   targetDateKey?: string;
   targetScrollTop?: number;
+  assistant?: AssistantNavigationState;
 }
 
 export interface AdaptiveHostContextValue {
@@ -45,6 +50,8 @@ export interface AdaptiveHostContextValue {
   openCustomerFromEvent: (customerId: string) => void;
   goBackFromEvent: (customerId: string) => void;
   returnFromEvent: (eventId: string, customerId: string, targetDateKey: string) => void;
+  openAssistant: (navigation: AssistantNavigationState) => void;
+  goBackFromAssistant: () => void;
   setScheduleDate: (dateKey: string) => void;
   setScheduleScrollTop: (scrollTop: number) => void;
   setCustomerListScrollTop: (scrollTop: number) => void;
@@ -127,6 +134,7 @@ export function AdaptiveSurfaceContent({
 export function readAdaptiveNavigationState(value: unknown): AdaptiveNavigationState {
   if (!value || typeof value !== 'object') return {};
   const state = value as Record<string, unknown>;
+  const assistant = readAssistantNavigationState(state.assistant);
   return {
     ...(state.adaptiveRoot === 'schedule' || state.adaptiveRoot === 'customers'
       ? { adaptiveRoot: state.adaptiveRoot }
@@ -142,5 +150,6 @@ export function readAdaptiveNavigationState(value: unknown): AdaptiveNavigationS
     ...(typeof state.targetScrollTop === 'number' && Number.isFinite(state.targetScrollTop)
       ? { targetScrollTop: Math.max(0, state.targetScrollTop) }
       : {}),
+    ...(assistant ? { assistant } : {}),
   };
 }

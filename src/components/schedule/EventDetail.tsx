@@ -25,6 +25,7 @@ interface EventDetailProps {
   customerPath: string;
   now: Date;
   onOpenCustomer?: () => void;
+  onOpenAssistant?: () => void;
   onEdit?: (values: EventFormSubmitValues) => CustomerEvent | undefined;
   onCancelEvent?: () => CustomerEvent | undefined;
   onOccurEvent?: (occurredAt: string) => CustomerEvent | undefined;
@@ -36,6 +37,7 @@ export function EventDetail({
   customerPath,
   now,
   onOpenCustomer,
+  onOpenAssistant,
   onEdit,
   onCancelEvent,
   onOccurEvent,
@@ -127,7 +129,7 @@ export function EventDetail({
           </section>
         ) : null}
 
-        {onEdit || onCancelEvent || onOccurEvent ? (
+        {onEdit || onCancelEvent || onOccurEvent || onOpenAssistant ? (
           <div className="flex flex-wrap gap-2" data-event-actions>
             {onEdit ? (
               <Button
@@ -138,6 +140,28 @@ export function EventDetail({
                 onClick={() => setIsEditing(true)}
               >
                 {t('eventDetail.edit')}
+              </Button>
+            ) : null}
+            {event.status === 'PLANNED' && onOpenAssistant ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                data-assistant-entry="planned-event"
+                onClick={onOpenAssistant}
+              >
+                {t('eventDetail.prepareAssistant')}
+              </Button>
+            ) : null}
+            {event.status === 'OCCURRED' && onOpenAssistant ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                data-assistant-entry="occurred-event"
+                onClick={onOpenAssistant}
+              >
+                {t('eventDetail.askAboutRecord')}
               </Button>
             ) : null}
             {event.status === 'PLANNED' && onOccurEvent ? (
