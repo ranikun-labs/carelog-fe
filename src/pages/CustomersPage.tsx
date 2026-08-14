@@ -51,13 +51,15 @@ export function CustomersPage() {
             <h1 className="text-3xl font-bold">{t('customers.title')}</h1>
             <p className="text-text-secondary mt-2">{t('customers.description')}</p>
           </div>
-          <Link
-            to={buildAppCustomerCreatePath()}
-            className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'shrink-0')}
-            data-customer-add-cta
-          >
-            + {t('customers.add')}
-          </Link>
+          {customers.length > 0 ? (
+            <Link
+              to={buildAppCustomerCreatePath()}
+              className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'shrink-0')}
+              data-customer-add-cta
+            >
+              + {t('customers.add')}
+            </Link>
+          ) : null}
         </header>
 
         {customers.length === 0 ? (

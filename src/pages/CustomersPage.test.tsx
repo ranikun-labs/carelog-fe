@@ -31,6 +31,7 @@ describe('CustomersPage', () => {
       'focus-visible:outline-offset-2',
       'focus-visible:outline-accent-primary',
     );
+    expect(screen.queryByRole('link', { name: '첫 고객 추가' })).not.toBeInTheDocument();
   });
 
   it('lists both scenario customers with their workspace as a scenario badge', () => {
@@ -64,6 +65,8 @@ describe('CustomersPage', () => {
     const cta = screen.getByRole('link', { name: '첫 고객 추가' });
     expect(cta).toHaveAttribute('href', '/app/customers/new');
     expect(cta).toHaveClass('bg-accent-primary', 'min-h-[54px]');
+    expect(screen.queryByRole('link', { name: '+ 고객 추가' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /고객 추가/ })).toHaveLength(1);
     expect(screen.queryByText(landlordTenantScenario.customer.displayName)).not.toBeInTheDocument();
   });
 });

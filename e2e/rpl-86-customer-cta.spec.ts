@@ -16,6 +16,8 @@ test('non-empty Customers exposes the existing create route as a primary keyboar
 
   const cta = page.getByRole('link', { name: '+ 고객 추가', exact: true });
   await expectPrimaryCreateLink(cta);
+  await expect(page.getByRole('link', { name: '첫 고객 추가', exact: true })).toHaveCount(0);
+  await expect(page.locator('a[href="/app/customers/new"]')).toHaveCount(1);
 
   await cta.focus();
   await page.waitForTimeout(250);
@@ -53,6 +55,8 @@ test('Customer0 keeps the existing first-customer CTA and route', async ({ page 
 
   const cta = page.getByRole('link', { name: '첫 고객 추가', exact: true });
   await expectPrimaryCreateLink(cta);
+  await expect(page.getByRole('link', { name: '+ 고객 추가', exact: true })).toHaveCount(0);
+  await expect(page.locator('a[href="/app/customers/new"]')).toHaveCount(1);
   await cta.press('Enter');
   await expect(page).toHaveURL('/app/customers/new');
   await expect(page.locator('[data-customer-create-page]')).toBeVisible();
