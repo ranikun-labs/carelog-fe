@@ -1,4 +1,22 @@
-import { expect, test, useEmptyApplicationSeed } from './fixtures';
+import { expect, test, useEmptyApplicationSeed, type Page } from './fixtures';
+
+async function prepareScheduleCreate(page: Page, descriptor: string) {
+  await page.goto('/app/schedule');
+  await page.locator('[data-week-strip] button[data-date-key="2026-08-15"]').click();
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill(descriptor);
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
+  const submitBox = await form.locator('[data-event-form-submit]').boundingBox();
+  if (!submitBox) throw new Error('Schedule EventForm submit button has no bounding box.');
+
+  return {
+    x: submitBox.x + submitBox.width / 2,
+    y: submitBox.y + submitBox.height / 2,
+  };
+}
 
 test('Schedule creates one PLANNED event through the canonical EventForm', async ({ page }) => {
   await page.goto('/app/schedule');
@@ -23,20 +41,304 @@ test('Schedule creates one PLANNED event through the canonical EventForm', async
   );
   await form.locator('[data-event-field="descriptor"]').fill('Schedule에서 만든 일정');
   await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
-  await form.locator('[data-event-form-submit]').dblclick();
+  const submitBox = await form.locator('[data-event-form-submit]').boundingBox();
+  if (!submitBox) throw new Error('Schedule EventForm submit button has no bounding box.');
+  await page.mouse.dblclick(submitBox.x + submitBox.width / 2, submitBox.y + submitBox.height / 2, {
+    delay: 100,
+  });
 
   await expect(page).toHaveURL('/app/schedule');
+  await expect(page.locator('[data-event-detail-page]')).toHaveCount(0);
   const createdRows = page
     .locator('[data-agenda-row]')
     .filter({ hasText: 'Schedule에서 만든 일정' });
   await expect(createdRows).toHaveCount(1);
   await expect(createdRows.first()).toHaveAttribute('data-event-status', 'PLANNED');
+  const createdEventId = await createdRows.first().getAttribute('data-event-id');
+  expect(createdEventId).toBeTruthy();
   await expect(
-    page.locator('[data-agenda-section][data-date-key="2026-08-15"]').locator('[data-agenda-row]'),
+    page.locator('[data-agenda-section][data-date-key="2026-08-15"] [data-agenda-row]'),
   ).toHaveCount(2);
   await expect(
-    page.locator('[data-event-id]').filter({ hasText: 'Schedule에서 만든 일정' }),
+    page.locator(
+      `[data-agenda-section][data-date-key="2026-08-15"] [data-event-id="${createdEventId}"]`,
+    ),
   ).toHaveCount(1);
+  await expect(page.locator(`[data-event-id="${createdEventId}"]`)).toHaveCount(1);
+});
+
+test('Schedule create ignores bounded pointer retarget probes at mobile and desktop widths', async ({
+  page,
+}) => {
+  const width = page.viewportSize()?.width;
+
+  for (const delay of [75, 100, 150]) {
+    const descriptor = `Schedule race probe ${width} ${delay}ms`;
+    const submitPoint = await prepareScheduleCreate(page, descriptor);
+
+    await page.mouse.dblclick(submitPoint.x, submitPoint.y, { delay });
+
+    await expect(page).toHaveURL('/app/schedule');
+    await expect(page.locator('[data-event-detail-page]')).toHaveCount(0);
+    const createdRows = page.locator('[data-agenda-row]').filter({ hasText: descriptor });
+    await expect(createdRows).toHaveCount(1);
+    const createdEventId = await createdRows.getAttribute('data-event-id');
+    expect(createdEventId).toBeTruthy();
+    await expect(
+      page.locator(
+        `[data-agenda-section][data-date-key="2026-08-15"] [data-event-id="${createdEventId}"]`,
+      ),
+    ).toHaveCount(1);
+
+    if (width === 1180) {
+      await expect(page.locator('[data-adaptive-host]')).toHaveAttribute(
+        'data-adaptive-mode',
+        'two-pane',
+      );
+    }
+    expect(await page.locator('[data-major-surface]').count()).toBeLessThanOrEqual(2);
+  }
+});
+
+test('Schedule create leaves a normal next Event activation usable', async ({ page }) => {
+  const width = page.viewportSize()?.width;
+
+  const submitPoint = await prepareScheduleCreate(page, `Schedule normal click ${width}`);
+  await page.mouse.click(submitPoint.x, submitPoint.y);
+  await expect(page).toHaveURL('/app/schedule');
+
+  await page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button')
+    .click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
+    'data-selected-event-id',
+    'followup-tenant-1',
+  );
+});
+
+test('Schedule create accepts a fresh Enter immediately after transition', async ({ page }) => {
+  const width = page.viewportSize()?.width;
+  await page.goto('/app/schedule');
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill(`Schedule keyboard ${width}`);
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
+  const submit = form.locator('[data-event-form-submit]');
+  await submit.focus();
+  await submit.press('Enter');
+  await expect(page).toHaveURL('/app/schedule');
+
+  const unrelatedEvent = page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button');
+  await unrelatedEvent.focus();
+  await unrelatedEvent.press('Enter');
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
+    'data-selected-event-id',
+    'followup-tenant-1',
+  );
+});
+
+test('Schedule create accepts a fresh Space sequence after transition', async ({ page }) => {
+  const width = page.viewportSize()?.width;
+  await page.goto('/app/schedule');
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill(`Schedule fresh Space ${width}`);
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
+  const submit = form.locator('[data-event-form-submit]');
+  await submit.focus();
+  await submit.press('Space');
+  await expect(page).toHaveURL('/app/schedule');
+
+  const unrelatedEvent = page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button');
+  await unrelatedEvent.focus();
+  await unrelatedEvent.press('Space');
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
+    'data-selected-event-id',
+    'followup-tenant-1',
+  );
+});
+
+test('Schedule create suppresses a held Enter repeat, then releases a fresh Enter', async ({
+  page,
+}) => {
+  const width = page.viewportSize()?.width;
+
+  await page.goto('/app/schedule');
+  await page.evaluate(() => {
+    const testWindow = window as typeof window & { __rpl90KeyRepeats?: boolean[] };
+    testWindow.__rpl90KeyRepeats = [];
+    document.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key === 'Enter') testWindow.__rpl90KeyRepeats?.push(event.repeat);
+      },
+      true,
+    );
+  });
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill(`Schedule held keyboard ${width}`);
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
+  const submit = form.locator('[data-event-form-submit]');
+  await submit.focus();
+  await page.keyboard.down('Enter');
+  await expect(page).toHaveURL('/app/schedule');
+
+  const unrelatedEvent = page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button');
+  await unrelatedEvent.focus();
+  await page.keyboard.down('Enter');
+  expect(
+    await page.evaluate(
+      () => (window as typeof window & { __rpl90KeyRepeats?: boolean[] }).__rpl90KeyRepeats,
+    ),
+  ).toContain(true);
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(page.locator('[data-event-detail-page]')).toHaveCount(0);
+  await page.keyboard.up('Enter');
+
+  await unrelatedEvent.focus();
+  await unrelatedEvent.press('Enter');
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+});
+
+test('Schedule create accepts a fresh same-point or overlapping landing click', async ({
+  page,
+}) => {
+  const width = page.viewportSize()?.width;
+  const descriptor = `Schedule fresh pointer ${width}`;
+  const submitPoint = await prepareScheduleCreate(page, descriptor);
+
+  await page.mouse.click(submitPoint.x, submitPoint.y);
+  await expect(page).toHaveURL('/app/schedule');
+
+  const landingEventId = await page.evaluate(({ x, y }) => {
+    const element = document.elementFromPoint(x, y);
+    return element?.closest<HTMLElement>('[data-agenda-row]')?.dataset.eventId ?? null;
+  }, submitPoint);
+  const landingRow = landingEventId
+    ? page.locator(`[data-agenda-row][data-event-id="${landingEventId}"]`)
+    : page.locator('[data-agenda-row][data-event-id="followup-tenant-1"]');
+  const expectedLandingEventId = landingEventId ?? 'followup-tenant-1';
+  const landingButton = landingRow.getByRole('button');
+  const landingBox = await landingButton.boundingBox();
+  if (!landingBox) throw new Error('Landing Event row has no clickable bounding box.');
+
+  if (landingEventId) {
+    await page.mouse.click(submitPoint.x, submitPoint.y);
+  } else {
+    await page.mouse.click(
+      landingBox.x + landingBox.width / 2,
+      landingBox.y + landingBox.height / 2,
+    );
+  }
+
+  await expect(page).toHaveURL(/\/app\/events\//);
+  await expect(page.locator('[data-event-detail-page]')).toHaveCount(1);
+  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
+    'data-selected-event-id',
+    expectedLandingEventId,
+  );
+});
+
+test('Event-create cancel and browser back clear the return provenance', async ({ page }) => {
+  await page.goto('/app/schedule');
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+  const firstForm = page.locator('[data-event-form]');
+  await firstForm.locator('[data-event-field="descriptor"]').fill('cancel lifecycle seed');
+  await firstForm.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
+  await firstForm.locator('[data-event-form-submit]').click();
+  await expect(page).toHaveURL('/app/schedule');
+
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+  await page.getByRole('button', { name: '일정으로 돌아가기' }).click();
+  await expect(page).toHaveURL('/app/schedule');
+
+  const unrelatedEvent = page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button');
+  await unrelatedEvent.click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+  await page.getByRole('button', { name: '일정으로 돌아가기' }).click();
+  await expect(page).toHaveURL('/app/schedule');
+  await unrelatedEvent.focus();
+  await unrelatedEvent.press('Enter');
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+
+  await page.goBack();
+  await expect(page).toHaveURL('/app/schedule');
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await expect(page).toHaveURL('/app/events/new');
+  await page.goBack();
+  await expect(page).toHaveURL('/app/schedule');
+  await unrelatedEvent.click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+});
+
+async function prepareScheduleToCustomerAfterCreate(page: Page, descriptor: string) {
+  const submitPoint = await prepareScheduleCreate(page, descriptor);
+  await page.mouse.click(submitPoint.x, submitPoint.y);
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(page.locator('[data-agenda-row]').filter({ hasText: descriptor })).toHaveCount(1);
+
+  await page.getByRole('link', { name: '고객', exact: true }).first().click();
+  await expect(page).toHaveURL('/app/customers');
+  const customerLink = page.getByRole('link', { name: /박세입/ }).first();
+  await customerLink.click();
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+}
+
+test('Schedule-origin return provenance allows the first Customer Event pointer', async ({
+  page,
+}) => {
+  await prepareScheduleToCustomerAfterCreate(page, 'Schedule reverse pointer leak');
+  const eventLink = page.locator('a[href="/app/events/followup-tenant-1"]');
+  await eventLink.click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+});
+
+test('Schedule-origin return provenance allows the first Customer Event Enter', async ({
+  page,
+}) => {
+  await prepareScheduleToCustomerAfterCreate(page, 'Schedule reverse keyboard leak');
+  const eventLink = page.locator('a[href="/app/events/followup-tenant-1"]');
+  await eventLink.focus();
+  await eventLink.press('Enter');
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+});
+
+test('invalid Event Create does not retain activation provenance', async ({ page }) => {
+  await page.goto('/app/schedule');
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill('validation recovery');
+  await form.locator('[data-event-field="scheduledAt"]').fill('');
+  await form.locator('[data-event-form-submit]').click();
+  await expect(page).toHaveURL('/app/events/new');
+  await expect(page.locator('[data-event-form]')).toBeVisible();
+
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
+  await form.locator('[data-event-form-submit]').click();
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(
+    page.locator('[data-agenda-row]').filter({ hasText: 'validation recovery' }),
+  ).toHaveCount(1);
+  await expect(page.locator('[data-event-detail-page]')).toHaveCount(0);
 });
 
 test('Schedule Customer=0 enters the existing first-customer flow from + 일정', async ({

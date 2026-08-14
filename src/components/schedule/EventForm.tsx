@@ -34,6 +34,7 @@ interface EventFormProps {
   fixedCreateStatus?: 'PLANNED';
   onDraftChange?: (draft: EventFormDraft) => void;
   onSubmit: (values: EventFormSubmitValues) => void | Promise<void>;
+  onValidationFailure?: () => void;
   onCancel: () => void;
 }
 
@@ -46,6 +47,7 @@ export function EventForm({
   fixedCreateStatus,
   onDraftChange,
   onSubmit,
+  onValidationFailure,
   onCancel,
 }: EventFormProps) {
   const { t } = useTranslation();
@@ -83,6 +85,7 @@ export function EventForm({
     if (submitLockRef.current) return;
     const time = status === 'PLANNED' ? scheduledAt : occurredAt;
     if (!time) {
+      onValidationFailure?.();
       setError(
         status === 'PLANNED' ? t('eventForm.scheduledRequired') : t('eventForm.occurredRequired'),
       );
@@ -116,6 +119,7 @@ export function EventForm({
       data-event-form-mode={mode}
       aria-busy={isSubmitting}
       onSubmit={submit}
+      onInvalidCapture={() => onValidationFailure?.()}
       className="border-border-default bg-surface mt-4 rounded-lg border p-4"
     >
       <div className="flex items-start justify-between gap-3">

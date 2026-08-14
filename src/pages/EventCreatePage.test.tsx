@@ -1,14 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
+import { vi } from 'vitest';
 
+import type { CustomerEvent } from '@/domain/customerEvent';
 import { EventCreatePage } from '@/pages/EventCreatePage';
 import { SchedulePage } from '@/pages/SchedulePage';
+import { EventCreateActivationProvider } from '@/state/EventCreateActivationContext';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 import type { CustomerRecord } from '@/types/customer';
-import type { CustomerEvent } from '@/domain/customerEvent';
+import { CarelogHttpError } from '@/integrations/carelog/errors';
 
 const now = new Date('2026-08-11T12:00:00+09:00');
 const customer: CustomerRecord = {
@@ -99,6 +102,74 @@ describe('EventCreatePage', () => {
       'data-date-key',
       '2026-08-15',
     );
+  });
+
+  it('keeps a failed Event mutation local and allows a fresh retry', async () => {
+    const createdEvent: CustomerEvent = {
+      id: 'retry-created-event',
+      customerId: customer.id,
+      status: 'PLANNED',
+      scheduledAt: '2026-08-15T10:30:00+09:00',
+      descriptor: '실패 후 재시도',
+    };
+    const port = {
+      list: vi.fn().mockResolvedValue([]),
+      get: vi.fn(),
+      create: vi
+        .fn()
+        .mockRejectedValueOnce(new CarelogHttpError(500))
+        .mockResolvedValueOnce(createdEvent),
+      edit: vi.fn(),
+      occur: vi.fn(),
+      cancel: vi.fn(),
+    };
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/app/events/new',
+            state: { adaptiveRoot: 'schedule', targetDateKey: '2026-08-15' },
+          },
+        ]}
+      >
+        <I18nProvider locale="ko">
+          <EventCreateActivationProvider>
+            <CustomerStoreProvider initialCustomers={[customer]}>
+              <EventStoreProvider port={port} initialEvents={[]}>
+                <EventCreateDraftProvider>
+                  <Routes>
+                    <Route path="/app/events/new" element={<EventCreatePage now={now} />} />
+                    <Route
+                      path="/app/schedule"
+                      element={
+                        <SchedulePage now={now} customers={[toScheduleCustomer(customer)]} />
+                      }
+                    />
+                  </Routes>
+                </EventCreateDraftProvider>
+              </EventStoreProvider>
+            </CustomerStoreProvider>
+          </EventCreateActivationProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '박세입' }));
+    fireEvent.change(screen.getByLabelText('제목'), { target: { value: '실패 후 재시도' } });
+    fireEvent.change(screen.getByLabelText('예정 시각'), {
+      target: { value: '2026-08-15T10:30' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '일정 추가' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
+    expect(screen.getByRole('heading', { name: '일정 추가', level: 2 })).toBeVisible();
+    expect(port.create).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: '일정 추가' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: '일정' })).toBeVisible());
+    expect(port.create).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('button', { name: '일정 상세 열기: 실패 후 재시도' })).toBeVisible();
   });
 
   it('routes Customer=0 to the existing first-customer flow', () => {

@@ -34,6 +34,7 @@ import {
   readAdaptiveNavigationState,
 } from '@/components/layout/adaptiveHostContext';
 import { cn } from '@/lib/utils';
+import { useEventCreateActivation } from '@/state/EventCreateActivationContext';
 
 interface AdaptiveRootState {
   scheduleDateKey: string | null;
@@ -387,6 +388,7 @@ export function AdaptiveHost() {
   const hostRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const eventCreateActivation = useEventCreateActivation();
   const focusedEventTargetRef = useRef<EventFocusTarget | null>(null);
   const focusedEventFormTargetRef = useRef<EventFormFocusTarget | null>(null);
   const focusedCustomerSelectorTargetRef = useRef<CustomerSelectorFocusTarget | null>(null);
@@ -500,6 +502,7 @@ export function AdaptiveHost() {
 
   function returnFromEvent(eventId: string, customerId: string, targetDateKey: string) {
     if (activeRoot === 'customers') {
+      eventCreateActivation.clearCreateReturnProvenance();
       navigate(buildAppCustomerDetailPath(customerId), {
         state: {
           adaptiveRoot: 'customers',
@@ -510,6 +513,12 @@ export function AdaptiveHost() {
       return;
     }
 
+    eventCreateActivation.armCreateReturn({
+      kind: 'schedule',
+      eventId,
+      customerId,
+      dateKey: targetDateKey,
+    });
     setRootState((current) => ({
       ...current,
       scheduleEventId: eventId,

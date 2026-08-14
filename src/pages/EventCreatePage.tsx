@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { EmptyState } from '@/components/common/EmptyState';
@@ -18,6 +18,7 @@ import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useEventCreateDraft, type EventFormDraft } from '@/state/EventCreateDraftContext';
+import { useOptionalEventCreateActivation } from '@/state/EventCreateActivationContext';
 import { useEventStore } from '@/state/EventStoreContext';
 
 export interface EventCreatePageProps {
@@ -34,6 +35,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const adaptiveHost = useOptionalAdaptiveHost();
+  const eventCreateActivation = useOptionalEventCreateActivation();
   const customerStore = useCustomerStore();
   const eventStore = useEventStore();
   const { draft, updateDraft, clearDraft } = useEventCreateDraft();
@@ -48,7 +50,12 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
     ? customerStore.getCustomer(draft.customerId)
     : undefined;
 
+  useEffect(() => {
+    eventCreateActivation?.beginCreateSession();
+  }, [eventCreateActivation]);
+
   const returnToSchedule = useCallback(() => {
+    eventCreateActivation?.clearCreateReturnProvenance();
     clearDraft();
     adaptiveHost?.setScheduleDate(selectedDateKey);
     navigate(buildAppSchedulePath(), {
@@ -58,7 +65,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
         targetScrollTop: entryScrollTop,
       } satisfies AdaptiveNavigationState,
     });
-  }, [adaptiveHost, clearDraft, entryScrollTop, navigate, selectedDateKey]);
+  }, [adaptiveHost, clearDraft, entryScrollTop, eventCreateActivation, navigate, selectedDateKey]);
 
   const selectCustomer = useCallback(
     (customerId: string) => {
@@ -103,15 +110,28 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
 
   const handleCreate = useCallback(
     async (values: EventFormSubmitValues) => {
-      if (!selectedCustomer || values.status !== 'PLANNED' || !values.scheduledAt) return;
+      if (!selectedCustomer || values.status !== 'PLANNED' || !values.scheduledAt) {
+        eventCreateActivation?.clearCreateReturnProvenance();
+        return;
+      }
 
-      const createdEvent = await eventStore.createEvent({
-        status: 'PLANNED',
-        customerId: selectedCustomer.id,
-        scheduledAt: values.scheduledAt,
-        ...(values.descriptor ? { descriptor: values.descriptor } : {}),
-        ...(values.note ? { note: values.note } : {}),
-      });
+      let createdEvent;
+      try {
+        createdEvent = await eventStore.createEvent({
+          status: 'PLANNED',
+          customerId: selectedCustomer.id,
+          scheduledAt: values.scheduledAt,
+          ...(values.descriptor ? { descriptor: values.descriptor } : {}),
+          ...(values.note ? { note: values.note } : {}),
+        });
+      } catch (error) {
+        eventCreateActivation?.clearCreateReturnProvenance();
+        throw error;
+      }
+      if (!createdEvent) {
+        eventCreateActivation?.clearCreateReturnProvenance();
+        return;
+      }
       clearDraft();
 
       if (adaptiveHost) {
@@ -123,6 +143,12 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
         return;
       }
 
+      eventCreateActivation?.armCreateReturn({
+        kind: 'schedule',
+        eventId: createdEvent.id,
+        customerId: selectedCustomer.id,
+        dateKey: getAgendaDateKey(createdEvent),
+      });
       navigate(buildAppSchedulePath(), {
         state: {
           adaptiveRoot: 'schedule',
@@ -131,7 +157,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
         } satisfies AdaptiveNavigationState,
       });
     },
-    [adaptiveHost, clearDraft, eventStore, navigate, selectedCustomer],
+    [adaptiveHost, clearDraft, eventCreateActivation, eventStore, navigate, selectedCustomer],
   );
 
   return (
@@ -163,6 +189,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
                 fixedCreateStatus="PLANNED"
                 onDraftChange={onDraftChange}
                 onSubmit={handleCreate}
+                onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
                 onCancel={returnToSchedule}
               />
             </div>
