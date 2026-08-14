@@ -110,9 +110,7 @@ test('Customer-origin return provenance does not leak into Schedule', async ({ p
   const unrelatedEventRow = page.locator('[data-agenda-row][data-event-id="followup-tenant-1"]');
   await expect(unrelatedEventRow).toHaveCount(1);
   await unrelatedEventRow.scrollIntoViewIfNeeded();
-  await expect(
-    page.locator('[data-week-strip] button[data-date-key="2026-08-15"][aria-current="date"]'),
-  ).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /오늘로 돌아가기|Return to today/ })).toBeVisible();
   const unrelatedEvent = unrelatedEventRow.getByRole('button');
   await expect(unrelatedEvent).toBeVisible();
   await unrelatedEvent.click();
