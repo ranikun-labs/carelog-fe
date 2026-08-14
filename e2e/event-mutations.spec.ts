@@ -1,9 +1,112 @@
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from './fixtures';
 
 const FOLLOWUP_EVENT_ID = 'followup-tenant-1';
 const ORIGINAL_SCHEDULED_AT = '2026-08-15T10:00:00+09:00';
 const RESCHEDULED_AT = '2026-08-25T15:00:00+09:00';
 const OVERRIDDEN_OCCURRED_AT = '2026-08-16T09:00:00+09:00';
+
+async function prepareCustomerCreate(page: Page, descriptor: string) {
+  await page.goto('/app/customers/customer-tenant-1');
+  await page.getByRole('button', { name: '일정 추가', exact: true }).click();
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill(descriptor);
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-12T09:00');
+  const submit = form.locator('[data-event-form-submit]');
+  await submit.scrollIntoViewIfNeeded();
+  const submitBox = await submit.boundingBox();
+  if (!submitBox) throw new Error('Customer EventForm submit button has no bounding box.');
+
+  return {
+    x: submitBox.x + submitBox.width / 2,
+    y: submitBox.y + submitBox.height / 2,
+  };
+}
+
+test('Customer-origin create blocks native double activation without retargeting', async ({
+  page,
+}) => {
+  const width = page.viewportSize()?.width;
+  const descriptor = `Customer native double ${width}`;
+  const submitPoint = await prepareCustomerCreate(page, descriptor);
+
+  await page.mouse.dblclick(submitPoint.x, submitPoint.y, { delay: 100 });
+
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+  await expect(page.locator('[data-event-detail-page]')).toHaveCount(0);
+  await expect(page.locator('[data-customer-detail-page]')).toHaveAttribute(
+    'data-selected-customer-id',
+    'customer-tenant-1',
+  );
+  const createdLinks = page
+    .locator('[data-customer-upcoming] a[href^="/app/events/"]')
+    .filter({ hasText: descriptor });
+  await expect(createdLinks).toHaveCount(1);
+  await expect(
+    page.locator('[data-customer-history-item]').filter({ hasText: descriptor }),
+  ).toHaveCount(0);
+  expect(await page.locator('[data-major-surface]').count()).toBeLessThanOrEqual(2);
+});
+
+test('Customer-origin create accepts the first fresh pointer action', async ({ page }) => {
+  const width = page.viewportSize()?.width;
+  const descriptor = `Customer fresh pointer ${width}`;
+  const submitPoint = await prepareCustomerCreate(page, descriptor);
+
+  await page.mouse.click(submitPoint.x, submitPoint.y);
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+  const createdLink = page
+    .locator('[data-customer-upcoming] a[href^="/app/events/"]')
+    .filter({ hasText: descriptor });
+  await expect(createdLink).toHaveCount(1);
+  const createdHref = await createdLink.getAttribute('href');
+  expect(createdHref).toMatch(/^\/app\/events\/event-/);
+
+  await createdLink.click();
+  await expect(page).toHaveURL(createdHref!);
+  await expect(page.locator('[data-event-detail]')).toHaveAttribute('data-event-status', 'PLANNED');
+});
+
+test('Customer-origin create accepts the first fresh Enter sequence', async ({ page }) => {
+  const width = page.viewportSize()?.width;
+  const descriptor = `Customer fresh Enter ${width}`;
+  await page.goto('/app/customers/customer-tenant-1');
+  await page.getByRole('button', { name: '일정 추가', exact: true }).click();
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill(descriptor);
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-12T09:00');
+  const submit = form.locator('[data-event-form-submit]');
+  await submit.focus();
+  await submit.press('Enter');
+
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+  const createdLink = page
+    .locator('[data-customer-upcoming] a[href^="/app/events/"]')
+    .filter({ hasText: descriptor });
+  await expect(createdLink).toHaveCount(1);
+  const createdHref = await createdLink.getAttribute('href');
+  await createdLink.focus();
+  await createdLink.press('Enter');
+  await expect(page).toHaveURL(createdHref!);
+  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
+    'data-selected-event-id',
+    createdHref!.split('/').at(-1)!,
+  );
+});
+
+test('Customer-origin return provenance does not leak into Schedule', async ({ page }) => {
+  const width = page.viewportSize()?.width;
+  const submitPoint = await prepareCustomerCreate(page, `Customer route leak ${width}`);
+  await page.mouse.click(submitPoint.x, submitPoint.y);
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+
+  await page.getByRole('link', { name: '일정', exact: true }).first().click();
+  await expect(page).toHaveURL('/app/schedule');
+  const unrelatedEvent = page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button');
+  await unrelatedEvent.click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+});
 
 test('PLANNED create resolves the same Event through Customer, Schedule, and Detail', async ({
   page,

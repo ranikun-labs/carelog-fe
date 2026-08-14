@@ -5,8 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from 'react';
 import { matchPath, Outlet, useLocation, useNavigate } from 'react-router';
@@ -36,10 +34,7 @@ import {
   readAdaptiveNavigationState,
 } from '@/components/layout/adaptiveHostContext';
 import { cn } from '@/lib/utils';
-import {
-  useScheduleActivationGuard,
-  type ScheduleCreateActivation,
-} from '@/state/ScheduleActivationGuardContext';
+import { useEventCreateActivation } from '@/state/EventCreateActivationContext';
 
 interface AdaptiveRootState {
   scheduleDateKey: string | null;
@@ -291,38 +286,6 @@ function findCustomerSelectorFocusTarget(
   );
 }
 
-function isWithin(target: EventTarget | null, selector: string): boolean {
-  return target instanceof Element && target.closest(selector) !== null;
-}
-
-function isScheduleSurfaceTarget(target: EventTarget | null): boolean {
-  return isWithin(target, '[data-major-surface="schedule"]');
-}
-
-function isEventFormSubmitTarget(target: EventTarget | null): boolean {
-  return isWithin(target, '[data-event-form-submit]');
-}
-
-function isEventFormTarget(target: EventTarget | null): boolean {
-  return isWithin(target, '[data-event-form]');
-}
-
-function isActivationKey(key: string): boolean {
-  return key === 'Enter' || key === ' ';
-}
-
-function isKeyboardNavigationKey(key: string): boolean {
-  return (
-    key === 'Tab' ||
-    key === 'ArrowUp' ||
-    key === 'ArrowDown' ||
-    key === 'ArrowLeft' ||
-    key === 'ArrowRight' ||
-    key === 'Home' ||
-    key === 'End'
-  );
-}
-
 function decodePathSegment(value: string | undefined): string | undefined {
   if (!value) return undefined;
   try {
@@ -425,8 +388,7 @@ export function AdaptiveHost() {
   const hostRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const activationGuard = useScheduleActivationGuard();
-  const lastCreateActivationRef = useRef<ScheduleCreateActivation | null>(null);
+  const eventCreateActivation = useEventCreateActivation();
   const focusedEventTargetRef = useRef<EventFocusTarget | null>(null);
   const focusedEventFormTargetRef = useRef<EventFormFocusTarget | null>(null);
   const focusedCustomerSelectorTargetRef = useRef<CustomerSelectorFocusTarget | null>(null);
@@ -438,76 +400,6 @@ export function AdaptiveHost() {
     focusedCustomerFormTargetRef.current = readCustomerFormFocusTarget(hostRef.current);
   }, []);
 
-  const suppressScheduleCreateActivation = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement> | ReactKeyboardEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      activationGuard.clearPendingScheduleCreateActivation();
-    },
-    [activationGuard],
-  );
-
-  const handleHostClickCapture = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (isEventFormSubmitTarget(event.target) && event.detail > 0) {
-        lastCreateActivationRef.current = {
-          kind: 'pointer',
-          clientX: event.clientX,
-          clientY: event.clientY,
-        };
-      }
-
-      const pending = activationGuard.getPendingScheduleCreateActivation();
-      if (!pending || !isScheduleSurfaceTarget(event.target)) return;
-
-      if (pending.kind !== 'pointer') {
-        if (pending.kind === 'unknown' && event.detail > 1) {
-          suppressScheduleCreateActivation(event);
-          return;
-        }
-        activationGuard.clearPendingScheduleCreateActivation();
-        return;
-      }
-
-      const sameOriginPoint =
-        pending.clientX === event.clientX && pending.clientY === event.clientY;
-      if (event.detail > 1 || sameOriginPoint) {
-        suppressScheduleCreateActivation(event);
-        return;
-      }
-
-      // A different pointer activation is a new user action, so it must not
-      // inherit the stale transition guard.
-      activationGuard.clearPendingScheduleCreateActivation();
-    },
-    [activationGuard, suppressScheduleCreateActivation],
-  );
-
-  const handleHostKeyDownCapture = useCallback(
-    (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (isEventFormTarget(event.target) && isActivationKey(event.key)) {
-        lastCreateActivationRef.current = { kind: 'keyboard' };
-      }
-
-      const pending = activationGuard.getPendingScheduleCreateActivation();
-      if (!pending || !isScheduleSurfaceTarget(event.target)) return;
-
-      if (pending.kind !== 'keyboard') {
-        activationGuard.clearPendingScheduleCreateActivation();
-        return;
-      }
-
-      if (isActivationKey(event.key)) {
-        suppressScheduleCreateActivation(event);
-        return;
-      }
-
-      if (isKeyboardNavigationKey(event.key)) {
-        activationGuard.clearPendingScheduleCreateActivation();
-      }
-    },
-    [activationGuard, suppressScheduleCreateActivation],
-  );
   const metrics = useViewportMetrics(hostRef, captureFocusedEventTarget);
   const [rootState, setRootState] = useState<AdaptiveRootState>(INITIAL_ROOT_STATE);
   const [isCoVisible, setIsCoVisible] = useState(false);
@@ -611,8 +503,7 @@ export function AdaptiveHost() {
 
   function returnFromEvent(eventId: string, customerId: string, targetDateKey: string) {
     if (activeRoot === 'customers') {
-      lastCreateActivationRef.current = null;
-      activationGuard.clearPendingScheduleCreateActivation();
+      eventCreateActivation.clearCreateReturnProvenance();
       navigate(buildAppCustomerDetailPath(customerId), {
         state: {
           adaptiveRoot: 'customers',
@@ -623,10 +514,12 @@ export function AdaptiveHost() {
       return;
     }
 
-    activationGuard.armScheduleCreateActivation(
-      lastCreateActivationRef.current ?? { kind: 'unknown' },
-    );
-    lastCreateActivationRef.current = null;
+    eventCreateActivation.armCreateReturn({
+      kind: 'schedule',
+      eventId,
+      customerId,
+      dateKey: targetDateKey,
+    });
     setRootState((current) => ({
       ...current,
       scheduleEventId: eventId,
@@ -762,12 +655,6 @@ export function AdaptiveHost() {
     findEventFocusTarget(hostRef.current!, focusTarget)?.focus({ preventScroll: true });
   }, [mode, routeInfo.kind, routeEventId]);
 
-  useEffect(() => {
-    if (routeInfo.kind !== 'schedule' && routeInfo.kind !== 'event-create') {
-      activationGuard.clearPendingScheduleCreateActivation();
-    }
-  }, [activationGuard, routeInfo.kind]);
-
   useLayoutEffect(() => {
     const updateCoVisibility = () => {
       const next =
@@ -873,8 +760,6 @@ export function AdaptiveHost() {
         data-major-surface-count={hasSecondary ? 2 : 1}
         data-active-root={activeRoot}
         className="h-full min-h-0 min-w-0 flex-1 overflow-hidden"
-        onClickCapture={handleHostClickCapture}
-        onKeyDownCapture={handleHostKeyDownCapture}
       >
         <main data-adaptive-main className="h-full min-h-0 min-w-0">
           {composition}
