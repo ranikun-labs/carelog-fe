@@ -107,9 +107,14 @@ test('Customer-origin return provenance does not leak into Schedule', async ({ p
 
   await page.getByRole('link', { name: '일정', exact: true }).first().click();
   await expect(page).toHaveURL('/app/schedule');
-  const unrelatedEvent = page
-    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
-    .getByRole('button');
+  const unrelatedEventRow = page.locator('[data-agenda-row][data-event-id="followup-tenant-1"]');
+  await expect(unrelatedEventRow).toHaveCount(1);
+  await unrelatedEventRow.scrollIntoViewIfNeeded();
+  await expect(
+    page.locator('[data-week-strip] button[data-date-key="2026-08-15"][aria-current="date"]'),
+  ).toHaveCount(1);
+  const unrelatedEvent = unrelatedEventRow.getByRole('button');
+  await expect(unrelatedEvent).toBeVisible();
   await unrelatedEvent.click();
   await expect(page).toHaveURL('/app/events/followup-tenant-1');
 });
