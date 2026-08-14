@@ -12,12 +12,14 @@ import { buttonVariants } from '@/components/ui/button';
 import { buildAppCustomerCreatePath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
+import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
 
 export function CustomersPage() {
   const { t } = useTranslation();
   const adaptiveHost = useOptionalAdaptiveHost();
-  const { customers } = useCustomerStore();
+  const customerStore = useCustomerStore();
+  const { customers } = customerStore;
   const scrollSurfaceRef = useRef<HTMLElement>(null);
 
   useLayoutEffect(() => {
@@ -62,7 +64,29 @@ export function CustomersPage() {
           ) : null}
         </header>
 
-        {customers.length === 0 ? (
+        {customerStore.loadState === 'loading' ? (
+          <p role="status" aria-busy="true" className="text-text-secondary mt-6 text-sm">
+            {t('schedule.loadingLabel')}
+          </p>
+        ) : customerStore.loadState === 'error' ? (
+          <EmptyState
+            title={t('customers.emptyTitle')}
+            description={
+              customerStore.error
+                ? t(getCarelogMessageKey(customerStore.error))
+                : t('carelog.unknown')
+            }
+            action={
+              <button
+                type="button"
+                className={cn(buttonVariants({ variant: 'text' }), 'mt-2')}
+                onClick={() => void customerStore.refresh().catch(() => undefined)}
+              >
+                {t('schedule.retry')}
+              </button>
+            }
+          />
+        ) : customers.length === 0 ? (
           <div data-customers-empty className="mt-6">
             <EmptyState
               title={t('customers.emptyTitle')}

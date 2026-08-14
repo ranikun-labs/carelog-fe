@@ -81,6 +81,18 @@ export interface Messages {
     };
     account: { entry: string; title: string; description: string; logout: string };
   };
+  carelog: {
+    validation: string;
+    unauthorized: string;
+    forbidden: string;
+    notFound: string;
+    conflict: string;
+    server: string;
+    network: string;
+    protocol: string;
+    configuration: string;
+    unknown: string;
+  };
   customers: {
     title: string;
     description: string;

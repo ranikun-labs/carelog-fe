@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import {
   EventForm,
   toCanonicalTimestamp,
@@ -25,9 +26,13 @@ interface EventDetailProps {
   customerPath: string;
   now: Date;
   onOpenCustomer?: () => void;
-  onEdit?: (values: EventFormSubmitValues) => CustomerEvent | undefined;
-  onCancelEvent?: () => CustomerEvent | undefined;
-  onOccurEvent?: (occurredAt: string) => CustomerEvent | undefined;
+  onEdit?: (
+    values: EventFormSubmitValues,
+  ) => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
+  onCancelEvent?: () => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
+  onOccurEvent?: (
+    occurredAt: string,
+  ) => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
 }
 
 export function EventDetail({
@@ -43,6 +48,8 @@ export function EventDetail({
   const { locale, t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingOccurrence, setIsConfirmingOccurrence] = useState(false);
+  const [isActionPending, setIsActionPending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [occurrenceTime, setOccurrenceTime] = useState(
     event.status === 'PLANNED' ? toDateTimeLocalValue(event.scheduledAt) : '',
   );
@@ -59,10 +66,31 @@ export function EventDetail({
     setIsConfirmingOccurrence(true);
   }
 
-  function confirmOccurrence() {
-    if (!onOccurEvent || !occurrenceTime) return;
-    const updatedEvent = onOccurEvent(toCanonicalTimestamp(occurrenceTime));
-    if (updatedEvent) setIsConfirmingOccurrence(false);
+  async function confirmOccurrence() {
+    if (!onOccurEvent || !occurrenceTime || isActionPending) return;
+    setIsActionPending(true);
+    setActionError(null);
+    try {
+      const updatedEvent = await onOccurEvent(toCanonicalTimestamp(occurrenceTime));
+      if (updatedEvent) setIsConfirmingOccurrence(false);
+    } catch (error: unknown) {
+      setActionError(t(getCarelogMessageKey(error)));
+    } finally {
+      setIsActionPending(false);
+    }
+  }
+
+  async function cancelEvent() {
+    if (!onCancelEvent || isActionPending) return;
+    setIsActionPending(true);
+    setActionError(null);
+    try {
+      await onCancelEvent();
+    } catch (error: unknown) {
+      setActionError(t(getCarelogMessageKey(error)));
+    } finally {
+      setIsActionPending(false);
+    }
   }
 
   return (
@@ -136,6 +164,7 @@ export function EventDetail({
                 size="sm"
                 data-event-action="edit"
                 onClick={() => setIsEditing(true)}
+                disabled={isActionPending}
               >
                 {t('eventDetail.edit')}
               </Button>
@@ -147,6 +176,7 @@ export function EventDetail({
                 size="sm"
                 data-event-action="occur"
                 onClick={openOccurrenceConfirmation}
+                disabled={isActionPending}
               >
                 {t('eventDetail.markOccurred')}
               </Button>
@@ -157,12 +187,19 @@ export function EventDetail({
                 variant="ghost"
                 size="sm"
                 data-event-action="cancel"
-                onClick={() => onCancelEvent()}
+                onClick={() => void cancelEvent()}
+                disabled={isActionPending}
               >
                 {t('eventDetail.cancel')}
               </Button>
             ) : null}
           </div>
+        ) : null}
+
+        {actionError ? (
+          <p role="alert" className="text-warning text-sm font-semibold">
+            {actionError}
+          </p>
         ) : null}
 
         {isConfirmingOccurrence && event.status === 'PLANNED' && onOccurEvent ? (
@@ -195,6 +232,7 @@ export function EventDetail({
                 size="sm"
                 data-event-occurrence-cancel
                 onClick={() => setIsConfirmingOccurrence(false)}
+                disabled={isActionPending}
               >
                 {t('eventDetail.closeOccurrence')}
               </Button>
@@ -203,7 +241,8 @@ export function EventDetail({
                 variant="primary"
                 size="sm"
                 data-event-occurrence-confirm
-                onClick={confirmOccurrence}
+                onClick={() => void confirmOccurrence()}
+                disabled={isActionPending}
               >
                 {t('eventDetail.confirmOccurrenceAction')}
               </Button>
@@ -218,8 +257,8 @@ export function EventDetail({
           event={event}
           customerName={customerName}
           now={now}
-          onSubmit={(values) => {
-            onEdit(values);
+          onSubmit={async (values) => {
+            await onEdit(values);
             setIsEditing(false);
           }}
           onCancel={() => setIsEditing(false)}

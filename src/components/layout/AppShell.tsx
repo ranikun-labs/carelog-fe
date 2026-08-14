@@ -2,6 +2,7 @@ import type { AppInitialization } from '@/app/appInitialization';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router';
 
+import { useOptionalAuth } from '@/auth/AuthProvider';
 import { AuthOperationErrorSurface } from '@/components/auth/AuthStatusSurface';
 import { AuthRecoveryBanner } from '@/components/auth/AuthStatusSurface';
 import { AUTH_STATE } from '@/auth/authTypes';
@@ -14,7 +15,14 @@ import { CustomerStoreProvider, useOptionalCustomerStore } from '@/state/Custome
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
-import { useOptionalAuth } from '@/auth/AuthProvider';
+import {
+  createFixtureProductPorts,
+  createProductionProductPorts,
+} from '@/integrations/carelog/composition';
+import { toAuthFailure } from '@/integrations/carelog/errorMapping';
+import { CUSTOMER_FIXTURE_RECORDS } from '@/fixtures/scenarios';
+import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
+import { useMemo } from 'react';
 
 export function ProductStateProviders({
   children,
@@ -22,10 +30,42 @@ export function ProductStateProviders({
   initialEvents,
 }: AppInitialization & { children: ReactNode }) {
   const location = useLocation();
+  const auth = useOptionalAuth();
+  const fixtureComposition =
+    import.meta.env.MODE === 'test' ||
+    initialCustomers !== undefined ||
+    initialEvents !== undefined;
+  const ports = useMemo(
+    () =>
+      fixtureComposition
+        ? createFixtureProductPorts({ initialCustomers, initialEvents })
+        : createProductionProductPorts(),
+    [fixtureComposition, initialCustomers, initialEvents],
+  );
+  const onFailure = useMemo(
+    () => (error: unknown) => {
+      const failure = toAuthFailure(error);
+      if (failure) auth?.reportFailure(failure);
+    },
+    [auth],
+  );
+  const customerSeed = fixtureComposition
+    ? (initialCustomers ?? CUSTOMER_FIXTURE_RECORDS)
+    : initialCustomers;
+  const eventSeed = fixtureComposition ? (initialEvents ?? SCHEDULE_FIXTURE.events) : initialEvents;
 
   return (
-    <CustomerStoreProvider initialCustomers={initialCustomers}>
-      <EventStoreProvider initialEvents={initialEvents}>
+    <CustomerStoreProvider
+      initialCustomers={customerSeed}
+      port={ports.customerPort}
+      onFailure={onFailure}
+      remoteReadsEnabled={!fixtureComposition}
+    >
+      <EventStoreProvider
+        initialEvents={eventSeed}
+        port={ports.customerEventPort}
+        onFailure={onFailure}
+      >
         <CustomerFormDraftProvider key={location.pathname}>
           <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
         </CustomerFormDraftProvider>

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { CustomerForm, type CustomerFormValues } from '@/components/customers/CustomerForm';
@@ -5,6 +6,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { AdaptiveSurface } from '@/components/layout/adaptiveHostContext';
 import { buildAppCustomerDetailPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
+import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
 
@@ -15,12 +17,33 @@ export function CustomerEditPage() {
   const customerStore = useCustomerStore();
   const customer = customerStore.getCustomer(customerId);
 
-  if (!customer) return <AppNotFoundPage />;
+  useEffect(() => {
+    if (!customerStore.remoteReadsEnabled || customer || !customerId) return;
+    if (customerStore.detailLoadState !== 'idle') return;
+    void customerStore.loadCustomer(customerId).catch(() => undefined);
+  }, [customer, customerId, customerStore]);
+
+  if (!customer) {
+    if (customerStore.detailLoadState === 'loading' || customerStore.loadState === 'loading') {
+      return (
+        <div role="status" aria-busy="true" className="p-6">
+          {t('schedule.loadingLabel')}
+        </div>
+      );
+    }
+    if (customerStore.error) {
+      return (
+        <div role="alert" className="p-6">
+          {t(getCarelogMessageKey(customerStore.error))}
+        </div>
+      );
+    }
+    return <AppNotFoundPage />;
+  }
   const currentCustomer = customer;
 
-  function handleSubmit(values: CustomerFormValues) {
-    const updatedCustomer = customerStore.editCustomer(currentCustomer.id, values);
-    if (!updatedCustomer) return false;
+  async function handleSubmit(values: CustomerFormValues) {
+    const updatedCustomer = await customerStore.editCustomer(currentCustomer.id, values);
 
     navigate(buildAppCustomerDetailPath(updatedCustomer.id), {
       state: {

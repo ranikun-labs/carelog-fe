@@ -13,6 +13,7 @@ import type { EventFormSubmitValues } from '@/components/schedule/EventForm';
 import { buildAppCustomerDetailPath, buildAppSchedulePath } from '@/constants/routes';
 import type { CustomerEvent, CustomerEventEdit } from '@/domain/customerEvent';
 import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
+import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
@@ -22,13 +23,19 @@ export interface EventDetailPageProps {
   events?: readonly CustomerEvent[];
   customers?: readonly ScheduleCustomer[];
   now?: Date;
-  onEditEvent?: (eventId: string, changes: CustomerEventEdit) => CustomerEvent | undefined;
-  onCancelEvent?: (eventId: string) => CustomerEvent | undefined;
-  onOccurEvent?: (eventId: string, occurredAt: string) => CustomerEvent | undefined;
+  onEditEvent?: (
+    eventId: string,
+    changes: CustomerEventEdit,
+  ) => CustomerEvent | undefined | Promise<CustomerEvent>;
+  onCancelEvent?: (eventId: string) => CustomerEvent | undefined | Promise<CustomerEvent>;
+  onOccurEvent?: (
+    eventId: string,
+    occurredAt: string,
+  ) => CustomerEvent | undefined | Promise<CustomerEvent>;
 }
 
 export function EventDetailPage({
-  events = SCHEDULE_FIXTURE.events,
+  events,
   customers,
   now = new Date(),
   onEditEvent,
@@ -41,15 +48,34 @@ export function EventDetailPage({
   const adaptiveHost = useOptionalAdaptiveHost();
   const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
+  const loadEvent = eventStore?.loadEvent;
+  const remoteReadsEnabled = eventStore?.remoteReadsEnabled ?? false;
+  const loadCustomer = customerStore.loadCustomer;
   const scrollSurfaceRef = useRef<HTMLDivElement>(null);
-  const sourceEvents =
-    eventStore && events === SCHEDULE_FIXTURE.events ? eventStore.events : events;
+  const sourceEvents = events ?? eventStore?.events ?? SCHEDULE_FIXTURE.events;
   const sourceCustomers =
     customers ?? customerStore.customers.map(({ id, displayName }) => ({ id, displayName }));
   const event = sourceEvents.find((candidate) => candidate.id === eventId);
   const customer = event
     ? sourceCustomers.find((candidate) => candidate.id === event.customerId)
     : undefined;
+
+  useEffect(() => {
+    if (!remoteReadsEnabled || !loadEvent || events !== undefined || event || !eventId) return;
+    void loadEvent(eventId).catch(() => undefined);
+  }, [event, eventId, events, loadEvent, remoteReadsEnabled]);
+
+  useEffect(() => {
+    if (customer || !customerStore.remoteReadsEnabled || !event) return;
+    if (customerStore.detailLoadState !== 'idle') return;
+    void loadCustomer(event.customerId).catch(() => undefined);
+  }, [
+    customer,
+    customerStore.detailLoadState,
+    customerStore.remoteReadsEnabled,
+    event,
+    loadCustomer,
+  ]);
 
   useLayoutEffect(() => {
     const scrollSurface = scrollSurfaceRef.current;
@@ -67,7 +93,30 @@ export function EventDetailPage({
     return () => scrollSurface.removeEventListener('scroll', updateScrollPosition);
   }, [adaptiveHost]);
 
-  if (!event || !customer) return <AppNotFoundPage />;
+  if (!event || !customer) {
+    if (eventStore?.remoteReadsEnabled && eventStore.error) {
+      return (
+        <div role="alert" className="p-6">
+          {t(getCarelogMessageKey(eventStore.error))}
+        </div>
+      );
+    }
+    if (customerStore.remoteReadsEnabled && customerStore.error) {
+      return (
+        <div role="alert" className="p-6">
+          {t(getCarelogMessageKey(customerStore.error))}
+        </div>
+      );
+    }
+    if (eventStore?.remoteReadsEnabled && eventStore.scheduleLoadState !== 'error') {
+      return (
+        <div role="status" aria-busy="true" className="p-6">
+          {t('schedule.loadingLabel')}
+        </div>
+      );
+    }
+    return <AppNotFoundPage />;
+  }
 
   const currentEvent = event;
   const currentCustomer = customer;
@@ -94,7 +143,7 @@ export function EventDetailPage({
     });
   }
 
-  function handleEdit(values: EventFormSubmitValues): CustomerEvent | undefined {
+  async function handleEdit(values: EventFormSubmitValues): Promise<CustomerEvent | undefined> {
     if (!editEvent) return undefined;
     const changes: CustomerEventEdit = {
       descriptor: values.descriptor,
@@ -102,21 +151,21 @@ export function EventDetailPage({
       ...(values.scheduledAt ? { scheduledAt: values.scheduledAt } : {}),
       ...(values.occurredAt ? { occurredAt: values.occurredAt } : {}),
     };
-    const updatedEvent = editEvent(currentEvent.id, changes);
+    const updatedEvent = await editEvent(currentEvent.id, changes);
     if (updatedEvent) returnToAgenda(updatedEvent);
     return updatedEvent;
   }
 
-  function handleCancel(): CustomerEvent | undefined {
+  async function handleCancel(): Promise<CustomerEvent | undefined> {
     if (!cancelEvent) return undefined;
-    const updatedEvent = cancelEvent(currentEvent.id);
+    const updatedEvent = await cancelEvent(currentEvent.id);
     if (updatedEvent) returnToAgenda(updatedEvent);
     return updatedEvent;
   }
 
-  function handleOccur(occurredAt: string): CustomerEvent | undefined {
+  async function handleOccur(occurredAt: string): Promise<CustomerEvent | undefined> {
     if (!occurEvent) return undefined;
-    const updatedEvent = occurEvent(currentEvent.id, occurredAt);
+    const updatedEvent = await occurEvent(currentEvent.id, occurredAt);
     if (updatedEvent) returnToAgenda(updatedEvent);
     return updatedEvent;
   }

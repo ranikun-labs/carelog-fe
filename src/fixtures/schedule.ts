@@ -1,11 +1,9 @@
 import { adaptLegacyCustomerEvents } from '@/adapters/legacyCustomerEventAdapter';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { SCENARIO_FIXTURES } from '@/fixtures/scenarios';
+import type { ScheduleCustomer } from '@/types/customer';
 
-export interface ScheduleCustomer {
-  id: string;
-  displayName: string;
-}
+export type { ScheduleCustomer } from '@/types/customer';
 
 export interface ScheduleFixture {
   events: readonly CustomerEvent[];

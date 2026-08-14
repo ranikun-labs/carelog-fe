@@ -27,6 +27,8 @@ import {
 } from '@/constants/routes';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
+import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
+import { buildVisibleScheduleRange } from '@/integrations/carelog/timeRange';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
@@ -64,7 +66,7 @@ export function SchedulePage({
   events,
   customers,
   now = new Date(),
-  loadState = 'ready',
+  loadState,
   onRetry,
 }: SchedulePageProps) {
   const { t } = useTranslation();
@@ -73,13 +75,14 @@ export function SchedulePage({
   const adaptiveHost = useOptionalAdaptiveHost();
   const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
+  const loadSchedule = eventStore?.loadSchedule;
+  const remoteReadsEnabled = eventStore?.remoteReadsEnabled ?? false;
   const scheduleCustomers: readonly ScheduleCustomer[] =
     customers ?? customerStore.customers.map(({ id, displayName }) => ({ id, displayName }));
   const hasNoCustomers = scheduleCustomers.length === 0;
   const sourceEvents =
-    eventStore && (events === undefined || events === SCHEDULE_FIXTURE.events)
-      ? eventStore.events
-      : (events ?? SCHEDULE_FIXTURE.events);
+    eventStore && events === undefined ? eventStore.events : (events ?? SCHEDULE_FIXTURE.events);
+  const effectiveLoadState = loadState ?? eventStore?.scheduleLoadState ?? 'ready';
   const scheduleNavigation = readScheduleNavigationState(location.state);
   const todayDateKey = getDateKeyFromDate(now);
   const [localSelectedDateKey, setLocalSelectedDateKey] = useState(
@@ -123,6 +126,18 @@ export function SchedulePage({
   const sectionSignature = sections.map((section) => section.dateKey).join('|');
 
   useEffect(() => {
+    if (!remoteReadsEnabled || !loadSchedule || events !== undefined) return;
+    void loadSchedule(buildVisibleScheduleRange(selectedDateKey)).catch(() => undefined);
+  }, [events, loadSchedule, remoteReadsEnabled, selectedDateKey]);
+
+  const retrySchedule =
+    onRetry ??
+    (() => {
+      if (!remoteReadsEnabled || !loadSchedule) return;
+      void loadSchedule(buildVisibleScheduleRange(selectedDateKey)).catch(() => undefined);
+    });
+
+  useEffect(() => {
     const scrollSurface = scrollSurfaceRef.current;
     if (!scrollSurface) return;
 
@@ -138,7 +153,7 @@ export function SchedulePage({
   }, [adaptiveHost, initialScrollTop]);
 
   useEffect(() => {
-    if (loadState !== 'ready' || sourceEvents.length === 0) return;
+    if (effectiveLoadState !== 'ready' || sourceEvents.length === 0) return;
     if (!shouldScrollToSelection.current) return;
     const scrollSurface = scrollSurfaceRef.current;
     if (!scrollSurface) return;
@@ -159,10 +174,16 @@ export function SchedulePage({
     pendingAgendaTargetId.current = null;
     didInitialAnchor.current = true;
     shouldScrollToSelection.current = false;
-  }, [loadState, selectedDateKey, sectionSignature, selectionRequest, sourceEvents.length]);
+  }, [
+    effectiveLoadState,
+    selectedDateKey,
+    sectionSignature,
+    selectionRequest,
+    sourceEvents.length,
+  ]);
 
   useEffect(() => {
-    if (loadState !== 'ready' || sourceEvents.length === 0) return;
+    if (effectiveLoadState !== 'ready' || sourceEvents.length === 0) return;
     const scrollSurface = scrollSurfaceRef.current;
     if (!scrollSurface) return;
 
@@ -203,10 +224,10 @@ export function SchedulePage({
     scrollSurface.addEventListener('scroll', updateActiveDate, { passive: true });
 
     return () => scrollSurface.removeEventListener('scroll', updateActiveDate);
-  }, [loadState, sectionSignature, setSelectedDateKey, sourceEvents.length, todayDateKey]);
+  }, [effectiveLoadState, sectionSignature, setSelectedDateKey, sourceEvents.length, todayDateKey]);
 
   useEffect(() => {
-    if (loadState !== 'ready' || sourceEvents.length === 0) return;
+    if (effectiveLoadState !== 'ready' || sourceEvents.length === 0) return;
     const scrollSurface = scrollSurfaceRef.current;
     const todayAnchor = scrollSurface?.querySelector<HTMLElement>('[data-today-anchor]');
     if (!scrollSurface || !todayAnchor || typeof IntersectionObserver === 'undefined') return;
@@ -219,7 +240,7 @@ export function SchedulePage({
     );
     observer.observe(todayAnchor);
     return () => observer.disconnect();
-  }, [loadState, sectionSignature, sourceEvents.length, todayDateKey]);
+  }, [effectiveLoadState, sectionSignature, sourceEvents.length, todayDateKey]);
 
   useEffect(() => {
     if (!eventStore || !highlightedEventId) return;
@@ -319,17 +340,21 @@ export function SchedulePage({
           onSelect={selectDate}
         />
 
-        {loadState === 'loading' ? (
+        {effectiveLoadState === 'loading' ? (
           <AgendaSkeleton />
-        ) : loadState === 'error' ? (
+        ) : effectiveLoadState === 'error' ? (
           <EmptyState
             title={t('schedule.errorTitle')}
-            description={t('schedule.errorDescription')}
+            description={
+              eventStore?.error
+                ? t(getCarelogMessageKey(eventStore.error))
+                : t('schedule.errorDescription')
+            }
             action={
               <button
                 type="button"
                 className={cn(buttonVariants({ variant: 'text' }), 'mt-2')}
-                onClick={onRetry}
+                onClick={retrySchedule}
               >
                 {t('schedule.retry')}
               </button>

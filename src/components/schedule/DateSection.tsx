@@ -4,7 +4,7 @@ import {
   getCustomerName,
   type AgendaSection,
 } from '@/components/schedule/agendaModel';
-import type { ScheduleCustomer } from '@/fixtures/schedule';
+import type { ScheduleCustomer } from '@/types/customer';
 import { AgendaRow } from '@/components/schedule/AgendaRow';
 import { useTranslation } from '@/i18n/I18nContext';
 

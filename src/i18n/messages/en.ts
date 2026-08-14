@@ -96,6 +96,18 @@ export const en: Messages = {
       logout: 'Log out',
     },
   },
+  carelog: {
+    validation: 'Check the submitted values.',
+    unauthorized: 'Your session needs attention. Try again shortly.',
+    forbidden: 'This action is not available. Your current data is preserved.',
+    notFound: 'That customer or event is no longer available.',
+    conflict: 'The event changed on the server. Refresh and reconcile the latest state.',
+    server: 'The service is unavailable for a moment. Your data is preserved.',
+    network: 'Check your connection. The change was not saved.',
+    protocol: 'The server response was invalid. The change was not saved.',
+    configuration: 'The Carelog API is not configured for this application.',
+    unknown: 'We could not complete the request. Try again.',
+  },
   customers: {
     title: 'Customers',
     description: 'The customers you manage.',

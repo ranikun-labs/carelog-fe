@@ -96,6 +96,18 @@ export const ko: Messages = {
       logout: '로그아웃',
     },
   },
+  carelog: {
+    validation: '입력 내용을 확인해 주세요.',
+    unauthorized: '세션이 만료되었습니다. 잠시 후 다시 시도해 주세요.',
+    forbidden: '이 작업에 접근할 수 없습니다. 현재 데이터는 보존됩니다.',
+    notFound: '요청한 고객 또는 일정이 더 이상 존재하지 않습니다.',
+    conflict: '최신 일정 상태와 충돌했습니다. 화면을 새로 확인해 주세요.',
+    server: '서비스가 잠시 응답하지 않습니다. 데이터는 보존됩니다.',
+    network: '연결을 확인해 주세요. 변경 사항은 저장되지 않았습니다.',
+    protocol: '서버 응답을 이해할 수 없습니다. 변경 사항은 저장되지 않았습니다.',
+    configuration: 'Carelog API 설정이 없어 요청을 완료할 수 없습니다.',
+    unknown: '요청을 완료하지 못했습니다. 다시 시도해 주세요.',
+  },
   customers: {
     title: '고객',
     description: '내가 관리하는 고객 목록입니다.',

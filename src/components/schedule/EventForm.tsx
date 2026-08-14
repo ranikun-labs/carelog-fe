@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import type { CustomerEvent } from '@/domain/customerEvent';
+import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 import type { EventFormDraft } from '@/state/EventCreateDraftContext';
@@ -32,7 +33,7 @@ interface EventFormProps {
   initialValues?: EventFormInitialValues;
   fixedCreateStatus?: 'PLANNED';
   onDraftChange?: (draft: EventFormDraft) => void;
-  onSubmit: (values: EventFormSubmitValues) => void;
+  onSubmit: (values: EventFormSubmitValues) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -91,14 +92,22 @@ export function EventForm({
     setError(null);
     submitLockRef.current = true;
     setIsSubmitting(true);
-    onSubmit({
-      status,
-      descriptor: descriptor.trim(),
-      note: note.trim(),
-      ...(status === 'PLANNED'
-        ? { scheduledAt: toCanonicalTimestamp(scheduledAt) }
-        : { occurredAt: toCanonicalTimestamp(occurredAt) }),
-    });
+    void Promise.resolve()
+      .then(() =>
+        onSubmit({
+          status,
+          descriptor: descriptor.trim(),
+          note: note.trim(),
+          ...(status === 'PLANNED'
+            ? { scheduledAt: toCanonicalTimestamp(scheduledAt) }
+            : { occurredAt: toCanonicalTimestamp(occurredAt) }),
+        }),
+      )
+      .catch((submitError: unknown) => {
+        setError(t(getCarelogMessageKey(submitError)));
+        submitLockRef.current = false;
+        setIsSubmitting(false);
+      });
   }
 
   return (

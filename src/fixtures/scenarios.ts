@@ -28,7 +28,7 @@ export const landlordTenantScenario: ScenarioFixture = {
   id: 'landlord-tenant',
   user: { id: 'user-landlord-1', workspaceId: 'workspace-1', name: '김임대' },
   workspace: { id: 'workspace-1', name: '해담빌라 임대 관리' },
-  customer: { id: 'customer-tenant-1', workspaceId: 'workspace-1', displayName: '박세입' },
+  customer: { id: 'customer-tenant-1', displayName: '박세입' },
   context: {
     customerId: 'customer-tenant-1',
     summary: '301호, 계약 갱신 논의 중',
@@ -78,7 +78,7 @@ export const therapistPatientScenario: ScenarioFixture = {
   id: 'therapist-patient',
   user: { id: 'user-therapist-1', workspaceId: 'workspace-2', name: '이물리' },
   workspace: { id: 'workspace-2', name: '단단정형 물리치료실' },
-  customer: { id: 'customer-patient-1', workspaceId: 'workspace-2', displayName: '최내원' },
+  customer: { id: 'customer-patient-1', displayName: '최내원' },
   context: {
     customerId: 'customer-patient-1',
     summary: '최근 내원일 2026-07-28, 오전 시간대 연락 선호',
