@@ -289,6 +289,38 @@ test('Event-create cancel and browser back clear the return provenance', async (
   await expect(page).toHaveURL('/app/events/followup-tenant-1');
 });
 
+async function prepareScheduleToCustomerAfterCreate(page: Page, descriptor: string) {
+  const submitPoint = await prepareScheduleCreate(page, descriptor);
+  await page.mouse.click(submitPoint.x, submitPoint.y);
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(page.locator('[data-agenda-row]').filter({ hasText: descriptor })).toHaveCount(1);
+
+  await page.getByRole('link', { name: '고객', exact: true }).first().click();
+  await expect(page).toHaveURL('/app/customers');
+  const customerLink = page.getByRole('link', { name: /박세입/ }).first();
+  await customerLink.click();
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+}
+
+test('Schedule-origin return provenance allows the first Customer Event pointer', async ({
+  page,
+}) => {
+  await prepareScheduleToCustomerAfterCreate(page, 'Schedule reverse pointer leak');
+  const eventLink = page.locator('a[href="/app/events/followup-tenant-1"]');
+  await eventLink.click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+});
+
+test('Schedule-origin return provenance allows the first Customer Event Enter', async ({
+  page,
+}) => {
+  await prepareScheduleToCustomerAfterCreate(page, 'Schedule reverse keyboard leak');
+  const eventLink = page.locator('a[href="/app/events/followup-tenant-1"]');
+  await eventLink.focus();
+  await eventLink.press('Enter');
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+});
+
 test('invalid Event Create does not retain activation provenance', async ({ page }) => {
   await page.goto('/app/schedule');
   await page.getByRole('button', { name: '+ 일정', exact: true }).click();

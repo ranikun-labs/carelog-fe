@@ -95,9 +95,15 @@ test('Customer-origin create accepts the first fresh Enter sequence', async ({ p
 
 test('Customer-origin return provenance does not leak into Schedule', async ({ page }) => {
   const width = page.viewportSize()?.width;
-  const submitPoint = await prepareCustomerCreate(page, `Customer route leak ${width}`);
+  const descriptor = `Customer route leak ${width}`;
+  const submitPoint = await prepareCustomerCreate(page, descriptor);
   await page.mouse.click(submitPoint.x, submitPoint.y);
   await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+  await expect(
+    page
+      .locator('[data-customer-upcoming] a[href^="/app/events/"]')
+      .filter({ hasText: descriptor }),
+  ).toHaveCount(1);
 
   await page.getByRole('link', { name: '일정', exact: true }).first().click();
   await expect(page).toHaveURL('/app/schedule');
@@ -105,6 +111,30 @@ test('Customer-origin return provenance does not leak into Schedule', async ({ p
     .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
     .getByRole('button');
   await unrelatedEvent.click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+});
+
+test('Customer-origin return provenance allows the first fresh Enter on Schedule', async ({
+  page,
+}) => {
+  const width = page.viewportSize()?.width;
+  const descriptor = `Customer route keyboard ${width}`;
+  const submitPoint = await prepareCustomerCreate(page, descriptor);
+  await page.mouse.click(submitPoint.x, submitPoint.y);
+  await expect(page).toHaveURL('/app/customers/customer-tenant-1');
+  await expect(
+    page
+      .locator('[data-customer-upcoming] a[href^="/app/events/"]')
+      .filter({ hasText: descriptor }),
+  ).toHaveCount(1);
+
+  await page.getByRole('link', { name: '일정', exact: true }).first().click();
+  await expect(page).toHaveURL('/app/schedule');
+  const unrelatedEvent = page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button');
+  await unrelatedEvent.focus();
+  await unrelatedEvent.press('Enter');
   await expect(page).toHaveURL('/app/events/followup-tenant-1');
 });
 

@@ -50,6 +50,10 @@ function isProvenanceRoute(pathname: string, provenance: EventCreateReturnProven
   return isReturnRoute(pathname, provenance.target);
 }
 
+function getCurrentPathname(event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>): string {
+  return event.currentTarget.ownerDocument.defaultView?.location.pathname ?? '';
+}
+
 export function useEventCreateReturnBoundary() {
   const location = useLocation();
   const activation = useOptionalEventCreateActivation();
@@ -80,7 +84,9 @@ export function useEventCreateReturnBoundary() {
       if (!activation) return;
       const pending = activation.getPendingCreateReturn();
       if (!pending) return;
-      if (!isProvenanceRoute(location.pathname, pending)) {
+      // Route validity must reflect the document handling this exact activation. A render-scoped
+      // location can lag behind navigation and must never consume the first event on a new route.
+      if (!isProvenanceRoute(getCurrentPathname(event), pending)) {
         activation.clearCreateReturnProvenance();
         return;
       }
@@ -94,7 +100,7 @@ export function useEventCreateReturnBoundary() {
       // is not proof of the originating pointer sequence. Let it execute.
       activation.clearCreateReturnProvenance();
     },
-    [activation, location.pathname, suppressContinuation],
+    [activation, suppressContinuation],
   );
 
   const handleKeyDownCapture = useCallback(
@@ -110,7 +116,7 @@ export function useEventCreateReturnBoundary() {
       if (!activation) return;
       const pending = activation.getPendingCreateReturn();
       if (!pending) return;
-      if (!isProvenanceRoute(location.pathname, pending)) {
+      if (!isProvenanceRoute(getCurrentPathname(event), pending)) {
         activation.clearCreateReturnProvenance();
         return;
       }
@@ -127,7 +133,7 @@ export function useEventCreateReturnBoundary() {
       // A separate keydown has repeat=false and is a fresh user sequence.
       activation.clearCreateReturnProvenance();
     },
-    [activation, location.pathname, suppressContinuation],
+    [activation, suppressContinuation],
   );
 
   useEffect(() => {
