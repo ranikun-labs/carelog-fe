@@ -5,7 +5,9 @@ import {
   useContext,
   useMemo,
   useReducer,
+  useRef,
   useState,
+  useEffect,
   type ReactNode,
 } from 'react';
 
@@ -84,6 +86,18 @@ export function EventStoreProvider({
   const [error, setError] = useState<unknown | null>(null);
   const [errorCode, setErrorCode] = useState<ReturnType<typeof classifyCarelogError> | null>(null);
   const [snapshots, setSnapshots] = useState<Record<string, CustomerEventSnapshot>>({});
+  const mountedRef = useRef(true);
+  const scheduleReadGenerationRef = useRef(0);
+  const detailReadGenerationRef = useRef(0);
+  const eventReadGenerationRef = useRef(0);
+  const mutationEpochRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const remoteReadsEnabled = isExplicitPort && initialEvents === undefined;
 
   const recordError = useCallback(
@@ -107,14 +121,30 @@ export function EventStoreProvider({
 
   const loadSchedule = useCallback(
     async (range: CarelogTimeRange) => {
+      const readGeneration = ++scheduleReadGenerationRef.current;
+      const mutationEpoch = mutationEpochRef.current;
       setScheduleLoadState('loading');
       setError(null);
       setErrorCode(null);
       try {
         const events = await port.list({ from: range.from, to: range.to, limit: 100 });
+        if (
+          !mountedRef.current ||
+          readGeneration !== scheduleReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return;
+        }
         dispatch({ type: 'replace-all', events });
         setScheduleLoadState('ready');
       } catch (nextError) {
+        if (
+          !mountedRef.current ||
+          readGeneration !== scheduleReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return;
+        }
         recordError(nextError);
         setScheduleLoadState('error');
         throw nextError;
@@ -125,6 +155,8 @@ export function EventStoreProvider({
 
   const loadCustomerDetail = useCallback(
     async (customerId: string, now: Date) => {
+      const readGeneration = ++detailReadGenerationRef.current;
+      const mutationEpoch = mutationEpochRef.current;
       setDetailLoadState('loading');
       setError(null);
       setErrorCode(null);
@@ -134,10 +166,24 @@ export function EventStoreProvider({
           port.list(createCustomerUpcomingQuery(customerId, range, 100)),
           port.list(createCustomerHistoryQuery(customerId, 50)),
         ]);
+        if (
+          !mountedRef.current ||
+          readGeneration !== detailReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return;
+        }
         setSnapshots((current) => ({ ...current, [customerId]: { upcoming, history } }));
         for (const event of [...upcoming, ...history]) dispatch({ type: 'upsert', event });
         setDetailLoadState('ready');
       } catch (nextError) {
+        if (
+          !mountedRef.current ||
+          readGeneration !== detailReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return;
+        }
         recordError(nextError);
         setDetailLoadState('error');
         throw nextError;
@@ -148,11 +194,27 @@ export function EventStoreProvider({
 
   const loadEvent = useCallback(
     async (eventId: string) => {
+      const readGeneration = ++eventReadGenerationRef.current;
+      const mutationEpoch = mutationEpochRef.current;
       try {
         const event = await port.get(eventId);
+        if (
+          !mountedRef.current ||
+          readGeneration !== eventReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return event;
+        }
         dispatch({ type: 'upsert', event });
         return event;
       } catch (nextError) {
+        if (
+          !mountedRef.current ||
+          readGeneration !== eventReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          throw nextError;
+        }
         recordError(nextError);
         throw nextError;
       }
@@ -167,6 +229,8 @@ export function EventStoreProvider({
       setErrorCode(null);
       try {
         const event = await operation();
+        if (!mountedRef.current) return event;
+        mutationEpochRef.current += 1;
         dispatch({ type: 'upsert', event });
         dispatch({ type: 'highlight', eventId: event.id });
         setSnapshots((current) => {
@@ -188,10 +252,11 @@ export function EventStoreProvider({
         });
         return event;
       } catch (nextError) {
+        if (!mountedRef.current) throw nextError;
         recordError(nextError);
         throw nextError;
       } finally {
-        setMutationPending(false);
+        if (mountedRef.current) setMutationPending(false);
       }
     },
     [recordError],

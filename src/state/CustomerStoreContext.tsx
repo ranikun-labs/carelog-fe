@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -71,6 +72,17 @@ export function CustomerStoreProvider({
   const [mutationPending, setMutationPending] = useState(false);
   const [error, setError] = useState<unknown | null>(null);
   const [errorCode, setErrorCode] = useState<ReturnType<typeof classifyCarelogError> | null>(null);
+  const mountedRef = useRef(true);
+  const listReadGenerationRef = useRef(0);
+  const detailReadGenerationRef = useRef(0);
+  const mutationEpochRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const recordError = useCallback(
     (nextError: unknown) => {
@@ -87,14 +99,30 @@ export function CustomerStoreProvider({
   );
 
   const refresh = useCallback(async () => {
+    const readGeneration = ++listReadGenerationRef.current;
+    const mutationEpoch = mutationEpochRef.current;
     setLoadState('loading');
     setError(null);
     setErrorCode(null);
     try {
       const customers = await port.list();
+      if (
+        !mountedRef.current ||
+        readGeneration !== listReadGenerationRef.current ||
+        mutationEpoch !== mutationEpochRef.current
+      ) {
+        return;
+      }
       dispatch({ type: 'replace-all', customers });
       setLoadState('ready');
     } catch (nextError) {
+      if (
+        !mountedRef.current ||
+        readGeneration !== listReadGenerationRef.current ||
+        mutationEpoch !== mutationEpochRef.current
+      ) {
+        return;
+      }
       recordError(nextError);
       setLoadState('error');
       throw nextError;
@@ -116,18 +144,21 @@ export function CustomerStoreProvider({
       try {
         if (!isExplicitPort) {
           const customer = buildCreatedCustomer(createCustomerId(state.customers), input);
-          if (!customer) throw new Error('Fixture customer name is required.');
+          if (!customer) throw new Error('Customer name is required.');
+          mutationEpochRef.current += 1;
           dispatch({ type: 'create', customer });
           return customer;
         }
         const customer = await port.create(input);
+        mutationEpochRef.current += 1;
         dispatch({ type: 'create', customer });
         return customer;
       } catch (nextError) {
+        if (!mountedRef.current) throw nextError;
         recordError(nextError);
         throw nextError;
       } finally {
-        setMutationPending(false);
+        if (mountedRef.current) setMutationPending(false);
       }
     },
     [isExplicitPort, port, recordError, state.customers],
@@ -135,15 +166,31 @@ export function CustomerStoreProvider({
 
   const loadCustomer = useCallback(
     async (customerId: string) => {
+      const readGeneration = ++detailReadGenerationRef.current;
+      const mutationEpoch = mutationEpochRef.current;
       setDetailLoadState('loading');
       setError(null);
       setErrorCode(null);
       try {
         const customer = await port.get(customerId);
+        if (
+          !mountedRef.current ||
+          readGeneration !== detailReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          return customer;
+        }
         dispatch({ type: 'upsert', customer });
         setDetailLoadState('ready');
         return customer;
       } catch (nextError) {
+        if (
+          !mountedRef.current ||
+          readGeneration !== detailReadGenerationRef.current ||
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          throw nextError;
+        }
         recordError(nextError);
         setDetailLoadState('error');
         throw nextError;
@@ -161,13 +208,15 @@ export function CustomerStoreProvider({
       setErrorCode(null);
       try {
         const customer = await port.edit(customerId, current, changes);
+        mutationEpochRef.current += 1;
         dispatch({ type: 'replace', customer });
         return customer;
       } catch (nextError) {
+        if (!mountedRef.current) throw nextError;
         recordError(nextError);
         throw nextError;
       } finally {
-        setMutationPending(false);
+        if (mountedRef.current) setMutationPending(false);
       }
     },
     [port, recordError, state.customers],
@@ -185,7 +234,25 @@ export function CustomerStoreProvider({
       createCustomer,
       editCustomer,
     };
-    const asyncState = {
+    if (!isExplicitPort) {
+      // Keep legacy synchronous consumers' enumerable surface stable; these values are closures,
+      // not ref reads. The hooks lint rule cannot distinguish this descriptor construction.
+      // eslint-disable-next-line react-hooks/refs
+      Object.defineProperties(base, {
+        refresh: { value: refresh, enumerable: false },
+        loadCustomer: { value: loadCustomer, enumerable: false },
+        detailLoadState: { value: detailLoadState, enumerable: false },
+        remoteReadsEnabled: { value: remoteReadsEnabled, enumerable: false },
+        loadState: { value: loadState, enumerable: false },
+        mutationPending: { value: mutationPending, enumerable: false },
+        error: { value: error, enumerable: false },
+        errorCode: { value: errorCode, enumerable: false },
+        clearError: { value: clearError, enumerable: false },
+      });
+      return base as CustomerStoreValue;
+    }
+    return {
+      ...base,
       refresh,
       loadCustomer,
       detailLoadState,
@@ -195,18 +262,6 @@ export function CustomerStoreProvider({
       error,
       errorCode,
       clearError,
-    };
-    if (!isExplicitPort) {
-      return Object.defineProperties(
-        base,
-        Object.fromEntries(
-          Object.entries(asyncState).map(([key, value]) => [key, { value, enumerable: false }]),
-        ),
-      ) as CustomerStoreValue;
-    }
-    return {
-      ...base,
-      ...asyncState,
     };
   }, [
     clearError,
