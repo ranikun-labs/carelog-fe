@@ -31,6 +31,7 @@ import { buildVisibleScheduleRange } from '@/integrations/carelog/timeRange';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
+import { useOptionalEventCreateActivation } from '@/state/EventCreateActivationContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 import type { ScheduleCustomer } from '@/types/customer';
 
@@ -73,6 +74,7 @@ export function SchedulePage({
   const navigate = useNavigate();
   const location = useLocation();
   const adaptiveHost = useOptionalAdaptiveHost();
+  const eventCreateActivation = useOptionalEventCreateActivation();
   const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
   const loadSchedule = eventStore?.loadSchedule;
@@ -274,6 +276,7 @@ export function SchedulePage({
   );
 
   const openEventCreate = useCallback(() => {
+    eventCreateActivation?.beginCreateSession();
     const renderedSelectedDateKey = scrollSurfaceRef.current?.querySelector<HTMLElement>(
       '[data-week-strip] button[aria-current="date"]',
     )?.dataset.dateKey;
@@ -293,7 +296,7 @@ export function SchedulePage({
         targetScrollTop: entryScrollTop,
       },
     });
-  }, [adaptiveHost, navigate, selectedDateKey]);
+  }, [adaptiveHost, eventCreateActivation, navigate, selectedDateKey]);
 
   const jumpToLatestOverdue = useCallback(() => {
     const latestOverdue = overdueEvents[0];

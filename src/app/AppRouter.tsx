@@ -9,6 +9,7 @@ import {
   ProductionStateProviders,
   type ProductStateProvider,
 } from '@/components/layout/ProductionStateProviders';
+import { EventCreateActivationProvider } from '@/state/EventCreateActivationContext';
 import {
   AuthBootstrapErrorScreen,
   AuthBootstrapScreen,
@@ -179,9 +180,11 @@ export function AppRouter({
   return (
     <AppLocaleProvider>
       <AuthProvider authPort={authPort}>
-        <StateProviders {...(stateProviders ? { initialCustomers, initialEvents } : {})}>
-          <AppRoutes />
-        </StateProviders>
+        <EventCreateActivationProvider>
+          <StateProviders {...(stateProviders ? { initialCustomers, initialEvents } : {})}>
+            <AppRoutes />
+          </StateProviders>
+        </EventCreateActivationProvider>
       </AuthProvider>
     </AppLocaleProvider>
   );

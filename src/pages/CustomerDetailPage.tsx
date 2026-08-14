@@ -20,6 +20,7 @@ import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
+import { useOptionalEventCreateActivation } from '@/state/EventCreateActivationContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 import type { EventCreationInput } from '@/state/eventStore';
 
@@ -41,6 +42,7 @@ export function CustomerDetailPage({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const adaptiveHost = useOptionalAdaptiveHost();
+  const eventCreateActivation = useOptionalEventCreateActivation();
   const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
   const loadCustomer = customerStore.loadCustomer;
@@ -142,7 +144,22 @@ export function CustomerDetailPage({
             ...(values.note ? { note: values.note } : {}),
           };
 
-    await createEvent(input);
+    let createdEvent: CustomerEvent | undefined;
+    try {
+      createdEvent = await createEvent(input);
+    } catch (error) {
+      eventCreateActivation?.clearCreateReturnProvenance();
+      throw error;
+    }
+    if (createdEvent) {
+      eventCreateActivation?.armCreateReturn({
+        kind: 'customer-detail',
+        customerId: currentCustomer.id,
+        eventId: createdEvent.id,
+      });
+    } else {
+      eventCreateActivation?.clearCreateReturnProvenance();
+    }
     setIsCreating(false);
   }
 
@@ -187,7 +204,10 @@ export function CustomerDetailPage({
               variant="outline"
               disabled={!createEvent || eventStore?.mutationPending}
               data-add-event
-              onClick={() => setIsCreating(true)}
+              onClick={() => {
+                eventCreateActivation?.beginCreateSession();
+                setIsCreating(true);
+              }}
             >
               {t('customers.detail.addEvent')}
             </Button>
@@ -199,7 +219,11 @@ export function CustomerDetailPage({
               customerName={currentCustomer.displayName}
               now={now}
               onSubmit={handleCreate}
-              onCancel={() => setIsCreating(false)}
+              onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
+              onCancel={() => {
+                eventCreateActivation?.clearCreateReturnProvenance();
+                setIsCreating(false);
+              }}
             />
           ) : null}
 
