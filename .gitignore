@@ -32,6 +32,8 @@ pnpm-debug.log*
 coverage/
 playwright-report/
 test-results/
+# verify:full runtime evidence, outside tool-owned test output
+.artifacts/verify-full/
 
 # capacitor native platforms (not generated yet; ignored once added until intentionally tracked)
 ios/

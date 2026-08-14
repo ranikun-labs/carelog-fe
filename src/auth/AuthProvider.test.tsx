@@ -98,6 +98,22 @@ function createControlledBootstrapPort() {
   return { port, bootstraps };
 }
 
+function createControlledRecoveryPort() {
+  const recoveries: Array<ReturnType<typeof deferred<AuthCommandResult>>> = [];
+  const port: AuthPort = {
+    bootstrapSession: async () => ({ status: 'authenticated' }),
+    login: async (): Promise<AuthCommandResult> => ({ ok: true }),
+    signup: async (): Promise<AuthCommandResult> => ({ ok: true }),
+    logout: async () => undefined,
+    recoverSession: () => {
+      const recovery = deferred<AuthCommandResult>();
+      recoveries.push(recovery);
+      return recovery.promise;
+    },
+  };
+  return { port, recoveries };
+}
+
 it('bootstraps an anonymous session without exposing a product boolean shortcut', async () => {
   const port = createInMemoryAuthPort({ bootstrap: 'anonymous' });
   renderProbe(port);
@@ -107,23 +123,35 @@ it('bootstraps an anonymous session without exposing a product boolean shortcut'
 });
 
 it('allows one recovery attempt per independent 401 episode', async () => {
-  const port = createInMemoryAuthPort({ bootstrap: 'authenticated', recovery: 'success' });
+  const { port, recoveries } = createControlledRecoveryPort();
   renderProbe(port);
   await expectState(AUTH_STATE.AUTHENTICATED);
 
   await act(async () => {
     screen.getByRole('button', { name: '401' }).click();
-    await Promise.resolve();
+    screen.getByRole('button', { name: '401' }).click();
   });
-  expect(document.querySelector('[data-auth-state]')).toHaveTextContent(AUTH_STATE.AUTHENTICATED);
-  expect(port.recoveryAttemptCount).toBe(1);
+  await expectState(AUTH_STATE.RECOVERING);
+  expect(recoveries).toHaveLength(1);
+
+  await act(async () => {
+    recoveries[0]!.resolve({ ok: true });
+    await recoveries[0]!.promise;
+  });
+  await expectState(AUTH_STATE.AUTHENTICATED);
 
   await act(async () => {
     screen.getByRole('button', { name: '401' }).click();
-    await Promise.resolve();
+  });
+  await expectState(AUTH_STATE.RECOVERING);
+  expect(recoveries).toHaveLength(2);
+
+  await act(async () => {
+    recoveries[1]!.resolve({ ok: true });
+    await recoveries[1]!.promise;
   });
   await expectState(AUTH_STATE.AUTHENTICATED);
-  expect(port.recoveryAttemptCount).toBe(2);
+  expect(recoveries).toHaveLength(2);
 });
 
 it('coalesces concurrent 401 signals into one recovery promise', async () => {
@@ -242,7 +270,7 @@ it('uses an unavailable production boundary that cannot authenticate arbitrary c
 });
 
 it('preserves Customer and Event providers through authenticated failures and recovery', async () => {
-  const port = createInMemoryAuthPort({ bootstrap: 'authenticated', recovery: 'success' });
+  const { port, recoveries } = createControlledRecoveryPort();
   render(
     <AuthProvider authPort={port}>
       <CustomerStoreProvider initialCustomers={CUSTOMER_FIXTURE_RECORDS}>
@@ -280,9 +308,27 @@ it('preserves Customer and Event providers through authenticated failures and re
 
   await act(async () => {
     screen.getByRole('button', { name: '401' }).click();
-    await Promise.resolve();
   });
-  expect(port.recoveryAttemptCount).toBe(1);
-  expect(document.querySelector('[data-auth-state]')).toHaveTextContent(AUTH_STATE.AUTHENTICATED);
+  await expectState(AUTH_STATE.RECOVERING);
+  expect(recoveries).toHaveLength(1);
+  expect(document.querySelector('[data-customer-count]')).toHaveTextContent(
+    String(CUSTOMER_FIXTURE_RECORDS.length),
+  );
+  expect(document.querySelector('[data-event-count]')).toHaveTextContent(
+    String(SCHEDULE_FIXTURE.events.length),
+  );
+  expect(document.querySelector('[data-provider-mounts]')).toHaveTextContent(providerMountId!);
+
+  await act(async () => {
+    recoveries[0]!.resolve({ ok: true });
+    await recoveries[0]!.promise;
+  });
+  await expectState(AUTH_STATE.AUTHENTICATED);
+  expect(document.querySelector('[data-customer-count]')).toHaveTextContent(
+    String(CUSTOMER_FIXTURE_RECORDS.length),
+  );
+  expect(document.querySelector('[data-event-count]')).toHaveTextContent(
+    String(SCHEDULE_FIXTURE.events.length),
+  );
   expect(document.querySelector('[data-provider-mounts]')).toHaveTextContent(providerMountId!);
 });
