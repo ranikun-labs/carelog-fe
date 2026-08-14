@@ -14,6 +14,7 @@ import { CustomerStoreProvider, useOptionalCustomerStore } from '@/state/Custome
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
+import { ScheduleActivationGuardProvider } from '@/state/ScheduleActivationGuardContext';
 import { useOptionalAuth } from '@/auth/AuthProvider';
 
 export function ProductStateProviders({
@@ -26,9 +27,11 @@ export function ProductStateProviders({
   return (
     <CustomerStoreProvider initialCustomers={initialCustomers}>
       <EventStoreProvider initialEvents={initialEvents}>
-        <CustomerFormDraftProvider key={location.pathname}>
-          <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
-        </CustomerFormDraftProvider>
+        <ScheduleActivationGuardProvider>
+          <CustomerFormDraftProvider key={location.pathname}>
+            <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+          </CustomerFormDraftProvider>
+        </ScheduleActivationGuardProvider>
       </EventStoreProvider>
     </CustomerStoreProvider>
   );

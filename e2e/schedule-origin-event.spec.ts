@@ -1,4 +1,22 @@
-import { expect, test, useEmptyApplicationSeed } from './fixtures';
+import { expect, test, useEmptyApplicationSeed, type Page } from './fixtures';
+
+async function prepareScheduleCreate(page: Page, descriptor: string) {
+  await page.goto('/app/schedule');
+  await page.locator('[data-week-strip] button[data-date-key="2026-08-15"]').click();
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill(descriptor);
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
+  const submitBox = await form.locator('[data-event-form-submit]').boundingBox();
+  if (!submitBox) throw new Error('Schedule EventForm submit button has no bounding box.');
+
+  return {
+    x: submitBox.x + submitBox.width / 2,
+    y: submitBox.y + submitBox.height / 2,
+  };
+}
 
 test('Schedule creates one PLANNED event through the canonical EventForm', async ({ page }) => {
   await page.goto('/app/schedule');
@@ -26,17 +44,109 @@ test('Schedule creates one PLANNED event through the canonical EventForm', async
   await form.locator('[data-event-form-submit]').dblclick();
 
   await expect(page).toHaveURL('/app/schedule');
+  await expect(page.locator('[data-event-detail-page]')).toHaveCount(0);
   const createdRows = page
     .locator('[data-agenda-row]')
     .filter({ hasText: 'Schedule에서 만든 일정' });
   await expect(createdRows).toHaveCount(1);
   await expect(createdRows.first()).toHaveAttribute('data-event-status', 'PLANNED');
+  const createdEventId = await createdRows.first().getAttribute('data-event-id');
+  expect(createdEventId).toBeTruthy();
   await expect(
-    page.locator('[data-agenda-section][data-date-key="2026-08-15"]').locator('[data-agenda-row]'),
+    page.locator('[data-agenda-section][data-date-key="2026-08-15"] [data-agenda-row]'),
   ).toHaveCount(2);
   await expect(
-    page.locator('[data-event-id]').filter({ hasText: 'Schedule에서 만든 일정' }),
+    page.locator(
+      `[data-agenda-section][data-date-key="2026-08-15"] [data-event-id="${createdEventId}"]`,
+    ),
   ).toHaveCount(1);
+  await expect(page.locator(`[data-event-id="${createdEventId}"]`)).toHaveCount(1);
+});
+
+test('Schedule create ignores bounded pointer retarget probes at mobile and desktop widths', async ({
+  page,
+}) => {
+  const width = page.viewportSize()?.width;
+  test.skip(width !== 375 && width !== 1180, 'bounded retarget probes target 375px and 1180px');
+
+  for (const delay of [75, 100, 150]) {
+    const descriptor = `Schedule race probe ${width} ${delay}ms`;
+    const submitPoint = await prepareScheduleCreate(page, descriptor);
+
+    await page.mouse.click(submitPoint.x, submitPoint.y);
+    await expect(page).toHaveURL('/app/schedule');
+    await page.waitForTimeout(delay);
+    await page.mouse.click(submitPoint.x, submitPoint.y);
+
+    await expect(page).toHaveURL('/app/schedule');
+    await expect(page.locator('[data-event-detail-page]')).toHaveCount(0);
+    const createdRows = page.locator('[data-agenda-row]').filter({ hasText: descriptor });
+    await expect(createdRows).toHaveCount(1);
+    const createdEventId = await createdRows.getAttribute('data-event-id');
+    expect(createdEventId).toBeTruthy();
+    await expect(
+      page.locator(
+        `[data-agenda-section][data-date-key="2026-08-15"] [data-event-id="${createdEventId}"]`,
+      ),
+    ).toHaveCount(1);
+
+    if (width === 1180) {
+      await expect(page.locator('[data-adaptive-host]')).toHaveAttribute(
+        'data-adaptive-mode',
+        'two-pane',
+      );
+    }
+    expect(await page.locator('[data-major-surface]').count()).toBeLessThanOrEqual(2);
+  }
+});
+
+test('Schedule create leaves a normal next Event activation usable', async ({ page }) => {
+  const width = page.viewportSize()?.width;
+  test.skip(width !== 375 && width !== 1180, 'post-transition activation targets 375px and 1180px');
+
+  const submitPoint = await prepareScheduleCreate(page, `Schedule normal click ${width}`);
+  await page.mouse.click(submitPoint.x, submitPoint.y);
+  await expect(page).toHaveURL('/app/schedule');
+
+  await page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button')
+    .click();
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
+  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
+    'data-selected-event-id',
+    'followup-tenant-1',
+  );
+});
+
+test('Schedule create suppresses repeated Enter retarget and releases keyboard navigation', async ({
+  page,
+}) => {
+  const width = page.viewportSize()?.width;
+  test.skip(width !== 375 && width !== 1180, 'keyboard retarget targets 375px and 1180px');
+
+  await page.goto('/app/schedule');
+  await page.getByRole('button', { name: '+ 일정', exact: true }).click();
+  await page.getByRole('button', { name: '박세입', exact: true }).click();
+  const form = page.locator('[data-event-form]');
+  await form.locator('[data-event-field="descriptor"]').fill(`Schedule keyboard ${width}`);
+  await form.locator('[data-event-field="scheduledAt"]').fill('2026-08-15T10:30');
+  const submit = form.locator('[data-event-form-submit]');
+  await submit.focus();
+  await submit.press('Enter');
+  await expect(page).toHaveURL('/app/schedule');
+
+  const unrelatedEvent = page
+    .locator('[data-agenda-row][data-event-id="followup-tenant-1"]')
+    .getByRole('button');
+  await unrelatedEvent.focus();
+  await unrelatedEvent.press('Enter');
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(page.locator('[data-event-detail-page]')).toHaveCount(0);
+
+  await unrelatedEvent.focus();
+  await unrelatedEvent.press('Enter');
+  await expect(page).toHaveURL('/app/events/followup-tenant-1');
 });
 
 test('Schedule Customer=0 enters the existing first-customer flow from + 일정', async ({
