@@ -18,6 +18,8 @@ export interface EventStoreState {
 export type EventStoreAction =
   | { type: 'create'; event: CustomerEvent }
   | { type: 'replace'; event: CustomerEvent }
+  | { type: 'replace-all'; events: readonly CustomerEvent[] }
+  | { type: 'upsert'; event: CustomerEvent }
   | { type: 'highlight'; eventId: string }
   | { type: 'clear-highlight'; eventId?: string };
 
@@ -41,6 +43,18 @@ export function eventStoreReducer(
   state: EventStoreState,
   action: EventStoreAction,
 ): EventStoreState {
+  if (action.type === 'replace-all') {
+    return { ...state, events: normalizeCustomerEvents(action.events) };
+  }
+
+  if (action.type === 'upsert') {
+    const eventIndex = state.events.findIndex((event) => event.id === action.event.id);
+    if (eventIndex === -1) return { ...state, events: [...state.events, action.event] };
+    const events = [...state.events];
+    events[eventIndex] = action.event;
+    return { ...state, events };
+  }
+
   if (action.type === 'create') {
     if (state.events.some((event) => event.id === action.event.id)) return state;
     return { ...state, events: [...state.events, action.event] };

@@ -10,7 +10,7 @@ export interface CustomerEditInput {
   customerMemo?: string;
 }
 
-/** Provider-independent application port; an HTTP adapter can implement this later. */
+/** Legacy synchronous fixture helper retained for existing reducer consumers. */
 export interface CustomerStorePort {
   customers: readonly CustomerRecord[];
   getCustomer: (customerId: string) => CustomerRecord | undefined;
@@ -23,7 +23,10 @@ export interface CustomerStoreState {
 }
 
 export type CustomerStoreAction =
-  { type: 'create'; customer: CustomerRecord } | { type: 'replace'; customer: CustomerRecord };
+  | { type: 'create'; customer: CustomerRecord }
+  | { type: 'replace'; customer: CustomerRecord }
+  | { type: 'upsert'; customer: CustomerRecord }
+  | { type: 'replace-all'; customers: readonly CustomerRecord[] };
 
 export const EMPTY_CUSTOMER_WORKSPACE: Workspace = {
   id: 'workspace-local',
@@ -60,6 +63,20 @@ export function customerStoreReducer(
   state: CustomerStoreState,
   action: CustomerStoreAction,
 ): CustomerStoreState {
+  if (action.type === 'replace-all') {
+    return createCustomerStoreState(action.customers);
+  }
+
+  if (action.type === 'upsert') {
+    const customerIndex = state.customers.findIndex(
+      (customer) => customer.id === action.customer.id,
+    );
+    if (customerIndex === -1) return { customers: [...state.customers, action.customer] };
+    const customers = [...state.customers];
+    customers[customerIndex] = action.customer;
+    return { customers };
+  }
+
   if (action.type === 'create') {
     if (state.customers.some((customer) => customer.id === action.customer.id)) return state;
     return { customers: [...state.customers, action.customer] };
@@ -90,16 +107,15 @@ export function createCustomerId(
 export function buildCreatedCustomer(
   id: string,
   input: CustomerCreateInput,
-  workspace: Workspace,
+  workspace?: Workspace,
 ): CustomerRecord | undefined {
   const displayName = normalizeCustomerDisplayName(input.displayName);
   if (!displayName) return undefined;
 
   const customer: CustomerRecord = {
     id,
-    workspaceId: workspace.id,
     displayName,
-    workspace,
+    ...(workspace ? { workspace } : {}),
   };
   const customerMemo = normalizeCustomerMemo(input.customerMemo);
   if (customerMemo) customer.customerMemo = customerMemo;
@@ -122,9 +138,8 @@ export function editCustomerById(
 
   return {
     id: current.id,
-    workspaceId: current.workspaceId,
     displayName,
-    workspace: current.workspace,
+    ...(current.workspace ? { workspace: current.workspace } : {}),
     ...(current.context ? { context: current.context } : {}),
     ...(current.interaction ? { interaction: current.interaction } : {}),
   };

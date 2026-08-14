@@ -33,7 +33,6 @@ describe('CustomerStore application port', () => {
       id: 'customer-new',
       displayName: '새 고객',
       customerMemo: '직접 남긴 메모',
-      workspaceId: EMPTY_CUSTOMER_WORKSPACE.id,
     });
     expect(
       customerStoreReducer(createCustomerStoreState([]), { type: 'create', customer: customer! })
