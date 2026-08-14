@@ -12,12 +12,12 @@ import { getAgendaDateKey, getEventTitle } from '@/components/schedule/agendaMod
 import type { EventFormSubmitValues } from '@/components/schedule/EventForm';
 import { buildAppCustomerDetailPath, buildAppSchedulePath } from '@/constants/routes';
 import type { CustomerEvent, CustomerEventEdit } from '@/domain/customerEvent';
-import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
+import type { ScheduleCustomer } from '@/types/customer';
 
 export interface EventDetailPageProps {
   events?: readonly CustomerEvent[];
@@ -52,7 +52,7 @@ export function EventDetailPage({
   const remoteReadsEnabled = eventStore?.remoteReadsEnabled ?? false;
   const loadCustomer = customerStore.loadCustomer;
   const scrollSurfaceRef = useRef<HTMLDivElement>(null);
-  const sourceEvents = events ?? eventStore?.events ?? SCHEDULE_FIXTURE.events;
+  const sourceEvents = events ?? eventStore?.events ?? [];
   const sourceCustomers =
     customers ?? customerStore.customers.map(({ id, displayName }) => ({ id, displayName }));
   const event = sourceEvents.find((candidate) => candidate.id === eventId);

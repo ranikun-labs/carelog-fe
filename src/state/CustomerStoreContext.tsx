@@ -10,9 +10,8 @@ import {
   type ReactNode,
 } from 'react';
 
-import { CUSTOMER_FIXTURE_RECORDS } from '@/fixtures/scenarios';
 import { classifyCarelogError } from '@/integrations/carelog/errorMapping';
-import { createFixtureCustomerPort } from '@/integrations/carelog/fixturePorts';
+import { createInMemoryCustomerPort } from '@/integrations/carelog/inMemoryPorts';
 import type { CustomerRecord } from '@/types/customer';
 import {
   createCustomerStoreState,
@@ -60,10 +59,10 @@ export function CustomerStoreProvider({
   const isExplicitPort = providedPort !== undefined;
   const remoteReadsEnabled = remoteReadsEnabledOverride ?? isExplicitPort;
   const port = useMemo(
-    () => providedPort ?? createFixtureCustomerPort(initialCustomers ?? CUSTOMER_FIXTURE_RECORDS),
+    () => providedPort ?? createInMemoryCustomerPort(initialCustomers ?? []),
     [initialCustomers, providedPort],
   );
-  const seed = initialCustomers ?? (isExplicitPort ? [] : CUSTOMER_FIXTURE_RECORDS);
+  const seed = initialCustomers ?? [];
   const [state, dispatch] = useReducer(customerStoreReducer, seed, createCustomerStoreState);
   const [loadState, setLoadState] = useState<CustomerLoadState>(
     isExplicitPort && initialCustomers === undefined ? 'loading' : 'ready',

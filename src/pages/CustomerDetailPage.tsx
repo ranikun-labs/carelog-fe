@@ -16,7 +16,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { buildAppCustomerEditPath, buildAppCustomersPath } from '@/constants/routes';
 import type { CustomerEvent } from '@/domain/customerEvent';
-import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
@@ -108,7 +107,7 @@ export function CustomerDetailPage({
     events ??
     (eventStore?.remoteReadsEnabled
       ? [...(snapshot?.upcoming ?? []), ...(snapshot?.history ?? [])]
-      : (eventStore?.events ?? SCHEDULE_FIXTURE.events));
+      : (eventStore?.events ?? []));
   const customerEvents = [
     ...new Map(
       sourceEvents

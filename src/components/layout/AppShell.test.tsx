@@ -2,13 +2,14 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 
 import { AppShell } from '@/components/layout/AppShell';
+import { FixtureStateProviders } from '@/components/layout/FixtureStateProviders';
 
 describe('AppShell', () => {
   it('keeps the adaptive host full width and lets it own the single-column frame', () => {
     render(
       <MemoryRouter initialEntries={['/app']}>
         <Routes>
-          <Route path="/app" element={<AppShell />}>
+          <Route path="/app" element={<AppShell stateProviders={FixtureStateProviders} />}>
             <Route index element={<main>Customer foundation</main>} />
           </Route>
         </Routes>

@@ -10,14 +10,13 @@ import {
 } from 'react';
 
 import type { CustomerEvent, CustomerEventEdit } from '@/domain/customerEvent';
-import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
 import { classifyCarelogError } from '@/integrations/carelog/errorMapping';
+import { createInMemoryCustomerEventPort } from '@/integrations/carelog/inMemoryPorts';
 import {
   createCustomerHistoryQuery,
   createCustomerUpcomingQuery,
   type CustomerEventPort,
 } from '@/integrations/carelog/customerEventPort';
-import { createFixtureCustomerEventPort } from '@/integrations/carelog/fixturePorts';
 import {
   buildCustomerUpcomingRange,
   type CarelogTimeRange,
@@ -72,10 +71,10 @@ export function EventStoreProvider({
 }) {
   const isExplicitPort = providedPort !== undefined;
   const port = useMemo(
-    () => providedPort ?? createFixtureCustomerEventPort(initialEvents ?? SCHEDULE_FIXTURE.events),
+    () => providedPort ?? createInMemoryCustomerEventPort(initialEvents ?? []),
     [initialEvents, providedPort],
   );
-  const seed = initialEvents ?? (isExplicitPort ? [] : SCHEDULE_FIXTURE.events);
+  const seed = initialEvents ?? [];
   const [state, dispatch] = useReducer(eventStoreReducer, seed, createEventStoreState);
   const [scheduleLoadState, setScheduleLoadState] = useState<EventLoadState>(
     !isExplicitPort || initialEvents !== undefined ? 'ready' : 'loading',

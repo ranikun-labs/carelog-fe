@@ -3,48 +3,24 @@ import {
   type CustomerEventPort,
 } from '@/integrations/carelog/customerEventPort';
 import { CarelogConfigurationError } from '@/integrations/carelog/errors';
-import {
-  createCarelogHttpClient,
-  type CarelogHttpClient,
-  type CarelogSessionProvider,
-} from '@/integrations/carelog/httpClient';
+import { createCarelogHttpClient, type CarelogHttpClient } from '@/integrations/carelog/httpClient';
 import { createCarelogCustomerPort, type CustomerPort } from '@/integrations/carelog/customerPort';
-import {
-  createFixtureCustomerEventPort,
-  createFixtureCustomerPort,
-} from '@/integrations/carelog/fixturePorts';
-import type { CustomerEvent } from '@/domain/customerEvent';
-import type { CustomerRecord } from '@/types/customer';
+import type {
+  ProductPortCompositionOptions,
+  ProductPorts,
+} from '@/integrations/carelog/productPorts';
 
-export interface ProductPorts {
-  customerPort: CustomerPort;
-  customerEventPort: CustomerEventPort;
-}
-
-export interface ProductPortCompositionOptions {
-  initialCustomers?: readonly CustomerRecord[];
-  initialEvents?: readonly CustomerEvent[];
-  apiBaseUrl?: string;
-  fetchImpl?: typeof fetch;
-  sessionProvider?: CarelogSessionProvider;
-}
-
-export function createFixtureProductPorts(
-  options: ProductPortCompositionOptions = {},
-): ProductPorts {
-  return {
-    customerPort: createFixtureCustomerPort(options.initialCustomers),
-    customerEventPort: createFixtureCustomerEventPort(options.initialEvents),
-  };
-}
+export type {
+  ProductPortCompositionOptions,
+  ProductPorts,
+} from '@/integrations/carelog/productPorts';
 
 export function createProductionProductPorts(
   options: ProductPortCompositionOptions = {},
 ): ProductPorts {
   const apiBaseUrl = options.apiBaseUrl ?? readCarelogApiBaseUrl();
   if (!apiBaseUrl) {
-    const unavailable = createUnavailablePorts();
-    return unavailable;
+    return createUnavailablePorts();
   }
 
   let client: CarelogHttpClient;
@@ -57,6 +33,7 @@ export function createProductionProductPorts(
   } catch (error) {
     return createUnavailablePorts(error);
   }
+
   return {
     customerPort: createCarelogCustomerPort(client),
     customerEventPort: createCarelogCustomerEventPort(client),
@@ -87,3 +64,5 @@ function createUnavailablePorts(reason?: unknown): ProductPorts {
     },
   };
 }
+
+export type { CustomerEventPort, CustomerPort };

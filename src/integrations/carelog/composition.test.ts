@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  createProductionProductPorts,
-  createFixtureProductPorts,
-} from '@/integrations/carelog/composition';
+import { createProductionProductPorts } from '@/integrations/carelog/productionComposition';
+import { createFixtureProductPorts } from '@/integrations/carelog/fixtureComposition';
 import { CarelogConfigurationError, CarelogNetworkError } from '@/integrations/carelog/errors';
 
 describe('Carelog product composition', () => {

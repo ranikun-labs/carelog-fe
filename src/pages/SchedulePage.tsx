@@ -26,13 +26,13 @@ import {
   buildAppEventDetailPath,
 } from '@/constants/routes';
 import type { CustomerEvent } from '@/domain/customerEvent';
-import { SCHEDULE_FIXTURE, type ScheduleCustomer } from '@/fixtures/schedule';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { buildVisibleScheduleRange } from '@/integrations/carelog/timeRange';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
+import type { ScheduleCustomer } from '@/types/customer';
 
 export type ScheduleLoadState = 'ready' | 'loading' | 'error';
 
@@ -80,8 +80,7 @@ export function SchedulePage({
   const scheduleCustomers: readonly ScheduleCustomer[] =
     customers ?? customerStore.customers.map(({ id, displayName }) => ({ id, displayName }));
   const hasNoCustomers = scheduleCustomers.length === 0;
-  const sourceEvents =
-    eventStore && events === undefined ? eventStore.events : (events ?? SCHEDULE_FIXTURE.events);
+  const sourceEvents = events ?? eventStore?.events ?? [];
   const effectiveLoadState = loadState ?? eventStore?.scheduleLoadState ?? 'ready';
   const scheduleNavigation = readScheduleNavigationState(location.state);
   const todayDateKey = getDateKeyFromDate(now);

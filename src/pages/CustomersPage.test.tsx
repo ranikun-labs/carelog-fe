@@ -1,7 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
-import { landlordTenantScenario, therapistPatientScenario } from '@/fixtures/scenarios';
+import {
+  CUSTOMER_FIXTURE_RECORDS,
+  landlordTenantScenario,
+  therapistPatientScenario,
+} from '@/fixtures/scenarios';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomersPage } from '@/pages/CustomersPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
@@ -10,7 +14,7 @@ function renderPage() {
   render(
     <MemoryRouter>
       <I18nProvider locale="ko">
-        <CustomerStoreProvider>
+        <CustomerStoreProvider initialCustomers={CUSTOMER_FIXTURE_RECORDS}>
           <CustomersPage />
         </CustomerStoreProvider>
       </I18nProvider>
