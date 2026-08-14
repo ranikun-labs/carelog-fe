@@ -155,10 +155,9 @@ describe('SchedulePage', () => {
     renderPage({ events: [], customers: [] });
 
     expect(screen.getByText('먼저 고객을 추가해 주세요')).toBeVisible();
-    expect(screen.getByRole('link', { name: '첫 고객 추가' })).toHaveAttribute(
-      'href',
-      '/app/customers/new',
-    );
+    const firstCustomerCta = screen.getByRole('link', { name: '첫 고객 추가' });
+    expect(firstCustomerCta).toHaveAttribute('href', '/app/customers/new');
+    expect(firstCustomerCta).toHaveClass('bg-accent-primary', 'min-h-[46px]');
     expect(screen.queryByText('아직 일정이 없습니다')).not.toBeInTheDocument();
   });
 
