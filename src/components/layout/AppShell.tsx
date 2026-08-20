@@ -1,3 +1,5 @@
+import type { AssistantAdapter } from '@/assistant/assistantAdapter';
+import { AssistantAdapterProvider } from '@/assistant/AssistantAdapterContext';
 import { useOptionalAuth } from '@/auth/AuthProvider';
 import { AuthOperationErrorSurface } from '@/components/auth/AuthStatusSurface';
 import { AuthRecoveryBanner } from '@/components/auth/AuthStatusSurface';
@@ -56,7 +58,11 @@ export function AppShell({
   initialCustomers,
   initialEvents,
   stateProviders,
-}: Omit<ProductStateProviderProps, 'children'> & { stateProviders?: ProductStateProvider } = {}) {
+  assistantAdapter,
+}: Omit<ProductStateProviderProps, 'children'> & {
+  stateProviders?: ProductStateProvider;
+  assistantAdapter?: AssistantAdapter;
+} = {}) {
   const customerStore = useOptionalCustomerStore();
   const eventStore = useOptionalEventStore();
   const frame = <AppShellFrame />;
@@ -72,7 +78,9 @@ export function AppShell({
 
   return (
     <AppLocaleProvider>
-      <EventCreateActivationProvider>{content}</EventCreateActivationProvider>
+      <EventCreateActivationProvider>
+        <AssistantAdapterProvider adapter={assistantAdapter}>{content}</AssistantAdapterProvider>
+      </EventCreateActivationProvider>
     </AppLocaleProvider>
   );
 }
