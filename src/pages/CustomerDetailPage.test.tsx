@@ -7,6 +7,8 @@ import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerDetailPage, type CustomerDetailPageProps } from '@/pages/CustomerDetailPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 
+const TEST_NOW = new Date('2026-08-11T12:00:00+09:00');
+
 function renderAt(customerId: string, props: CustomerDetailPageProps = {}) {
   render(
     <MemoryRouter initialEntries={[`/app/customers/${customerId}`]}>
@@ -16,7 +18,11 @@ function renderAt(customerId: string, props: CustomerDetailPageProps = {}) {
             <Route
               path="/app/customers/:customerId"
               element={
-                <CustomerDetailPage {...props} events={props.events ?? SCHEDULE_FIXTURE.events} />
+                <CustomerDetailPage
+                  {...props}
+                  now={props.now ?? TEST_NOW}
+                  events={props.events ?? SCHEDULE_FIXTURE.events}
+                />
               }
             />
           </Routes>

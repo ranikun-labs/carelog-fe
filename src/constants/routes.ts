@@ -32,6 +32,7 @@ export const APP_ROUTE_PATHS = {
   eventCreate: `${APP_BASE}/events/new`,
   settings: `${APP_BASE}/settings`,
   eventDetail: `${APP_BASE}/events/:eventId`,
+  assistant: `${APP_BASE}/assistant`,
 } as const;
 
 export const buildPublicHomePath = (locale: Locale) => `/${locale}`;
@@ -55,6 +56,7 @@ export const buildAppEventCreatePath = () => APP_ROUTE_PATHS.eventCreate;
 export const buildAppSettingsPath = () => APP_ROUTE_PATHS.settings;
 export const buildAppEventDetailPath = (eventId: string) =>
   `${APP_BASE}/events/${encodeURIComponent(eventId)}`;
+export const buildAppAssistantPath = () => APP_ROUTE_PATHS.assistant;
 export const buildAuthEntryPath = () => AUTH_ROUTE_PATHS.entry;
 export const buildAuthLoginPath = () => AUTH_ROUTE_PATHS.login;
 export const buildAuthSignupPath = () => AUTH_ROUTE_PATHS.signup;

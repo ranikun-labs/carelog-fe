@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router';
 
+import { AssistantAdapterProvider } from '@/assistant/AssistantAdapterContext';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { AUTH_STATE, type AuthPort } from '@/auth/authTypes';
 import { resolvePostAuthPath } from '@/auth/postAuthRouting';
@@ -32,6 +33,7 @@ import {
 import { AuthEntryPage } from '@/pages/auth/AuthEntryPage';
 import { AuthFormPage } from '@/pages/auth/AuthFormPage';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
+import { AssistantPage } from '@/pages/AssistantPage';
 import { CustomerCreatePage } from '@/pages/CustomerCreatePage';
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerEditPage } from '@/pages/CustomerEditPage';
@@ -163,6 +165,10 @@ function AppRoutes() {
           path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.eventDetail)}
           element={<EventDetailPage />}
         />
+        <Route
+          path={toRelativeUnder(APP_BASE, APP_ROUTE_PATHS.assistant)}
+          element={<AssistantPage />}
+        />
         <Route path="*" element={<AppNotFoundPage />} />
       </Route>
       <Route path="*" element={<PublicNotFoundPage />} />
@@ -173,6 +179,7 @@ function AppRoutes() {
 export function AppRouter({
   initialCustomers,
   initialEvents,
+  assistantAdapter,
   authPort,
   stateProviders,
 }: AppInitialization & { authPort?: AuthPort; stateProviders?: ProductStateProvider } = {}) {
@@ -180,11 +187,13 @@ export function AppRouter({
   return (
     <AppLocaleProvider>
       <AuthProvider authPort={authPort}>
-        <EventCreateActivationProvider>
-          <StateProviders {...(stateProviders ? { initialCustomers, initialEvents } : {})}>
-            <AppRoutes />
-          </StateProviders>
-        </EventCreateActivationProvider>
+        <AssistantAdapterProvider adapter={assistantAdapter}>
+          <EventCreateActivationProvider>
+            <StateProviders {...(stateProviders ? { initialCustomers, initialEvents } : {})}>
+              <AppRoutes />
+            </StateProviders>
+          </EventCreateActivationProvider>
+        </AssistantAdapterProvider>
       </AuthProvider>
     </AppLocaleProvider>
   );

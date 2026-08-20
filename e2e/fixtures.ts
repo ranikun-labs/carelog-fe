@@ -14,6 +14,20 @@ export async function useEmptyApplicationSeed(page: Page) {
   });
 }
 
+export async function useAssistantAdapter(
+  page: Page,
+  options: NonNullable<Window['__CARELOG_TEST_INITIALIZATION__']>['assistantAdapterOptions'] = {
+    latencyMs: 140,
+  },
+) {
+  await page.addInitScript((adapterOptions) => {
+    window.__CARELOG_TEST_INITIALIZATION__ = {
+      ...window.__CARELOG_TEST_INITIALIZATION__,
+      assistantAdapterOptions: adapterOptions,
+    };
+  }, options);
+}
+
 export async function useAuthAdapterScenario(
   page: Page,
   authAdapterOptions: NonNullable<Window['__CARELOG_TEST_INITIALIZATION__']>['authAdapterOptions'],
