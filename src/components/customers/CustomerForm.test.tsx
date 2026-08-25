@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
 import { CustomerForm, type CustomerFormValues } from '@/components/customers/CustomerForm';
+import { CarelogHttpError } from '@/integrations/carelog/errors';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
 
@@ -63,6 +64,41 @@ function DraftFormHarness({
 }
 
 describe('CustomerForm', () => {
+  it('keeps a create mutation pending and prevents duplicate submits', async () => {
+    let resolveSubmit: (() => void) | undefined;
+    const pendingSubmit = new Promise<void>((resolve) => {
+      resolveSubmit = resolve;
+    });
+    const onSubmit = vi.fn(() => pendingSubmit);
+    renderForm('create', onSubmit);
+    fireEvent.change(screen.getByLabelText('고객 이름'), { target: { value: '대기 고객' } });
+
+    submitForm();
+    submitForm();
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: '고객 추가' })).toBeDisabled();
+    expect(document.querySelector('[data-customer-form]')).not.toBeNull();
+
+    resolveSubmit?.();
+    await waitFor(() => expect(screen.getByRole('button', { name: '고객 추가' })).toBeDisabled());
+  });
+
+  it('preserves create input after mutation failure and allows one fresh retry', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new CarelogHttpError(503));
+    renderForm('create', onSubmit);
+    fireEvent.change(screen.getByLabelText('고객 이름'), { target: { value: '실패 후 고객' } });
+    fireEvent.change(screen.getByLabelText('고객 메모'), { target: { value: '실패 후 메모' } });
+
+    submitForm();
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('고객 이름')).toHaveValue('실패 후 고객');
+    expect(screen.getByLabelText('고객 메모')).toHaveValue('실패 후 메모');
+
+    submitForm();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+  });
+
   it('rejects a blank displayName and does not submit', () => {
     const onSubmit = renderForm();
     submitForm();

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
+import { vi } from 'vitest';
 
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { I18nProvider } from '@/i18n/I18nContext';
@@ -59,6 +60,14 @@ function renderPage(props: React.ComponentProps<typeof SchedulePage> = {}) {
 }
 
 describe('SchedulePage', () => {
+  it('renders loading without falling through to the event-empty projection', () => {
+    renderPage({ loadState: 'loading', events: [] });
+
+    expect(screen.getByRole('region', { name: '일정을 불러오는 중' })).toBeVisible();
+    expect(screen.queryByText('아직 일정이 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('일정을 불러오지 못했습니다')).not.toBeInTheDocument();
+  });
+
   it('renders past, today, and future sections in agenda order', () => {
     renderPage();
 
@@ -148,6 +157,16 @@ describe('SchedulePage', () => {
     renderPage({ loadState: 'error' });
     expect(screen.getByText('일정을 불러오지 못했습니다')).toBeVisible();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeVisible();
+    expect(screen.queryByText('아직 일정이 없습니다')).not.toBeInTheDocument();
+  });
+
+  it('uses the current retry seam to request one fresh schedule read', () => {
+    const onRetry = vi.fn();
+    renderPage({ loadState: 'error', onRetry });
+
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('아직 일정이 없습니다')).not.toBeInTheDocument();
   });
 

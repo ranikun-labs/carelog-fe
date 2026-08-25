@@ -14,22 +14,22 @@ export function AuthLayout() {
       <header className="mx-auto flex w-full max-w-[720px] items-center justify-between gap-4 px-5 py-5 sm:px-8">
         <Link
           to={buildAuthEntryPath()}
-          className="text-text-primary rounded-md font-semibold"
+          className="text-text-primary inline-flex min-h-11 min-w-11 shrink-0 items-center rounded-md font-semibold"
           aria-label={t('auth.entry.title')}
         >
           {t('common.appName')}
         </Link>
         <button
           type="button"
-          className="text-text-secondary hover:bg-subtle min-h-11 rounded-md px-3 text-sm font-semibold"
+          className="text-text-secondary hover:bg-subtle min-h-11 min-w-11 shrink-0 rounded-md px-3 text-sm font-semibold"
           onClick={() => setLocale(peer)}
           aria-label={t('common.changeLanguage')}
         >
           {peer.toUpperCase()}
         </button>
       </header>
-      <main className="mx-auto flex min-h-[calc(100dvh-80px)] w-full max-w-[560px] items-center px-5 py-8 sm:px-8">
-        <div className="w-full">
+      <main className="mx-auto flex min-h-[calc(100dvh-80px)] w-full max-w-[560px] min-w-0 items-center px-5 py-8 sm:px-8">
+        <div className="w-full min-w-0">
           <Outlet />
         </div>
       </main>

@@ -1,14 +1,39 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { vi } from 'vitest';
 
 import {
   CUSTOMER_FIXTURE_RECORDS,
   landlordTenantScenario,
   therapistPatientScenario,
 } from '@/fixtures/scenarios';
+import type { CustomerPort } from '@/integrations/carelog/customerPort';
+import { CarelogHttpError } from '@/integrations/carelog/errors';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomersPage } from '@/pages/CustomersPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
+import type { CustomerRecord } from '@/types/customer';
+
+function createCustomerPort(list: CustomerPort['list']): CustomerPort {
+  return {
+    list,
+    get: vi.fn(),
+    create: vi.fn(),
+    edit: vi.fn(),
+  };
+}
+
+function renderRemotePage(port: CustomerPort) {
+  render(
+    <MemoryRouter initialEntries={['/app/customers']}>
+      <I18nProvider locale="ko">
+        <CustomerStoreProvider port={port}>
+          <CustomersPage />
+        </CustomerStoreProvider>
+      </I18nProvider>
+    </MemoryRouter>,
+  );
+}
 
 function renderPage() {
   render(
@@ -23,6 +48,29 @@ function renderPage() {
 }
 
 describe('CustomersPage', () => {
+  it('keeps remote loading separate from the customer-empty projection', () => {
+    const port = createCustomerPort(vi.fn(() => new Promise<readonly CustomerRecord[]>(() => {})));
+    renderRemotePage(port);
+
+    expect(screen.getByRole('status')).toBeVisible();
+    expect(screen.queryByText('아직 고객이 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '첫 고객 추가' })).not.toBeInTheDocument();
+  });
+
+  it('keeps remote error separate from loading and empty actions', async () => {
+    const port = createCustomerPort(vi.fn().mockRejectedValue(new CarelogHttpError(503)));
+    renderRemotePage(port);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('서비스가 잠시 응답하지 않습니다. 데이터는 보존됩니다.'),
+      ).toBeVisible(),
+    );
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeVisible();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '첫 고객 추가' })).not.toBeInTheDocument();
+  });
+
   it('promotes the non-empty create entrypoint to the primary CTA', () => {
     renderPage();
 

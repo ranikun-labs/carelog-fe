@@ -125,6 +125,14 @@ export function CustomerDetailPage({
         .map((event) => [event.id, event]),
     ).values(),
   ];
+  const eventProjectionState =
+    eventStore?.remoteReadsEnabled && events === undefined
+      ? eventStore.detailLoadState === 'ready'
+        ? 'ready'
+        : eventStore.detailLoadState === 'error'
+          ? 'error'
+          : 'loading'
+      : 'ready';
   const createEvent = onCreateEvent ?? (eventStore ? eventStore.createEvent : undefined);
   const explicitMemo = memo ?? currentCustomer.customerMemo;
 
@@ -262,22 +270,33 @@ export function CustomerDetailPage({
             />
           ) : null}
 
-          {eventStore?.remoteReadsEnabled &&
-          events === undefined &&
-          eventStore.detailLoadState === 'loading' ? (
-            <p role="status" className="text-text-secondary mt-4 text-sm">
+          {eventProjectionState === 'loading' ? (
+            <p
+              role="status"
+              aria-busy="true"
+              data-customer-event-state="loading"
+              className="text-text-secondary mt-4 text-sm"
+            >
               {t('schedule.loadingLabel')}
             </p>
           ) : null}
-          {eventStore?.remoteReadsEnabled && events === undefined && eventStore.error ? (
-            <p role="alert" className="text-warning mt-4 text-sm font-semibold">
-              {t(getCarelogMessageKey(eventStore.error))}
+          {eventProjectionState === 'error' ? (
+            <p
+              role="alert"
+              data-customer-event-state="error"
+              className="text-warning mt-4 text-sm font-semibold"
+            >
+              {t(getCarelogMessageKey(eventStore?.error))}
             </p>
           ) : null}
 
-          <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
+          {eventProjectionState === 'ready' ? (
+            <>
+              <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
+              <CustomerTimeline events={customerEvents} onOpenEvent={openEvent} />
+            </>
+          ) : null}
           <CustomerMemo memo={explicitMemo} />
-          <CustomerTimeline events={customerEvents} onOpenEvent={openEvent} />
         </AdaptiveSurfaceContent>
       </div>
     </AdaptiveSurface>

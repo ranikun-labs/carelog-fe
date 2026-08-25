@@ -73,18 +73,18 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
   }
 
   return (
-    <section data-auth-form-mode={mode} className="grid gap-6">
-      <div className="grid gap-2">
+    <section data-auth-form-mode={mode} className="grid min-w-0 gap-6">
+      <div className="grid min-w-0 gap-2">
         <Link
           to={buildAuthEntryPath()}
           className={cn(buttonVariants({ variant: 'text', size: 'sm' }), 'w-fit px-0')}
         >
           ← {t('auth.form.back')}
         </Link>
-        <h1 className="text-text-primary text-3xl font-bold tracking-tight">
+        <h1 className="text-text-primary min-w-0 text-3xl font-bold tracking-tight break-words">
           {isSignup ? t('auth.form.signupTitle') : t('auth.form.loginTitle')}
         </h1>
-        <p className="text-text-secondary leading-7">
+        <p className="text-text-secondary min-w-0 leading-7 break-words">
           {isSignup ? t('auth.form.signupDescription') : t('auth.form.loginDescription')}
         </p>
       </div>
@@ -94,9 +94,9 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
         aria-busy={isSubmitting}
         aria-describedby={error && errorField === 'form' ? errorId : undefined}
         onSubmit={(event) => void submit(event)}
-        className="border-border-default bg-surface grid gap-5 rounded-xl border p-5 sm:p-6"
+        className="border-border-default bg-surface grid min-w-0 gap-5 rounded-xl border p-5 sm:p-6"
       >
-        <div className="grid gap-2">
+        <div className="grid min-w-0 gap-2">
           <label htmlFor={`${mode}-account`} className="text-sm font-semibold">
             {t('auth.form.account')}
           </label>
@@ -109,10 +109,10 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             required
             aria-invalid={errorField === 'account' ? true : undefined}
             aria-describedby={errorField === 'account' ? errorId : undefined}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full max-w-full min-w-0 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </div>
-        <div className="grid gap-2">
+        <div className="grid min-w-0 gap-2">
           <label htmlFor={`${mode}-secret`} className="text-sm font-semibold">
             {t('auth.form.secret')}
           </label>
@@ -126,11 +126,11 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             required
             aria-invalid={errorField === 'secret' ? true : undefined}
             aria-describedby={errorField === 'secret' ? errorId : undefined}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full max-w-full min-w-0 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </div>
         {isSignup ? (
-          <div className="grid gap-2">
+          <div className="grid min-w-0 gap-2">
             <label htmlFor="signup-secret-confirmation" className="text-sm font-semibold">
               {t('auth.form.secretConfirmation')}
             </label>
@@ -144,7 +144,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
               required
               aria-invalid={errorField === 'secretConfirmation' ? true : undefined}
               aria-describedby={errorField === 'secretConfirmation' ? errorId : undefined}
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full max-w-full min-w-0 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             />
           </div>
         ) : null}
@@ -156,7 +156,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             tabIndex={-1}
             role="alert"
             aria-live="assertive"
-            className="text-warning text-sm font-semibold outline-none"
+            className="text-warning min-w-0 text-sm font-semibold break-words outline-none"
           >
             {error}
           </p>
@@ -171,11 +171,11 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
         </Button>
       </form>
 
-      <p className="text-text-secondary text-center text-sm">
+      <p className="text-text-secondary min-w-0 text-center text-sm break-words">
         {isSignup ? t('auth.form.haveAccount') : t('auth.form.needAccount')}{' '}
         <Link
           to={isSignup ? buildAuthLoginPath() : buildAuthSignupPath()}
-          className="text-accent-primary-deep rounded-md font-semibold underline underline-offset-4"
+          className="text-accent-primary-deep inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 font-semibold whitespace-nowrap underline underline-offset-4"
         >
           {isSignup ? t('auth.form.loginLink') : t('auth.form.signupLink')}
         </Link>
