@@ -8,6 +8,7 @@ import type { AuthPort } from '@/auth/authTypes';
 import type { ProductStateProvider } from '@/components/layout/ProductionStateProviders';
 import { readTestInitialization } from '@/app/testBootstrap';
 import { shouldHydrate } from '@/prerender/shouldHydrate';
+import { getProductionCarelogAuthRuntime } from '@/integrations/carelog/productionAuthRuntime';
 import '@/styles/globals.css';
 
 const rootElement = document.getElementById('root')!;
@@ -32,6 +33,8 @@ async function startApplication() {
         testInitialization.assistantAdapterOptions,
       );
     }
+  } else {
+    authPort = getProductionCarelogAuthRuntime().authPort;
   }
 
   const initialization: AppInitialization | undefined = testInitialization

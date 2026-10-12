@@ -5,6 +5,7 @@ import {
 import { CarelogConfigurationError } from '@/integrations/carelog/errors';
 import { createCarelogHttpClient, type CarelogHttpClient } from '@/integrations/carelog/httpClient';
 import { createCarelogCustomerPort, type CustomerPort } from '@/integrations/carelog/customerPort';
+import { getProductionCarelogAuthRuntime } from '@/integrations/carelog/productionAuthRuntime';
 import type {
   ProductPortCompositionOptions,
   ProductPorts,
@@ -18,7 +19,8 @@ export type {
 export function createProductionProductPorts(
   options: ProductPortCompositionOptions = {},
 ): ProductPorts {
-  const apiBaseUrl = options.apiBaseUrl ?? readCarelogApiBaseUrl();
+  const runtime = getProductionCarelogAuthRuntime();
+  const apiBaseUrl = options.apiBaseUrl ?? runtime.apiBaseUrl;
   if (!apiBaseUrl) {
     return createUnavailablePorts();
   }
@@ -28,7 +30,8 @@ export function createProductionProductPorts(
     client = createCarelogHttpClient({
       baseUrl: apiBaseUrl,
       fetchImpl: options.fetchImpl,
-      sessionProvider: options.sessionProvider ?? { credentials: 'include' },
+      sessionProvider: options.sessionProvider ?? runtime.sessionProvider,
+      onUnauthorized: options.onUnauthorized,
     });
   } catch (error) {
     return createUnavailablePorts(error);
@@ -38,11 +41,6 @@ export function createProductionProductPorts(
     customerPort: createCarelogCustomerPort(client),
     customerEventPort: createCarelogCustomerEventPort(client),
   };
-}
-
-function readCarelogApiBaseUrl(): string | undefined {
-  const value = import.meta.env.VITE_CARELOG_API_BASE_URL;
-  return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
 function createUnavailablePorts(reason?: unknown): ProductPorts {

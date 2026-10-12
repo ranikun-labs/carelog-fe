@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useLocation } from 'react-router';
 
 import { useOptionalAuth } from '@/auth/AuthProvider';
+import { AUTH_ERROR_KIND, AUTH_STATE } from '@/auth/authTypes';
 import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
@@ -24,17 +25,29 @@ export type ProductStateProvider = (props: ProductStateProviderProps) => ReactNo
 export function ProductionStateProviders({ children }: ProductStateProviderProps) {
   const location = useLocation();
   const auth = useOptionalAuth();
-  const ports = useMemo(() => createProductionProductPorts(), []);
+  const reportFailure = auth?.reportFailure;
+  const remoteReadsEnabled = auth?.authState.status === AUTH_STATE.AUTHENTICATED;
+  const ports = useMemo(
+    () =>
+      createProductionProductPorts({
+        onUnauthorized: () => reportFailure?.({ kind: AUTH_ERROR_KIND.UNAUTHORIZED }),
+      }),
+    [reportFailure],
+  );
   const onFailure = useMemo(
     () => (error: unknown) => {
       const failure = toAuthFailure(error);
-      if (failure) auth?.reportFailure(failure);
+      if (failure) reportFailure?.(failure);
     },
-    [auth],
+    [reportFailure],
   );
 
   return (
-    <CustomerStoreProvider port={ports.customerPort} onFailure={onFailure}>
+    <CustomerStoreProvider
+      port={ports.customerPort}
+      onFailure={onFailure}
+      remoteReadsEnabled={remoteReadsEnabled}
+    >
       <EventStoreProvider port={ports.customerEventPort} onFailure={onFailure}>
         <CustomerFormDraftProvider key={location.pathname}>
           <EventCreateDraftProvider>{children}</EventCreateDraftProvider>

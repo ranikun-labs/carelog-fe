@@ -8,12 +8,15 @@ import {
 export interface CarelogSessionProvider {
   credentials?: RequestCredentials;
   getAccessToken?: () => string | undefined | Promise<string | undefined>;
+  getSessionVersion?: () => number;
+  recoverAccessToken?: () => Promise<string | undefined>;
 }
 
 export interface CarelogHttpClientOptions {
   baseUrl: string;
   fetchImpl?: typeof fetch;
   sessionProvider?: CarelogSessionProvider;
+  onUnauthorized?: () => void;
 }
 
 interface CarelogEnvelope<T> {
@@ -32,26 +35,50 @@ export function createCarelogHttpClient({
   baseUrl,
   fetchImpl = globalThis.fetch,
   sessionProvider,
+  onUnauthorized,
 }: CarelogHttpClientOptions): CarelogHttpClient {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   if (!fetchImpl) throw new CarelogConfigurationError('The browser fetch API is unavailable.');
 
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const accessToken = await sessionProvider?.getAccessToken?.();
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
-    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    const sessionVersion = sessionProvider?.getSessionVersion?.();
+    const resolvedAccessToken = await sessionProvider?.getAccessToken?.();
+    const accessToken =
+      sessionVersion === undefined || sessionProvider?.getSessionVersion?.() === sessionVersion
+        ? resolvedAccessToken
+        : undefined;
+    const send = async (token: string | undefined): Promise<Response> => {
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
 
-    let response: Response;
-    try {
-      response = await fetchImpl(joinUrl(normalizedBaseUrl, path), {
-        method,
-        headers,
-        ...(sessionProvider?.credentials ? { credentials: sessionProvider.credentials } : {}),
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
-    } catch (error) {
-      throw new CarelogNetworkError('The Carelog API could not be reached.', { cause: error });
+      try {
+        return await fetchImpl(joinUrl(normalizedBaseUrl, path), {
+          method,
+          headers,
+          ...(sessionProvider?.credentials ? { credentials: sessionProvider.credentials } : {}),
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+      } catch (error) {
+        throw new CarelogNetworkError('The Carelog API could not be reached.', { cause: error });
+      }
+    };
+
+    let response = await send(accessToken);
+    const sessionIsCurrent = () =>
+      sessionVersion === undefined || sessionProvider?.getSessionVersion?.() === sessionVersion;
+
+    if (
+      response.status === 401 &&
+      accessToken &&
+      sessionProvider?.recoverAccessToken &&
+      sessionIsCurrent()
+    ) {
+      onUnauthorized?.();
+      const recoveredAccessToken = await sessionProvider.recoverAccessToken();
+      if (recoveredAccessToken && sessionIsCurrent()) {
+        response = await send(recoveredAccessToken);
+      }
     }
 
     const text = await readResponseText(response);

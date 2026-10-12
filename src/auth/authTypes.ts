@@ -29,10 +29,7 @@ export type AuthState =
   | { status: typeof AUTH_STATE.RECOVERING; attempt: number }
   | { status: typeof AUTH_STATE.ERROR; error: AuthFailure };
 
-/**
- * This is intentionally a product-form fixture, not a Shared Identity wire DTO.
- * The eventual transport adapter can translate its own credential contract here.
- */
+/** Product-form credentials; the Carelog adapter maps these to userId/password. */
 export interface AuthCredentialFixture {
   account: string;
   secret: string;

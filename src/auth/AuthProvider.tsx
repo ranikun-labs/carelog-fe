@@ -89,6 +89,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
   }, []);
 
   const recoverSession = useCallback((): Promise<boolean> => {
+    if (logoutPromiseRef.current) return Promise.resolve(false);
     const inFlight = recoveryPromiseRef.current;
     if (inFlight) return inFlight;
     if (recoveryAttemptRef.current >= 1) {
@@ -251,16 +252,29 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     if (inFlight) return inFlight;
 
     sessionEpochRef.current += 1;
+    const logoutEpoch = sessionEpochRef.current;
     recoveryPromiseRef.current = null;
-    const promise = Promise.resolve()
-      .then(() => port.logout())
+    recoveryAttemptRef.current = 0;
+    setCurrentOperationError(null);
+    if (mountedRef.current) dispatch({ type: 'logout-anonymous' });
+
+    let portLogout: Promise<void>;
+    try {
+      portLogout = port.logout();
+    } catch (error) {
+      portLogout = Promise.reject(error);
+    }
+
+    const promise = Promise.resolve(portLogout)
       .catch(() => {
         // Logout is fail-closed locally even when the transport is unavailable.
       })
       .then(() => {
-        recoveryAttemptRef.current = 0;
-        setCurrentOperationError(null);
-        if (mountedRef.current) dispatch({ type: 'logout-anonymous' });
+        if (mountedRef.current && logoutEpoch === sessionEpochRef.current) {
+          recoveryAttemptRef.current = 0;
+          setCurrentOperationError(null);
+          dispatch({ type: 'logout-anonymous' });
+        }
         if (logoutPromiseRef.current === promise) logoutPromiseRef.current = null;
       });
     logoutPromiseRef.current = promise;
@@ -269,6 +283,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
 
   const reportFailure = useCallback(
     (failure: AuthFailure, retry?: () => void | Promise<void>): void => {
+      if (logoutPromiseRef.current) return;
       const current = authStateRef.current;
       if (failure.kind === AUTH_ERROR_KIND.UNAUTHORIZED) {
         if (current.status === AUTH_STATE.RECOVERING) return;
