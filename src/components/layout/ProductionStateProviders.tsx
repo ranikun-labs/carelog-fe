@@ -3,10 +3,11 @@ import { useMemo } from 'react';
 
 import { useLocation } from 'react-router';
 
-import { useOptionalAuth } from '@/auth/AuthProvider';
+import { useOptionalAuth, type AuthContextValue } from '@/auth/AuthProvider';
 import { AUTH_ERROR_KIND, AUTH_STATE } from '@/auth/authTypes';
 import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
+import { EventCreateActivationProvider } from '@/state/EventCreateActivationContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 import { createProductionProductPorts } from '@/integrations/carelog/productionComposition';
@@ -23,10 +24,35 @@ export interface ProductStateProviderProps {
 export type ProductStateProvider = (props: ProductStateProviderProps) => ReactNode;
 
 export function ProductionStateProviders({ children }: ProductStateProviderProps) {
-  const location = useLocation();
   const auth = useOptionalAuth();
   const reportFailure = auth?.reportFailure;
   const remoteReadsEnabled = auth?.authState.status === AUTH_STATE.AUTHENTICATED;
+  // Recovery rotates tokens for the same account. Every other auth boundary
+  // discards the entire product subtree, including drafts and local screen state.
+  const scopeKey =
+    remoteReadsEnabled || auth?.authState.status === AUTH_STATE.RECOVERING
+      ? `session:${auth?.sessionRevision ?? 0}`
+      : 'inactive';
+  return (
+    <SessionStateProviders
+      key={scopeKey}
+      remoteReadsEnabled={remoteReadsEnabled}
+      reportFailure={reportFailure}
+    >
+      {children}
+    </SessionStateProviders>
+  );
+}
+
+function SessionStateProviders({
+  children,
+  remoteReadsEnabled,
+  reportFailure,
+}: ProductStateProviderProps & {
+  remoteReadsEnabled: boolean;
+  reportFailure?: AuthContextValue['reportFailure'];
+}) {
+  const location = useLocation();
   const ports = useMemo(
     () =>
       createProductionProductPorts({
@@ -48,10 +74,17 @@ export function ProductionStateProviders({ children }: ProductStateProviderProps
       onFailure={onFailure}
       remoteReadsEnabled={remoteReadsEnabled}
     >
-      <EventStoreProvider port={ports.customerEventPort} onFailure={onFailure}>
-        <CustomerFormDraftProvider key={location.pathname}>
-          <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
-        </CustomerFormDraftProvider>
+      <EventStoreProvider
+        port={ports.customerEventPort}
+        onFailure={onFailure}
+        remoteReadsEnabled={remoteReadsEnabled}
+      >
+        {/* Return targets contain account-scoped customer/event IDs. */}
+        <EventCreateActivationProvider>
+          <CustomerFormDraftProvider key={location.pathname}>
+            <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+          </CustomerFormDraftProvider>
+        </EventCreateActivationProvider>
       </EventStoreProvider>
     </CustomerStoreProvider>
   );

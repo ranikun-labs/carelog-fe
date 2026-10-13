@@ -65,11 +65,13 @@ export function EventStoreProvider({
   initialEvents,
   port: providedPort,
   onFailure,
+  remoteReadsEnabled: remoteReadsEnabledOverride,
 }: {
   children: ReactNode;
   initialEvents?: readonly CustomerEvent[];
   port?: CustomerEventPort;
   onFailure?: (error: unknown) => void;
+  remoteReadsEnabled?: boolean;
 }) {
   const isExplicitPort = providedPort !== undefined;
   const port = useMemo(
@@ -98,7 +100,8 @@ export function EventStoreProvider({
       mountedRef.current = false;
     };
   }, []);
-  const remoteReadsEnabled = isExplicitPort && initialEvents === undefined;
+  const remoteReadsEnabled =
+    remoteReadsEnabledOverride ?? (isExplicitPort && initialEvents === undefined);
 
   const recordError = useCallback(
     (nextError: unknown) => {

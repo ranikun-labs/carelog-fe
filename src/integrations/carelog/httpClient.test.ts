@@ -94,3 +94,97 @@ describe('Carelog native HTTP client', () => {
     expect(() => createCarelogHttpClient({ baseUrl: '' })).toThrow(CarelogConfigurationError);
   });
 });
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+it.each([200, 204, 401, 403, 500])(
+  'cancels an A response with HTTP %s after switching to B, without auth side effects',
+  async (status) => {
+    let version = 1;
+    const pending = deferred<Response>();
+    const fetchImpl = vi.fn<typeof fetch>().mockReturnValue(pending.promise);
+    const onUnauthorized = vi.fn();
+    const recoverAccessToken = vi.fn();
+    const client = createCarelogHttpClient({
+      baseUrl: 'https://carelog.example.test',
+      fetchImpl,
+      onUnauthorized,
+      sessionProvider: {
+        getAccessToken: () => 'synthetic-a',
+        getSessionVersion: () => version,
+        recoverAccessToken,
+      },
+    });
+    const result = client.get('/api/v1/private');
+    const assertion = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    version = 2;
+    pending.resolve(
+      response(status, JSON.stringify({ status, message: 'ok', data: { private: 'synthetic-a' } })),
+    );
+    await assertion;
+    expect(onUnauthorized).not.toHaveBeenCalled();
+    expect(recoverAccessToken).not.toHaveBeenCalled();
+  },
+);
+
+it('does not dispatch a request when session changes while resolving its bearer', async () => {
+  let version = 1;
+  const token = deferred<string>();
+  const fetchImpl = vi.fn<typeof fetch>();
+  const client = createCarelogHttpClient({
+    baseUrl: 'https://carelog.example.test',
+    fetchImpl,
+    sessionProvider: { getAccessToken: () => token.promise, getSessionVersion: () => version },
+  });
+  const result = client.post('/api/v1/private', { private: 'synthetic-a' });
+  const assertion = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+  version = 2;
+  token.resolve('synthetic-b');
+  await assertion;
+  expect(fetchImpl).not.toHaveBeenCalled();
+});
+
+it('discards A data if switching happens during response body reading', async () => {
+  let version = 1;
+  const body = deferred<string>();
+  const text = vi.fn().mockReturnValue(body.promise);
+  const fetched = response(200, '');
+  fetched.text = text;
+  const client = createCarelogHttpClient({
+    baseUrl: 'https://carelog.example.test',
+    fetchImpl: vi.fn().mockResolvedValue(fetched),
+    sessionProvider: { getAccessToken: () => 'synthetic-a', getSessionVersion: () => version },
+  });
+  const result = client.get('/api/v1/private');
+  const assertion = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+  await vi.waitFor(() => expect(text).toHaveBeenCalledTimes(1));
+  version = 2;
+  body.resolve(JSON.stringify({ status: 200, message: 'ok', data: { private: 'synthetic-a' } }));
+  await assertion;
+});
+
+it('discards stale network failures without reporting them against B', async () => {
+  let version = 1;
+  const pending = deferred<Response>();
+  const fetchImpl = vi.fn<typeof fetch>().mockReturnValue(pending.promise);
+  const client = createCarelogHttpClient({
+    baseUrl: 'https://carelog.example.test',
+    fetchImpl,
+    sessionProvider: { getAccessToken: () => 'synthetic-a', getSessionVersion: () => version },
+  });
+  const result = client.get('/api/v1/private');
+  const assertion = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+  await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+  version = 2;
+  pending.reject(new TypeError('offline'));
+  await assertion;
+});

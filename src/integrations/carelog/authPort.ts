@@ -161,8 +161,11 @@ export function createCarelogAuthRuntime({
     },
 
     async login(input: AuthCredentialFixture): Promise<AuthCommandResult> {
-      if (logoutFlight) await logoutFlight.catch(() => undefined);
       const version = sessionStore.beginSession();
+      if (logoutFlight) await logoutFlight.catch(() => undefined);
+      if (sessionStore.getSessionVersion() !== version) {
+        return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
+      }
       try {
         // Carelog's existing DTO names these product-form values userId/password.
         const payload = await requireClient().post<unknown>(LOGIN_PATH, {
@@ -185,8 +188,8 @@ export function createCarelogAuthRuntime({
     },
 
     async logout(): Promise<void> {
-      if (logoutFlight) return logoutFlight;
       const { accessToken } = sessionStore.invalidateSession();
+      if (logoutFlight) return logoutFlight;
       if (!accessToken) return;
 
       const promise = (async () => {

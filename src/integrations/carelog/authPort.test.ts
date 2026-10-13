@@ -234,7 +234,7 @@ describe('Carelog Production AuthPort', () => {
       response(200, { accessToken: 'stale-access', refreshToken: 'stale-refresh' }),
     );
 
-    await expect(pendingRequest).rejects.toMatchObject({ name: 'CarelogHttpError', status: 401 });
+    await expect(pendingRequest).rejects.toMatchObject({ name: 'AbortError' });
     expect(resourceBearers).toEqual(['Bearer access-one']);
     expect(runtime.sessionProvider.getAccessToken?.()).toBeUndefined();
     expect(runtime.sessionStore.getRefreshToken()).toBeUndefined();
@@ -252,4 +252,46 @@ describe('Carelog Production AuthPort', () => {
     });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+});
+
+it('cancels a login waiting for logout if another logout wins', async () => {
+  const logoutResponse = deferred<Response>();
+  const fetchImpl = vi.fn<typeof fetch>().mockReturnValue(logoutResponse.promise);
+  const sessionStore = createCarelogAuthSessionStore();
+  setTokens(sessionStore, 'synthetic-a', 'synthetic-refresh-a');
+  const runtime = runtimeWith(fetchImpl, sessionStore);
+  const logout = runtime.authPort.logout();
+  const login = runtime.authPort.login({ account: 'synthetic-b', secret: 'test' });
+  const secondLogout = runtime.authPort.logout();
+  logoutResponse.resolve(response(204));
+  await Promise.all([logout, secondLogout]);
+  await expect(login).resolves.toMatchObject({ ok: false });
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(sessionStore.getAccessToken()).toBeUndefined();
+});
+
+it('does not replay A mutation with B credentials when switching during token refresh', async () => {
+  const refreshResponse = deferred<Response>();
+  const fetchImpl = vi.fn<typeof fetch>(async (input) =>
+    String(input).endsWith('/auth/refresh') ? refreshResponse.promise : response(401),
+  );
+  const sessionStore = createCarelogAuthSessionStore();
+  setTokens(sessionStore, 'synthetic-a', 'synthetic-refresh-a');
+  const runtime = runtimeWith(fetchImpl, sessionStore);
+  const client = createCarelogHttpClient({
+    baseUrl: runtime.apiBaseUrl,
+    fetchImpl,
+    sessionProvider: runtime.sessionProvider,
+  });
+  const pending = client.post('/api/v1/private', { note: 'synthetic A note' });
+  const assertion = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
+  setTokens(sessionStore, 'synthetic-b', 'synthetic-refresh-b');
+  refreshResponse.resolve(
+    response(200, { accessToken: 'stale-a', refreshToken: 'stale-refresh-a' }),
+  );
+  await assertion;
+  expect(fetchImpl).toHaveBeenCalledTimes(2);
+  expect(sessionStore.getAccessToken()).toBe('synthetic-b');
+  expect(sessionStore.getRefreshToken()).toBe('synthetic-refresh-b');
 });

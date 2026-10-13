@@ -150,6 +150,7 @@ export function CustomerStoreProvider({
           return customer;
         }
         const customer = await port.create(input);
+        if (!mountedRef.current) return customer;
         mutationEpochRef.current += 1;
         dispatch({ type: 'create', customer });
         return customer;
@@ -208,6 +209,7 @@ export function CustomerStoreProvider({
       setErrorCode(null);
       try {
         const customer = await port.edit(customerId, current, changes);
+        if (!mountedRef.current) return customer;
         mutationEpochRef.current += 1;
         dispatch({ type: 'replace', customer });
         return customer;

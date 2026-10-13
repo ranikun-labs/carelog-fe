@@ -42,12 +42,18 @@ export function createCarelogHttpClient({
 
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const sessionVersion = sessionProvider?.getSessionVersion?.();
-    const resolvedAccessToken = await sessionProvider?.getAccessToken?.();
-    const accessToken =
-      sessionVersion === undefined || sessionProvider?.getSessionVersion?.() === sessionVersion
-        ? resolvedAccessToken
-        : undefined;
+    const sessionIsCurrent = () =>
+      sessionVersion === undefined || sessionProvider?.getSessionVersion?.() === sessionVersion;
+    const assertCurrentSession = () => {
+      if (!sessionIsCurrent()) {
+        // A cancelled session's result must never reach caches or auth recovery.
+        throw new DOMException('The Carelog request session changed.', 'AbortError');
+      }
+    };
+    const accessToken = await sessionProvider?.getAccessToken?.();
+    assertCurrentSession();
     const send = async (token: string | undefined): Promise<Response> => {
+      assertCurrentSession();
       const headers: Record<string, string> = { Accept: 'application/json' };
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       if (token) headers.Authorization = `Bearer ${token}`;
@@ -60,13 +66,13 @@ export function createCarelogHttpClient({
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         });
       } catch (error) {
+        assertCurrentSession();
         throw new CarelogNetworkError('The Carelog API could not be reached.', { cause: error });
       }
     };
 
     let response = await send(accessToken);
-    const sessionIsCurrent = () =>
-      sessionVersion === undefined || sessionProvider?.getSessionVersion?.() === sessionVersion;
+    assertCurrentSession();
 
     if (
       response.status === 401 &&
@@ -81,7 +87,15 @@ export function createCarelogHttpClient({
       }
     }
 
-    const text = await readResponseText(response);
+    assertCurrentSession();
+    let text: string;
+    try {
+      text = await readResponseText(response);
+    } catch (error) {
+      assertCurrentSession();
+      throw error;
+    }
+    assertCurrentSession();
     if (response.status === 204) return undefined as T;
     const payload = parseJson(text, response.ok);
 
