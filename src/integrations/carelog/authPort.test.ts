@@ -206,6 +206,98 @@ describe('Carelog Production AuthPort', () => {
     expect(runtime.sessionStore.getRefreshToken()).toBe('refresh-two');
   });
 
+  it('invalidates tokens after a refreshed product retry receives terminal 401', async () => {
+    const requests: Array<{ url: string; authorization?: string; body?: string }> = [];
+    const fetchImpl = vi.fn<typeof fetch>(async (input, init) => {
+      const headers = init?.headers as Record<string, string> | undefined;
+      requests.push({
+        url: String(input),
+        authorization: headers?.Authorization,
+        body: typeof init?.body === 'string' ? init.body : undefined,
+      });
+      if (String(input).endsWith('/api/v1/auth/refresh')) {
+        return response(200, { accessToken: 'access-two', refreshToken: 'refresh-two' });
+      }
+      return response(401, null);
+    });
+    const sessionStore = createCarelogAuthSessionStore();
+    setTokens(sessionStore, 'access-one', 'refresh-one');
+    const runtime = runtimeWith(fetchImpl, sessionStore);
+    const onUnauthorized = vi.fn();
+    const onTerminalUnauthorized = vi.fn();
+    const client = createCarelogHttpClient({
+      baseUrl: runtime.apiBaseUrl,
+      fetchImpl,
+      sessionProvider: runtime.sessionProvider,
+      onUnauthorized,
+      onTerminalUnauthorized,
+    });
+
+    await expect(
+      client.post('/api/v1/private', { note: 'Synthetic A payload' }),
+    ).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+
+    expect(requests).toHaveLength(3);
+    expect(requests[0]).toMatchObject({
+      url: 'https://gateway.example.test/api/v1/private',
+      authorization: 'Bearer access-one',
+      body: JSON.stringify({ note: 'Synthetic A payload' }),
+    });
+    expect(requests[1]).toMatchObject({
+      url: 'https://gateway.example.test/api/v1/auth/refresh',
+      body: JSON.stringify({ refreshToken: 'refresh-one' }),
+    });
+    expect(requests[2]).toMatchObject({
+      url: 'https://gateway.example.test/api/v1/private',
+      authorization: 'Bearer access-two',
+      body: JSON.stringify({ note: 'Synthetic A payload' }),
+    });
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+    expect(onTerminalUnauthorized).toHaveBeenCalledOnce();
+    expect(runtime.sessionStore.getAccessToken()).toBeUndefined();
+    expect(runtime.sessionStore.getRefreshToken()).toBeUndefined();
+  });
+
+  it('coalesces concurrent retries and expires the session once when both retries return 401', async () => {
+    const refreshResponse = deferred<Response>();
+    let refreshRequests = 0;
+    let productRequests = 0;
+    const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+      if (String(input).endsWith('/api/v1/auth/refresh')) {
+        refreshRequests += 1;
+        return refreshResponse.promise;
+      }
+      productRequests += 1;
+      return response(401, null);
+    });
+    const sessionStore = createCarelogAuthSessionStore();
+    setTokens(sessionStore, 'access-one', 'refresh-one');
+    const runtime = runtimeWith(fetchImpl, sessionStore);
+    const onTerminalUnauthorized = vi.fn();
+    const client = createCarelogHttpClient({
+      baseUrl: runtime.apiBaseUrl,
+      fetchImpl,
+      sessionProvider: runtime.sessionProvider,
+      onTerminalUnauthorized,
+    });
+
+    const requests = [client.get('/api/v1/private'), client.get('/api/v1/private')];
+    await vi.waitFor(() => expect(refreshRequests).toBe(1));
+    refreshResponse.resolve(
+      response(200, { accessToken: 'access-two', refreshToken: 'refresh-two' }),
+    );
+    const results = await Promise.allSettled(requests);
+
+    expect(refreshRequests).toBe(1);
+    expect(productRequests).toBe(4);
+    expect(results.every((result) => result.status === 'rejected')).toBe(true);
+    expect(onTerminalUnauthorized).toHaveBeenCalledOnce();
+    expect(sessionStore.getAccessToken()).toBeUndefined();
+    expect(sessionStore.getRefreshToken()).toBeUndefined();
+  });
+
   it('does not replay an old product request if logout wins while refresh is pending', async () => {
     const refreshResponse = deferred<Response>();
     const resourceBearers: Array<string | undefined> = [];
@@ -268,6 +360,24 @@ it('cancels a login waiting for logout if another logout wins', async () => {
   await expect(login).resolves.toMatchObject({ ok: false });
   expect(fetchImpl).toHaveBeenCalledTimes(1);
   expect(sessionStore.getAccessToken()).toBeUndefined();
+});
+
+it('does not save tokens when an unmounted provider cancels its pending login', async () => {
+  const loginResponse = deferred<Response>();
+  const fetchImpl = vi.fn<typeof fetch>().mockReturnValue(loginResponse.promise);
+  const sessionStore = createCarelogAuthSessionStore();
+  const runtime = runtimeWith(fetchImpl, sessionStore);
+  const pendingLogin = runtime.authPort.login({ account: 'synthetic-a', secret: 'test' });
+
+  runtime.authPort.cancelPendingLogin?.();
+  loginResponse.resolve(
+    response(200, { accessToken: 'stale-access', refreshToken: 'stale-refresh' }),
+  );
+
+  await expect(pendingLogin).resolves.toMatchObject({ ok: false });
+  expect(fetchImpl).toHaveBeenCalledOnce();
+  expect(sessionStore.getAccessToken()).toBeUndefined();
+  expect(sessionStore.getRefreshToken()).toBeUndefined();
 });
 
 it('does not replay A mutation with B credentials when switching during token refresh', async () => {

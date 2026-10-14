@@ -32,6 +32,7 @@ export function createProductionProductPorts(
       fetchImpl: options.fetchImpl,
       sessionProvider: options.sessionProvider ?? runtime.sessionProvider,
       onUnauthorized: options.onUnauthorized,
+      onTerminalUnauthorized: options.onTerminalUnauthorized,
     });
   } catch (error) {
     return createUnavailablePorts(error);

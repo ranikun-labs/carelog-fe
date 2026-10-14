@@ -10,6 +10,7 @@ export interface CarelogSessionProvider {
   getAccessToken?: () => string | undefined | Promise<string | undefined>;
   getSessionVersion?: () => number;
   recoverAccessToken?: () => Promise<string | undefined>;
+  invalidateSessionIfVersion?: (expectedVersion: number) => boolean;
 }
 
 export interface CarelogHttpClientOptions {
@@ -17,6 +18,7 @@ export interface CarelogHttpClientOptions {
   fetchImpl?: typeof fetch;
   sessionProvider?: CarelogSessionProvider;
   onUnauthorized?: () => void;
+  onTerminalUnauthorized?: () => void;
 }
 
 interface CarelogEnvelope<T> {
@@ -36,6 +38,7 @@ export function createCarelogHttpClient({
   fetchImpl = globalThis.fetch,
   sessionProvider,
   onUnauthorized,
+  onTerminalUnauthorized,
 }: CarelogHttpClientOptions): CarelogHttpClient {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   if (!fetchImpl) throw new CarelogConfigurationError('The browser fetch API is unavailable.');
@@ -87,6 +90,14 @@ export function createCarelogHttpClient({
       }
     }
 
+    assertCurrentSession();
+    if (response.status === 401) {
+      const invalidated =
+        sessionVersion === undefined
+          ? true
+          : (sessionProvider?.invalidateSessionIfVersion?.(sessionVersion) ?? false);
+      if (invalidated) onTerminalUnauthorized?.();
+    }
     assertCurrentSession();
     let text: string;
     try {

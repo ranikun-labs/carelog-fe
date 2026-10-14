@@ -38,6 +38,9 @@ export function ProductionStateProviders({ children }: ProductStateProviderProps
       key={scopeKey}
       remoteReadsEnabled={remoteReadsEnabled}
       reportFailure={reportFailure}
+      sessionRevision={auth?.sessionRevision}
+      isSessionCurrent={auth?.isSessionCurrent}
+      failClosedSession={auth?.failClosedSession}
     >
       {children}
     </SessionStateProviders>
@@ -48,17 +51,34 @@ function SessionStateProviders({
   children,
   remoteReadsEnabled,
   reportFailure,
+  sessionRevision,
+  isSessionCurrent,
+  failClosedSession,
 }: ProductStateProviderProps & {
   remoteReadsEnabled: boolean;
   reportFailure?: AuthContextValue['reportFailure'];
+  sessionRevision?: number;
+  isSessionCurrent?: AuthContextValue['isSessionCurrent'];
+  failClosedSession?: AuthContextValue['failClosedSession'];
 }) {
   const location = useLocation();
+  const assertSessionOwner = useMemo(() => {
+    if (sessionRevision === undefined || !isSessionCurrent) return undefined;
+    return () => {
+      if (!isSessionCurrent(sessionRevision)) {
+        throw new DOMException('The product operation session changed.', 'AbortError');
+      }
+    };
+  }, [isSessionCurrent, sessionRevision]);
   const ports = useMemo(
     () =>
       createProductionProductPorts({
         onUnauthorized: () => reportFailure?.({ kind: AUTH_ERROR_KIND.UNAUTHORIZED }),
+        onTerminalUnauthorized: () => {
+          if (sessionRevision !== undefined) failClosedSession?.(sessionRevision);
+        },
       }),
-    [reportFailure],
+    [failClosedSession, reportFailure, sessionRevision],
   );
   const onFailure = useMemo(
     () => (error: unknown) => {
@@ -73,11 +93,13 @@ function SessionStateProviders({
       port={ports.customerPort}
       onFailure={onFailure}
       remoteReadsEnabled={remoteReadsEnabled}
+      assertSessionOwner={assertSessionOwner}
     >
       <EventStoreProvider
         port={ports.customerEventPort}
         onFailure={onFailure}
         remoteReadsEnabled={remoteReadsEnabled}
+        assertSessionOwner={assertSessionOwner}
       >
         {/* Return targets contain account-scoped customer/event IDs. */}
         <EventCreateActivationProvider>

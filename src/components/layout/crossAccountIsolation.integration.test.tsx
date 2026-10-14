@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -6,6 +6,9 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { AppRouter } from '@/app/AppRouter';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
 import { AuthProvider, useAuth, type AuthContextValue } from '@/auth/AuthProvider';
+import { createCarelogAuthSessionStore } from '@/integrations/carelog/authPort';
+import { createCarelogCustomerPort, type CustomerPort } from '@/integrations/carelog/customerPort';
+import { createCarelogHttpClient } from '@/integrations/carelog/httpClient';
 import {
   AUTH_ERROR_KIND,
   type AuthBootstrapResult,
@@ -14,7 +17,11 @@ import {
 } from '@/auth/authTypes';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { CarelogHttpError } from '@/integrations/carelog/errors';
-import { useCustomerStore, type CustomerStoreValue } from '@/state/CustomerStoreContext';
+import {
+  CustomerStoreProvider,
+  useCustomerStore,
+  type CustomerStoreValue,
+} from '@/state/CustomerStoreContext';
 import { useEventStore, type EventStoreValue } from '@/state/EventStoreContext';
 import { useOptionalCustomerFormDraft } from '@/state/CustomerFormDraftContext';
 import { useEventCreateDraft } from '@/state/EventCreateDraftContext';
@@ -55,6 +62,8 @@ let customerDraft: NonNullable<ReturnType<typeof useOptionalCustomerFormDraft>>;
 let eventDraft: ReturnType<typeof useEventCreateDraft>;
 let activation: ReturnType<typeof useEventCreateActivation>;
 let navigate: ReturnType<typeof useNavigate>;
+let capturedSessionAuth: AuthContextValue;
+let capturedCreateCustomer: CustomerStoreValue['createCustomer'];
 function Probe() {
   const nextAuth = useAuth();
   const nextCustomers = useCustomerStore();
@@ -90,6 +99,42 @@ function Probe() {
       })}
     </output>
   );
+}
+
+function SessionOwnedCustomerStore({
+  children,
+  port,
+}: {
+  children: ReactNode;
+  port: CustomerPort;
+}) {
+  const currentAuth = useAuth();
+  const sessionRevision = currentAuth.sessionRevision;
+  const assertSessionOwner = () => {
+    if (!currentAuth.isSessionCurrent(sessionRevision)) {
+      throw new DOMException('The product operation session changed.', 'AbortError');
+    }
+  };
+  return (
+    <CustomerStoreProvider
+      initialCustomers={[]}
+      port={port}
+      remoteReadsEnabled={currentAuth.authState.status === 'AUTHENTICATED'}
+      assertSessionOwner={assertSessionOwner}
+    >
+      {children}
+    </CustomerStoreProvider>
+  );
+}
+
+function CustomerCallbackProbe() {
+  const auth = useAuth();
+  const createCustomer = useCustomerStore().createCustomer;
+  useEffect(() => {
+    capturedSessionAuth = auth;
+    capturedCreateCustomer = createCustomer;
+  }, [auth, createCustomer]);
+  return <output data-auth-state>{auth.authState.status}</output>;
 }
 const customerPort = { list: vi.fn(), get: vi.fn(), create: vi.fn(), edit: vi.fn() };
 const eventPort = {
@@ -444,4 +489,103 @@ it('preserves create-return targets across route changes within the same session
   });
   expect(activation.getPendingCreateReturn()).toEqual(provenance);
   expect(customers.customers).toEqual([customerA]);
+});
+
+it('binds a saved customer callback to A and checks the real B Authorization header and payload', async () => {
+  const sessionStore = createCarelogAuthSessionStore();
+  const versionA = sessionStore.beginSession();
+  expect(
+    sessionStore.saveTokens({ accessToken: 'access-a', refreshToken: 'refresh-a' }, versionA),
+  ).toBe(true);
+  const fetchImpl = vi.fn<typeof fetch>(
+    async () =>
+      new Response(
+        JSON.stringify({
+          status: 201,
+          message: 'ok',
+          data: {
+            publicId: '00000000-0000-4000-8000-000000000001',
+            displayName: 'Synthetic B customer',
+            customerMemo: 'B only',
+          },
+        }),
+        { status: 201, headers: { 'content-type': 'application/json' } },
+      ),
+  );
+  const client = createCarelogHttpClient({
+    baseUrl: 'https://carelog.example.test',
+    fetchImpl,
+    sessionProvider: {
+      credentials: 'omit',
+      getAccessToken: sessionStore.getAccessToken,
+      getSessionVersion: sessionStore.getSessionVersion,
+      invalidateSessionIfVersion: sessionStore.clearIfVersion,
+    },
+  });
+  const customerPort = createCarelogCustomerPort(client);
+  const authPort: AuthPort = {
+    bootstrapSession: async () => ({ status: 'authenticated' }),
+    login: async () => {
+      const version = sessionStore.beginSession();
+      sessionStore.saveTokens({ accessToken: 'access-b', refreshToken: 'refresh-b' }, version);
+      return { ok: true };
+    },
+    signup: async () => ({ ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } }),
+    logout: async () => {
+      sessionStore.invalidateSession();
+    },
+    recoverSession: async () => ({ ok: true }),
+  };
+
+  render(
+    <MemoryRouter>
+      <AuthProvider authPort={authPort}>
+        <SessionOwnedCustomerStore port={customerPort}>
+          <CustomerCallbackProbe />
+        </SessionOwnedCustomerStore>
+      </AuthProvider>
+    </MemoryRouter>,
+  );
+  await waitFor(() => {
+    expect(capturedSessionAuth.authState.status).toBe('AUTHENTICATED');
+    expect(capturedCreateCustomer).toBeTypeOf('function');
+  });
+  const createFromA = capturedCreateCustomer;
+
+  await act(async () => {
+    await capturedSessionAuth.logout();
+  });
+  await act(async () => {
+    await capturedSessionAuth.login({ account: 'synthetic-b', secret: 'test' });
+  });
+  const createFromB = capturedCreateCustomer;
+  await expect(
+    createFromA({ displayName: 'Synthetic A payload', customerMemo: 'A only' }),
+  ).rejects.toMatchObject({ name: 'AbortError' });
+  expect(fetchImpl).not.toHaveBeenCalled();
+
+  await act(async () => {
+    await createFromB({ displayName: 'Synthetic B payload', customerMemo: 'B only' });
+  });
+  expect(fetchImpl).toHaveBeenCalledOnce();
+  expect(fetchImpl.mock.calls[0]?.[1]?.headers).toMatchObject({
+    Authorization: 'Bearer access-b',
+  });
+  expect(fetchImpl.mock.calls[0]?.[1]?.body).toBe(
+    JSON.stringify({ displayName: 'Synthetic B payload', customerMemo: 'B only' }),
+  );
+  expect(fetchImpl.mock.calls[0]?.[1]?.body).not.toContain('Synthetic A payload');
+});
+
+it('purges the authenticated customer cache when the owning session fails closed', async () => {
+  renderSession();
+  await seedA();
+  expect(customers.customers).toEqual([customerA]);
+
+  await act(async () => {
+    expect(auth.failClosedSession(auth.sessionRevision)).toBe(true);
+  });
+
+  expect(auth.authState.status).toBe('ANONYMOUS');
+  expectEmpty();
 });

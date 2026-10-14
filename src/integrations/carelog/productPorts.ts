@@ -16,4 +16,5 @@ export interface ProductPortCompositionOptions {
   fetchImpl?: typeof fetch;
   sessionProvider?: CarelogSessionProvider;
   onUnauthorized?: () => void;
+  onTerminalUnauthorized?: () => void;
 }

@@ -131,7 +131,6 @@ export function createCarelogAuthRuntime({
         const tokens = readTokenPair(payload);
         return sessionStore.saveTokens(tokens, version) ? tokens.accessToken : undefined;
       } catch {
-        sessionStore.clearIfVersion(version);
         return undefined;
       }
     })().finally(() => {
@@ -146,41 +145,63 @@ export function createCarelogAuthRuntime({
     getAccessToken: sessionStore.getAccessToken,
     getSessionVersion: sessionStore.getSessionVersion,
     recoverAccessToken,
+    invalidateSessionIfVersion: sessionStore.clearIfVersion,
   };
 
   let logoutFlight: Promise<void> | undefined;
+  let pendingLoginVersion: number | undefined;
+
+  const cancelPendingLogin = (): void => {
+    const version = pendingLoginVersion;
+    pendingLoginVersion = undefined;
+    if (version !== undefined) sessionStore.clearIfVersion(version);
+  };
 
   const authPort: AuthPort = {
     async bootstrapSession(): Promise<AuthBootstrapResult> {
       if (!client) return { status: 'error', failure: failureFor(clientError) };
       if (!sessionStore.getRefreshToken()) return { status: 'anonymous' };
+      const version = sessionStore.getSessionVersion();
       const accessToken = await recoverAccessToken();
-      return accessToken && sessionStore.getAccessToken() === accessToken
-        ? { status: 'authenticated' }
-        : { status: 'anonymous' };
+      if (
+        accessToken &&
+        sessionStore.getSessionVersion() === version &&
+        sessionStore.getAccessToken() === accessToken
+      ) {
+        return { status: 'authenticated' };
+      }
+      sessionStore.clearIfVersion(version);
+      return { status: 'anonymous' };
     },
 
     async login(input: AuthCredentialFixture): Promise<AuthCommandResult> {
       const version = sessionStore.beginSession();
-      if (logoutFlight) await logoutFlight.catch(() => undefined);
-      if (sessionStore.getSessionVersion() !== version) {
-        return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
-      }
+      pendingLoginVersion = version;
       try {
-        // Carelog's existing DTO names these product-form values userId/password.
-        const payload = await requireClient().post<unknown>(LOGIN_PATH, {
-          userId: input.account,
-          password: input.secret,
-        });
-        const tokens = readTokenPair(payload);
-        if (!sessionStore.saveTokens(tokens, version)) {
+        if (logoutFlight) await logoutFlight.catch(() => undefined);
+        if (sessionStore.getSessionVersion() !== version) {
           return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
         }
-        return { ok: true };
-      } catch (error) {
-        return { ok: false, failure: failureFor(error) };
+        try {
+          // Carelog's existing DTO names these product-form values userId/password.
+          const payload = await requireClient().post<unknown>(LOGIN_PATH, {
+            userId: input.account,
+            password: input.secret,
+          });
+          const tokens = readTokenPair(payload);
+          if (!sessionStore.saveTokens(tokens, version)) {
+            return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
+          }
+          return { ok: true };
+        } catch (error) {
+          return { ok: false, failure: failureFor(error) };
+        }
+      } finally {
+        if (pendingLoginVersion === version) pendingLoginVersion = undefined;
       }
     },
+
+    cancelPendingLogin,
 
     async signup(): Promise<AuthCommandResult> {
       // The inspected Carelog AuthController has no public signup endpoint.
@@ -210,10 +231,17 @@ export function createCarelogAuthRuntime({
     },
 
     async recoverSession(): Promise<AuthCommandResult> {
+      const version = sessionStore.getSessionVersion();
       const accessToken = await recoverAccessToken();
-      return accessToken
-        ? { ok: true }
-        : { ok: false, failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED } };
+      if (
+        accessToken &&
+        sessionStore.getSessionVersion() === version &&
+        sessionStore.getAccessToken() === accessToken
+      ) {
+        return { ok: true };
+      }
+      sessionStore.clearIfVersion(version);
+      return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED } };
     },
   };
 

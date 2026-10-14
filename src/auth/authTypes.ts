@@ -48,6 +48,7 @@ export type AuthCommandResult = { ok: true } | { ok: false; failure: AuthFailure
 export interface AuthPort {
   bootstrapSession: () => Promise<AuthBootstrapResult>;
   login: (input: AuthCredentialFixture) => Promise<AuthCommandResult>;
+  cancelPendingLogin?: () => void;
   signup: (input: AuthSignupFixture) => Promise<AuthCommandResult>;
   logout: () => Promise<void>;
   recoverSession: () => Promise<AuthCommandResult>;

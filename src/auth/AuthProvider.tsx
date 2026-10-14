@@ -34,6 +34,8 @@ export interface AuthContextValue {
   authState: AuthState;
   /** Changes at account/session boundaries, but not during token recovery. */
   sessionRevision: number;
+  isSessionCurrent: (sessionRevision: number) => boolean;
+  failClosedSession: (sessionRevision: number) => boolean;
   operationError: AuthOperationError | null;
   login: (input: AuthCredentialFixture) => Promise<AuthCommandResult>;
   signup: (input: AuthSignupFixture) => Promise<AuthCommandResult>;
@@ -93,6 +95,12 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     if (mountedRef.current) setOperationError(next);
   }, []);
 
+  const isSessionCurrent = useCallback(
+    (expectedRevision: number) =>
+      mountedRef.current && expectedRevision === sessionRevisionRef.current,
+    [],
+  );
+
   const invalidateSessionWork = useCallback(() => {
     sessionEpochRef.current += 1;
     bootstrapGenerationRef.current += 1;
@@ -105,6 +113,16 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     authStateRef.current = { status: AUTH_STATE.ANONYMOUS };
     return sessionEpochRef.current;
   }, [setCurrentOperationError]);
+
+  const failClosedSession = useCallback(
+    (expectedRevision: number): boolean => {
+      if (!isSessionCurrent(expectedRevision) || logoutPromiseRef.current) return false;
+      invalidateSessionWork();
+      if (mountedRef.current) dispatch({ type: 'logout-anonymous' });
+      return true;
+    },
+    [invalidateSessionWork, isSessionCurrent],
+  );
 
   const recoverSession = useCallback((): Promise<boolean> => {
     if (logoutPromiseRef.current) return Promise.resolve(false);
@@ -208,16 +226,20 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     runBootstrap();
     return () => {
       mountedRef.current = false;
+      port.cancelPendingLogin?.();
       sessionEpochRef.current += 1;
       bootstrapGenerationRef.current += 1;
       bootstrapPromiseRef.current = null;
       recoveryPromiseRef.current = null;
       logoutPromiseRef.current = null;
     };
-  }, [runBootstrap]);
+  }, [port, runBootstrap]);
 
   const login = useCallback(
     async (input: AuthCredentialFixture): Promise<AuthCommandResult> => {
+      if (!mountedRef.current) {
+        return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
+      }
       const operationEpoch = invalidateSessionWork();
       if (mountedRef.current) dispatch({ type: 'logout-anonymous' });
       try {
@@ -309,6 +331,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
   );
 
   const retryOperation = useCallback(async (): Promise<void> => {
+    if (!isSessionCurrent(sessionRevision)) return;
     const current = operationErrorRef.current;
     const operationEpoch = sessionEpochRef.current;
     if (!current) return;
@@ -321,7 +344,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
         reportFailure(normalizeFailure(error), current.retry);
       }
     }
-  }, [reportFailure, setCurrentOperationError]);
+  }, [isSessionCurrent, reportFailure, sessionRevision, setCurrentOperationError]);
 
   const clearOperationError = useCallback(() => {
     setCurrentOperationError(null);
@@ -355,6 +378,8 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     () => ({
       authState,
       sessionRevision,
+      isSessionCurrent,
+      failClosedSession,
       operationError,
       login,
       signup,
@@ -366,6 +391,8 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     }),
     [
       authState,
+      failClosedSession,
+      isSessionCurrent,
       sessionRevision,
       clearOperationError,
       login,
