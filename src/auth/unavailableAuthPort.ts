@@ -3,8 +3,8 @@ import { AUTH_ERROR_KIND, type AuthPort } from '@/auth/authTypes';
 const UNAVAILABLE_FAILURE = { kind: AUTH_ERROR_KIND.UNKNOWN } as const;
 
 /**
- * Production's pre-transport boundary is deliberately anonymous and never
- * grants access. The Shared Identity adapter will replace this port later.
+ * Safe default for isolated callers that do not inject an AuthPort. Production
+ * boot always injects the Carelog API adapter from main.tsx.
  */
 export function createUnavailableAuthPort(): AuthPort {
   return {

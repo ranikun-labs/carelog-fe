@@ -50,12 +50,14 @@ export function CustomerStoreProvider({
   port: providedPort,
   onFailure,
   remoteReadsEnabled: remoteReadsEnabledOverride,
+  assertSessionOwner,
 }: {
   children: ReactNode;
   initialCustomers?: readonly CustomerRecord[];
   port?: CustomerPort;
   onFailure?: (error: unknown) => void;
   remoteReadsEnabled?: boolean;
+  assertSessionOwner?: () => void;
 }) {
   const isExplicitPort = providedPort !== undefined;
   const remoteReadsEnabled = remoteReadsEnabledOverride ?? isExplicitPort;
@@ -76,6 +78,21 @@ export function CustomerStoreProvider({
   const listReadGenerationRef = useRef(0);
   const detailReadGenerationRef = useRef(0);
   const mutationEpochRef = useRef(0);
+
+  const isSessionOwner = useCallback(() => {
+    try {
+      assertSessionOwner?.();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [assertSessionOwner]);
+
+  const requireSessionOwner = useCallback(() => {
+    if (!isSessionOwner()) {
+      throw new DOMException('The customer operation session changed.', 'AbortError');
+    }
+  }, [isSessionOwner]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -99,6 +116,7 @@ export function CustomerStoreProvider({
   );
 
   const refresh = useCallback(async () => {
+    requireSessionOwner();
     const readGeneration = ++listReadGenerationRef.current;
     const mutationEpoch = mutationEpochRef.current;
     setLoadState('loading');
@@ -108,6 +126,7 @@ export function CustomerStoreProvider({
       const customers = await port.list();
       if (
         !mountedRef.current ||
+        !isSessionOwner() ||
         readGeneration !== listReadGenerationRef.current ||
         mutationEpoch !== mutationEpochRef.current
       ) {
@@ -118,6 +137,7 @@ export function CustomerStoreProvider({
     } catch (nextError) {
       if (
         !mountedRef.current ||
+        !isSessionOwner() ||
         readGeneration !== listReadGenerationRef.current ||
         mutationEpoch !== mutationEpochRef.current
       ) {
@@ -127,7 +147,7 @@ export function CustomerStoreProvider({
       setLoadState('error');
       throw nextError;
     }
-  }, [port, recordError]);
+  }, [isSessionOwner, port, recordError, requireSessionOwner]);
 
   useEffect(() => {
     if (!remoteReadsEnabled || initialCustomers !== undefined) return;
@@ -138,6 +158,7 @@ export function CustomerStoreProvider({
 
   const createCustomer = useCallback(
     async (input: CustomerCreateInput) => {
+      requireSessionOwner();
       setMutationPending(true);
       setError(null);
       setErrorCode(null);
@@ -150,22 +171,28 @@ export function CustomerStoreProvider({
           return customer;
         }
         const customer = await port.create(input);
+        if (!mountedRef.current || !isSessionOwner()) {
+          throw new DOMException('The customer operation session changed.', 'AbortError');
+        }
         mutationEpochRef.current += 1;
         dispatch({ type: 'create', customer });
         return customer;
       } catch (nextError) {
-        if (!mountedRef.current) throw nextError;
+        if (!mountedRef.current || !isSessionOwner()) {
+          throw new DOMException('The customer operation session changed.', 'AbortError');
+        }
         recordError(nextError);
         throw nextError;
       } finally {
         if (mountedRef.current) setMutationPending(false);
       }
     },
-    [isExplicitPort, port, recordError, state.customers],
+    [isExplicitPort, isSessionOwner, port, recordError, requireSessionOwner, state.customers],
   );
 
   const loadCustomer = useCallback(
     async (customerId: string) => {
+      requireSessionOwner();
       const readGeneration = ++detailReadGenerationRef.current;
       const mutationEpoch = mutationEpochRef.current;
       setDetailLoadState('loading');
@@ -175,6 +202,7 @@ export function CustomerStoreProvider({
         const customer = await port.get(customerId);
         if (
           !mountedRef.current ||
+          !isSessionOwner() ||
           readGeneration !== detailReadGenerationRef.current ||
           mutationEpoch !== mutationEpochRef.current
         ) {
@@ -186,6 +214,7 @@ export function CustomerStoreProvider({
       } catch (nextError) {
         if (
           !mountedRef.current ||
+          !isSessionOwner() ||
           readGeneration !== detailReadGenerationRef.current ||
           mutationEpoch !== mutationEpochRef.current
         ) {
@@ -196,11 +225,12 @@ export function CustomerStoreProvider({
         throw nextError;
       }
     },
-    [port, recordError],
+    [isSessionOwner, port, recordError, requireSessionOwner],
   );
 
   const editCustomer = useCallback(
     async (customerId: string, changes: CustomerEditInput) => {
+      requireSessionOwner();
       const current = state.customers.find((customer) => customer.id === customerId);
       if (!current) throw new Error(`Customer is not available: ${customerId}`);
       setMutationPending(true);
@@ -208,18 +238,23 @@ export function CustomerStoreProvider({
       setErrorCode(null);
       try {
         const customer = await port.edit(customerId, current, changes);
+        if (!mountedRef.current || !isSessionOwner()) {
+          throw new DOMException('The customer operation session changed.', 'AbortError');
+        }
         mutationEpochRef.current += 1;
         dispatch({ type: 'replace', customer });
         return customer;
       } catch (nextError) {
-        if (!mountedRef.current) throw nextError;
+        if (!mountedRef.current || !isSessionOwner()) {
+          throw new DOMException('The customer operation session changed.', 'AbortError');
+        }
         recordError(nextError);
         throw nextError;
       } finally {
         if (mountedRef.current) setMutationPending(false);
       }
     },
-    [port, recordError, state.customers],
+    [isSessionOwner, port, recordError, requireSessionOwner, state.customers],
   );
 
   const clearError = useCallback(() => {

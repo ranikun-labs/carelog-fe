@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { act, useState } from 'react';
-import { AuthProvider, useAuth } from '@/auth/AuthProvider';
+import { act, useEffect, useState } from 'react';
+import { AuthProvider, useAuth, type AuthContextValue } from '@/auth/AuthProvider';
 import {
   AUTH_ERROR_KIND,
   AUTH_STATE,
@@ -64,6 +64,23 @@ function renderProbe(port: AuthPort) {
   return render(
     <AuthProvider authPort={port}>
       <Probe />
+    </AuthProvider>,
+  );
+}
+
+let capturedAuth: AuthContextValue;
+function CaptureAuthContext() {
+  const auth = useAuth();
+  useEffect(() => {
+    capturedAuth = auth;
+  }, [auth]);
+  return <output data-auth-state>{auth.authState.status}</output>;
+}
+
+function renderCapturedAuth(port: AuthPort) {
+  return render(
+    <AuthProvider authPort={port}>
+      <CaptureAuthContext />
     </AuthProvider>,
   );
 }
@@ -331,4 +348,99 @@ it('preserves Customer and Event providers through authenticated failures and re
     String(SCHEDULE_FIXTURE.events.length),
   );
   expect(document.querySelector('[data-provider-mounts]')).toHaveTextContent(providerMountId!);
+});
+
+it('does not let an old retry handler restart or clear the current session error', async () => {
+  const port = createInMemoryAuthPort({ bootstrap: 'authenticated' });
+  renderCapturedAuth(port);
+  await expectState(AUTH_STATE.AUTHENTICATED);
+
+  let oldRetryCalls = 0;
+  await act(async () => {
+    capturedAuth.reportFailure({ kind: AUTH_ERROR_KIND.NETWORK }, () => {
+      oldRetryCalls += 1;
+    });
+  });
+  const oldRetryOperation = capturedAuth.retryOperation;
+
+  await act(async () => {
+    await capturedAuth.login({ account: 'synthetic-b', secret: 'test' });
+  });
+  let currentRetryCalls = 0;
+  await act(async () => {
+    capturedAuth.reportFailure({ kind: AUTH_ERROR_KIND.NETWORK }, () => {
+      currentRetryCalls += 1;
+    });
+  });
+  const currentError = capturedAuth.operationError;
+  expect(currentError?.failure.kind).toBe(AUTH_ERROR_KIND.NETWORK);
+
+  await act(async () => {
+    await oldRetryOperation();
+  });
+  expect(capturedAuth.operationError).toBe(currentError);
+  expect(oldRetryCalls).toBe(0);
+  expect(currentRetryCalls).toBe(0);
+
+  await act(async () => {
+    await capturedAuth.retryOperation();
+  });
+  expect(currentRetryCalls).toBe(1);
+  expect(capturedAuth.operationError).toBeNull();
+});
+
+it('fails closed only for the session revision that owns the terminal 401', async () => {
+  const port = createInMemoryAuthPort({ bootstrap: 'authenticated' });
+  renderCapturedAuth(port);
+  await expectState(AUTH_STATE.AUTHENTICATED);
+  const revisionA = capturedAuth.sessionRevision;
+
+  await act(async () => {
+    await capturedAuth.login({ account: 'synthetic-b', secret: 'test' });
+  });
+  const revisionB = capturedAuth.sessionRevision;
+  expect(capturedAuth.isSessionCurrent(revisionA)).toBe(false);
+  expect(capturedAuth.failClosedSession(revisionA)).toBe(false);
+  expect(capturedAuth.authState.status).toBe(AUTH_STATE.AUTHENTICATED);
+
+  expect(capturedAuth.failClosedSession(revisionB)).toBe(true);
+  await expectState(AUTH_STATE.ANONYMOUS);
+});
+
+it('cancels a pending login on provider unmount and rejects login calls through stale handlers', async () => {
+  const login = deferred<AuthCommandResult>();
+  let loginCalls = 0;
+  let cancelCalls = 0;
+  const port: AuthPort = {
+    bootstrapSession: async () => ({ status: 'anonymous' }),
+    login: () => {
+      loginCalls += 1;
+      return login.promise;
+    },
+    cancelPendingLogin: () => {
+      cancelCalls += 1;
+    },
+    signup: async () => ({ ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } }),
+    logout: async () => undefined,
+    recoverSession: async () => ({ ok: false, failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED } }),
+  };
+  const view = renderCapturedAuth(port);
+  await expectState(AUTH_STATE.ANONYMOUS);
+  let pending!: Promise<AuthCommandResult>;
+  await act(async () => {
+    pending = capturedAuth.login({ account: 'synthetic-a', secret: 'test' });
+  });
+  view.unmount();
+  expect(cancelCalls).toBe(1);
+  await expect(
+    capturedAuth.login({ account: 'synthetic-b', secret: 'test' }),
+  ).resolves.toMatchObject({
+    ok: false,
+  });
+  expect(loginCalls).toBe(1);
+
+  await act(async () => {
+    login.resolve({ ok: true });
+    await pending;
+  });
 });

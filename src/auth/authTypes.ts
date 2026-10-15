@@ -29,10 +29,7 @@ export type AuthState =
   | { status: typeof AUTH_STATE.RECOVERING; attempt: number }
   | { status: typeof AUTH_STATE.ERROR; error: AuthFailure };
 
-/**
- * This is intentionally a product-form fixture, not a Shared Identity wire DTO.
- * The eventual transport adapter can translate its own credential contract here.
- */
+/** Product-form credentials; the Carelog adapter maps these to userId/password. */
 export interface AuthCredentialFixture {
   account: string;
   secret: string;
@@ -51,6 +48,7 @@ export type AuthCommandResult = { ok: true } | { ok: false; failure: AuthFailure
 export interface AuthPort {
   bootstrapSession: () => Promise<AuthBootstrapResult>;
   login: (input: AuthCredentialFixture) => Promise<AuthCommandResult>;
+  cancelPendingLogin?: () => void;
   signup: (input: AuthSignupFixture) => Promise<AuthCommandResult>;
   logout: () => Promise<void>;
   recoverSession: () => Promise<AuthCommandResult>;

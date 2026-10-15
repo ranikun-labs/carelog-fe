@@ -3,9 +3,11 @@ import { useMemo } from 'react';
 
 import { useLocation } from 'react-router';
 
-import { useOptionalAuth } from '@/auth/AuthProvider';
+import { useOptionalAuth, type AuthContextValue } from '@/auth/AuthProvider';
+import { AUTH_ERROR_KIND, AUTH_STATE } from '@/auth/authTypes';
 import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
+import { EventCreateActivationProvider } from '@/state/EventCreateActivationContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 import { createProductionProductPorts } from '@/integrations/carelog/productionComposition';
@@ -22,23 +24,89 @@ export interface ProductStateProviderProps {
 export type ProductStateProvider = (props: ProductStateProviderProps) => ReactNode;
 
 export function ProductionStateProviders({ children }: ProductStateProviderProps) {
-  const location = useLocation();
   const auth = useOptionalAuth();
-  const ports = useMemo(() => createProductionProductPorts(), []);
+  const reportFailure = auth?.reportFailure;
+  const remoteReadsEnabled = auth?.authState.status === AUTH_STATE.AUTHENTICATED;
+  // Recovery rotates tokens for the same account. Every other auth boundary
+  // discards the entire product subtree, including drafts and local screen state.
+  const scopeKey =
+    remoteReadsEnabled || auth?.authState.status === AUTH_STATE.RECOVERING
+      ? `session:${auth?.sessionRevision ?? 0}`
+      : 'inactive';
+  return (
+    <SessionStateProviders
+      key={scopeKey}
+      remoteReadsEnabled={remoteReadsEnabled}
+      reportFailure={reportFailure}
+      sessionRevision={auth?.sessionRevision}
+      isSessionCurrent={auth?.isSessionCurrent}
+      failClosedSession={auth?.failClosedSession}
+    >
+      {children}
+    </SessionStateProviders>
+  );
+}
+
+function SessionStateProviders({
+  children,
+  remoteReadsEnabled,
+  reportFailure,
+  sessionRevision,
+  isSessionCurrent,
+  failClosedSession,
+}: ProductStateProviderProps & {
+  remoteReadsEnabled: boolean;
+  reportFailure?: AuthContextValue['reportFailure'];
+  sessionRevision?: number;
+  isSessionCurrent?: AuthContextValue['isSessionCurrent'];
+  failClosedSession?: AuthContextValue['failClosedSession'];
+}) {
+  const location = useLocation();
+  const assertSessionOwner = useMemo(() => {
+    if (sessionRevision === undefined || !isSessionCurrent) return undefined;
+    return () => {
+      if (!isSessionCurrent(sessionRevision)) {
+        throw new DOMException('The product operation session changed.', 'AbortError');
+      }
+    };
+  }, [isSessionCurrent, sessionRevision]);
+  const ports = useMemo(
+    () =>
+      createProductionProductPorts({
+        onUnauthorized: () => reportFailure?.({ kind: AUTH_ERROR_KIND.UNAUTHORIZED }),
+        onTerminalUnauthorized: () => {
+          if (sessionRevision !== undefined) failClosedSession?.(sessionRevision);
+        },
+      }),
+    [failClosedSession, reportFailure, sessionRevision],
+  );
   const onFailure = useMemo(
     () => (error: unknown) => {
       const failure = toAuthFailure(error);
-      if (failure) auth?.reportFailure(failure);
+      if (failure) reportFailure?.(failure);
     },
-    [auth],
+    [reportFailure],
   );
 
   return (
-    <CustomerStoreProvider port={ports.customerPort} onFailure={onFailure}>
-      <EventStoreProvider port={ports.customerEventPort} onFailure={onFailure}>
-        <CustomerFormDraftProvider key={location.pathname}>
-          <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
-        </CustomerFormDraftProvider>
+    <CustomerStoreProvider
+      port={ports.customerPort}
+      onFailure={onFailure}
+      remoteReadsEnabled={remoteReadsEnabled}
+      assertSessionOwner={assertSessionOwner}
+    >
+      <EventStoreProvider
+        port={ports.customerEventPort}
+        onFailure={onFailure}
+        remoteReadsEnabled={remoteReadsEnabled}
+        assertSessionOwner={assertSessionOwner}
+      >
+        {/* Return targets contain account-scoped customer/event IDs. */}
+        <EventCreateActivationProvider>
+          <CustomerFormDraftProvider key={location.pathname}>
+            <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+          </CustomerFormDraftProvider>
+        </EventCreateActivationProvider>
       </EventStoreProvider>
     </CustomerStoreProvider>
   );

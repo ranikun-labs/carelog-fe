@@ -65,11 +65,15 @@ export function EventStoreProvider({
   initialEvents,
   port: providedPort,
   onFailure,
+  remoteReadsEnabled: remoteReadsEnabledOverride,
+  assertSessionOwner,
 }: {
   children: ReactNode;
   initialEvents?: readonly CustomerEvent[];
   port?: CustomerEventPort;
   onFailure?: (error: unknown) => void;
+  remoteReadsEnabled?: boolean;
+  assertSessionOwner?: () => void;
 }) {
   const isExplicitPort = providedPort !== undefined;
   const port = useMemo(
@@ -92,13 +96,29 @@ export function EventStoreProvider({
   const eventReadGenerationRef = useRef(0);
   const mutationEpochRef = useRef(0);
 
+  const isSessionOwner = useCallback(() => {
+    try {
+      assertSessionOwner?.();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [assertSessionOwner]);
+
+  const requireSessionOwner = useCallback(() => {
+    if (!isSessionOwner()) {
+      throw new DOMException('The event operation session changed.', 'AbortError');
+    }
+  }, [isSessionOwner]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
   }, []);
-  const remoteReadsEnabled = isExplicitPort && initialEvents === undefined;
+  const remoteReadsEnabled =
+    remoteReadsEnabledOverride ?? (isExplicitPort && initialEvents === undefined);
 
   const recordError = useCallback(
     (nextError: unknown) => {
@@ -110,17 +130,19 @@ export function EventStoreProvider({
   );
 
   const getEvent = useCallback(
-    (eventId: string) => state.events.find((event) => event.id === eventId),
-    [state.events],
+    (eventId: string) =>
+      isSessionOwner() ? state.events.find((event) => event.id === eventId) : undefined,
+    [isSessionOwner, state.events],
   );
 
   const getCustomerSnapshot = useCallback(
-    (customerId: string) => snapshots[customerId],
-    [snapshots],
+    (customerId: string) => (isSessionOwner() ? snapshots[customerId] : undefined),
+    [isSessionOwner, snapshots],
   );
 
   const loadSchedule = useCallback(
     async (range: CarelogTimeRange) => {
+      requireSessionOwner();
       const readGeneration = ++scheduleReadGenerationRef.current;
       const mutationEpoch = mutationEpochRef.current;
       setScheduleLoadState('loading');
@@ -130,6 +152,7 @@ export function EventStoreProvider({
         const events = await port.list({ from: range.from, to: range.to, limit: 100 });
         if (
           !mountedRef.current ||
+          !isSessionOwner() ||
           readGeneration !== scheduleReadGenerationRef.current ||
           mutationEpoch !== mutationEpochRef.current
         ) {
@@ -140,6 +163,7 @@ export function EventStoreProvider({
       } catch (nextError) {
         if (
           !mountedRef.current ||
+          !isSessionOwner() ||
           readGeneration !== scheduleReadGenerationRef.current ||
           mutationEpoch !== mutationEpochRef.current
         ) {
@@ -150,11 +174,12 @@ export function EventStoreProvider({
         throw nextError;
       }
     },
-    [port, recordError],
+    [isSessionOwner, port, recordError, requireSessionOwner],
   );
 
   const loadCustomerDetail = useCallback(
     async (customerId: string, now: Date) => {
+      requireSessionOwner();
       const readGeneration = ++detailReadGenerationRef.current;
       const mutationEpoch = mutationEpochRef.current;
       setDetailLoadState('loading');
@@ -168,6 +193,7 @@ export function EventStoreProvider({
         ]);
         if (
           !mountedRef.current ||
+          !isSessionOwner() ||
           readGeneration !== detailReadGenerationRef.current ||
           mutationEpoch !== mutationEpochRef.current
         ) {
@@ -179,6 +205,7 @@ export function EventStoreProvider({
       } catch (nextError) {
         if (
           !mountedRef.current ||
+          !isSessionOwner() ||
           readGeneration !== detailReadGenerationRef.current ||
           mutationEpoch !== mutationEpochRef.current
         ) {
@@ -189,17 +216,19 @@ export function EventStoreProvider({
         throw nextError;
       }
     },
-    [port, recordError],
+    [isSessionOwner, port, recordError, requireSessionOwner],
   );
 
   const loadEvent = useCallback(
     async (eventId: string) => {
+      requireSessionOwner();
       const readGeneration = ++eventReadGenerationRef.current;
       const mutationEpoch = mutationEpochRef.current;
       try {
         const event = await port.get(eventId);
         if (
           !mountedRef.current ||
+          !isSessionOwner() ||
           readGeneration !== eventReadGenerationRef.current ||
           mutationEpoch !== mutationEpochRef.current
         ) {
@@ -210,6 +239,7 @@ export function EventStoreProvider({
       } catch (nextError) {
         if (
           !mountedRef.current ||
+          !isSessionOwner() ||
           readGeneration !== eventReadGenerationRef.current ||
           mutationEpoch !== mutationEpochRef.current
         ) {
@@ -219,17 +249,20 @@ export function EventStoreProvider({
         throw nextError;
       }
     },
-    [port, recordError],
+    [isSessionOwner, port, recordError, requireSessionOwner],
   );
 
   const runMutation = useCallback(
     async (operation: () => Promise<CustomerEvent>) => {
+      requireSessionOwner();
       setMutationPending(true);
       setError(null);
       setErrorCode(null);
       try {
         const event = await operation();
-        if (!mountedRef.current) return event;
+        if (!mountedRef.current || !isSessionOwner()) {
+          throw new DOMException('The event operation session changed.', 'AbortError');
+        }
         mutationEpochRef.current += 1;
         dispatch({ type: 'upsert', event });
         dispatch({ type: 'highlight', eventId: event.id });
@@ -252,14 +285,16 @@ export function EventStoreProvider({
         });
         return event;
       } catch (nextError) {
-        if (!mountedRef.current) throw nextError;
+        if (!mountedRef.current || !isSessionOwner()) {
+          throw new DOMException('The event operation session changed.', 'AbortError');
+        }
         recordError(nextError);
         throw nextError;
       } finally {
         if (mountedRef.current) setMutationPending(false);
       }
     },
-    [recordError],
+    [isSessionOwner, recordError, requireSessionOwner],
   );
 
   const createEvent = useCallback(
@@ -269,11 +304,12 @@ export function EventStoreProvider({
 
   const editEvent = useCallback(
     async (eventId: string, changes: CustomerEventEdit) => {
+      requireSessionOwner();
       const current = getEvent(eventId);
       if (!current) throw new Error(`Event is not available: ${eventId}`);
       return runMutation(() => port.edit(current, changes));
     },
-    [getEvent, port, runMutation],
+    [getEvent, port, requireSessionOwner, runMutation],
   );
 
   const cancelEvent = useCallback(
@@ -283,13 +319,14 @@ export function EventStoreProvider({
 
   const occurEvent = useCallback(
     (eventId: string, occurredAt?: string) => {
+      requireSessionOwner();
       const current = getEvent(eventId);
       if (!current || current.status !== 'PLANNED') {
         return Promise.reject(new Error(`Event cannot be recorded: ${eventId}`));
       }
       return runMutation(() => port.occur(eventId, occurredAt ?? current.scheduledAt));
     },
-    [getEvent, port, runMutation],
+    [getEvent, port, requireSessionOwner, runMutation],
   );
 
   const clearHighlight = useCallback((eventId?: string) => {

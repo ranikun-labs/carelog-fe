@@ -8,12 +8,17 @@ import {
 export interface CarelogSessionProvider {
   credentials?: RequestCredentials;
   getAccessToken?: () => string | undefined | Promise<string | undefined>;
+  getSessionVersion?: () => number;
+  recoverAccessToken?: () => Promise<string | undefined>;
+  invalidateSessionIfVersion?: (expectedVersion: number) => boolean;
 }
 
 export interface CarelogHttpClientOptions {
   baseUrl: string;
   fetchImpl?: typeof fetch;
   sessionProvider?: CarelogSessionProvider;
+  onUnauthorized?: () => void;
+  onTerminalUnauthorized?: () => void;
 }
 
 interface CarelogEnvelope<T> {
@@ -32,29 +37,76 @@ export function createCarelogHttpClient({
   baseUrl,
   fetchImpl = globalThis.fetch,
   sessionProvider,
+  onUnauthorized,
+  onTerminalUnauthorized,
 }: CarelogHttpClientOptions): CarelogHttpClient {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   if (!fetchImpl) throw new CarelogConfigurationError('The browser fetch API is unavailable.');
 
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const sessionVersion = sessionProvider?.getSessionVersion?.();
+    const sessionIsCurrent = () =>
+      sessionVersion === undefined || sessionProvider?.getSessionVersion?.() === sessionVersion;
+    const assertCurrentSession = () => {
+      if (!sessionIsCurrent()) {
+        // A cancelled session's result must never reach caches or auth recovery.
+        throw new DOMException('The Carelog request session changed.', 'AbortError');
+      }
+    };
     const accessToken = await sessionProvider?.getAccessToken?.();
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
-    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    assertCurrentSession();
+    const send = async (token: string | undefined): Promise<Response> => {
+      assertCurrentSession();
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
 
-    let response: Response;
-    try {
-      response = await fetchImpl(joinUrl(normalizedBaseUrl, path), {
-        method,
-        headers,
-        ...(sessionProvider?.credentials ? { credentials: sessionProvider.credentials } : {}),
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
-    } catch (error) {
-      throw new CarelogNetworkError('The Carelog API could not be reached.', { cause: error });
+      try {
+        return await fetchImpl(joinUrl(normalizedBaseUrl, path), {
+          method,
+          headers,
+          ...(sessionProvider?.credentials ? { credentials: sessionProvider.credentials } : {}),
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+      } catch (error) {
+        assertCurrentSession();
+        throw new CarelogNetworkError('The Carelog API could not be reached.', { cause: error });
+      }
+    };
+
+    let response = await send(accessToken);
+    assertCurrentSession();
+
+    if (
+      response.status === 401 &&
+      accessToken &&
+      sessionProvider?.recoverAccessToken &&
+      sessionIsCurrent()
+    ) {
+      onUnauthorized?.();
+      const recoveredAccessToken = await sessionProvider.recoverAccessToken();
+      if (recoveredAccessToken && sessionIsCurrent()) {
+        response = await send(recoveredAccessToken);
+      }
     }
 
-    const text = await readResponseText(response);
+    assertCurrentSession();
+    if (response.status === 401) {
+      const invalidated =
+        sessionVersion === undefined
+          ? true
+          : (sessionProvider?.invalidateSessionIfVersion?.(sessionVersion) ?? false);
+      if (invalidated) onTerminalUnauthorized?.();
+    }
+    assertCurrentSession();
+    let text: string;
+    try {
+      text = await readResponseText(response);
+    } catch (error) {
+      assertCurrentSession();
+      throw error;
+    }
+    assertCurrentSession();
     if (response.status === 204) return undefined as T;
     const payload = parseJson(text, response.ok);
 
