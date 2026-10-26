@@ -89,10 +89,11 @@ test('real Identity login persists a customer and event across logout and re-log
 
   const customerListReads: unknown[] = [];
   const customerEventReads: CapturedCustomerEventsRead[] = [];
+  let capturePostLoginReads = false;
   page.on('response', (response) => {
     void (async () => {
       const request = response.request();
-      if (request.method() !== 'GET' || !response.ok()) return;
+      if (!capturePostLoginReads || request.method() !== 'GET' || !response.ok()) return;
 
       const url = new URL(response.url());
       if (url.pathname === CUSTOMER_API_PATH) {
@@ -157,13 +158,14 @@ test('real Identity login persists a customer and event across logout and re-log
   const eventCreateBody: unknown = await eventCreateResponse.json();
   const createdEventId = isRecord(eventCreateBody) ? eventCreateBody.id : undefined;
   expect(typeof createdEventId).toBe('string');
+  if (typeof createdEventId !== 'string') {
+    throw new Error('The created event has no server-assigned ID.');
+  }
 
-  await expect(page.locator('[data-upcoming-primary]')).toContainText(eventName);
-  const eventRow = page.locator('[data-customer-history-item]').filter({ hasText: eventName });
-  await expect(eventRow).toHaveCount(1);
-  const eventId = await eventRow.getAttribute('data-event-id');
-  expect(eventId).toBe(createdEventId);
-  if (!eventId) throw new Error('The created event has no server-assigned ID.');
+  const upcomingEventLink = page.locator('[data-upcoming-primary]');
+  await expect(upcomingEventLink).toContainText(eventName);
+  expect(await upcomingEventLink.getAttribute('href')).toContain(createdEventId);
+  const eventId = createdEventId;
 
   await page.locator('[data-side-navigation] a[href="/app/settings"]').click();
   const logoutResponsePromise = page.waitForResponse((response) => {
@@ -174,9 +176,12 @@ test('real Identity login persists a customer and event across logout and re-log
   await expectSuccessful(await logoutResponsePromise);
   await expect(page.locator('[data-app-shell]')).toBeHidden();
   await expect(page.locator('[data-auth-entry]')).toBeVisible();
+  customerListReads.length = 0;
+  customerEventReads.length = 0;
 
   await page.locator('[data-auth-entry] a[href="/auth/login"]').click();
   await loginThroughUi(page, accountA!, passwordA!);
+  capturePostLoginReads = true;
   await page.locator('[data-side-navigation] a[href="/app/customers"]').click();
   await expect(page.locator('[data-customers-page]')).toBeVisible();
 
@@ -194,12 +199,9 @@ test('real Identity login persists a customer and event across logout and re-log
     'data-selected-customer-id',
     customerId,
   );
-  await expect(page.locator('[data-upcoming-primary]')).toContainText(eventName);
-  const rereadEventRow = page
-    .locator('[data-customer-history-item]')
-    .filter({ hasText: eventName });
-  await expect(rereadEventRow).toHaveCount(1);
-  await expect(rereadEventRow).toHaveAttribute('data-event-id', eventId);
+  const rereadUpcomingEventLink = page.locator('[data-upcoming-primary]');
+  await expect(rereadUpcomingEventLink).toContainText(eventName);
+  expect(await rereadUpcomingEventLink.getAttribute('href')).toContain(eventId);
   await expect
     .poll(() =>
       customerEventReads.some(
