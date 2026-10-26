@@ -178,10 +178,10 @@ test('real Identity login persists a customer and event across logout and re-log
   await expect(page.locator('[data-auth-entry]')).toBeVisible();
   customerListReads.length = 0;
   customerEventReads.length = 0;
+  capturePostLoginReads = true;
 
   await page.locator('[data-auth-entry] a[href="/auth/login"]').click();
   await loginThroughUi(page, accountA!, passwordA!);
-  capturePostLoginReads = true;
   await page.locator('[data-side-navigation] a[href="/app/customers"]').click();
   await expect(page.locator('[data-customers-page]')).toBeVisible();
 
