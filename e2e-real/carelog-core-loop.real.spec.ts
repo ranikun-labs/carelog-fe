@@ -15,6 +15,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function responseData(payload: unknown): unknown {
+  return isRecord(payload) ? payload.data : undefined;
+}
+
 function customerListContains(body: unknown, customerId: string, displayName: string): boolean {
   return (
     Array.isArray(body) &&
@@ -97,13 +101,13 @@ test('real Identity login persists a customer and event across logout and re-log
 
       const url = new URL(response.url());
       if (url.pathname === CUSTOMER_API_PATH) {
-        customerListReads.push(await response.json());
+        customerListReads.push(responseData(await response.json()));
         return;
       }
       if (url.pathname === CUSTOMER_EVENTS_API_PATH) {
         customerEventReads.push({
           customerId: url.searchParams.get('customerId'),
-          body: await response.json(),
+          body: responseData(await response.json()),
         });
       }
     })().catch(() => undefined);
@@ -133,7 +137,7 @@ test('real Identity login persists a customer and event across logout and re-log
   await page.locator('[data-customer-form-submit]').click();
   const customerCreateResponse = await customerCreateResponsePromise;
   await expectSuccessful(customerCreateResponse);
-  const customerCreateBody: unknown = await customerCreateResponse.json();
+  const customerCreateBody = responseData(await customerCreateResponse.json());
   const customerPublicId = isRecord(customerCreateBody) ? customerCreateBody.publicId : undefined;
   expect(typeof customerPublicId).toBe('string');
 
@@ -155,7 +159,7 @@ test('real Identity login persists a customer and event across logout and re-log
   await page.locator('[data-event-form-submit]').click();
   const eventCreateResponse = await eventCreateResponsePromise;
   await expectSuccessful(eventCreateResponse);
-  const eventCreateBody: unknown = await eventCreateResponse.json();
+  const eventCreateBody = responseData(await eventCreateResponse.json());
   const createdEventId = isRecord(eventCreateBody) ? eventCreateBody.id : undefined;
   expect(typeof createdEventId).toBe('string');
   if (typeof createdEventId !== 'string') {
