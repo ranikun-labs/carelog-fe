@@ -59,6 +59,19 @@ export function AuthBootstrapScreen() {
   );
 }
 
+export function CustomerDataLoadingScreen() {
+  const { t } = useTranslation();
+  return (
+    <AuthSurfaceFrame>
+      <AuthStatusContent
+        title={t('customers.title')}
+        description={t('customers.loadingLabel')}
+        status="status"
+      />
+    </AuthSurfaceFrame>
+  );
+}
+
 export function AuthRecoveryScreen() {
   const { t } = useTranslation();
   return (
