@@ -15,8 +15,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function responseData(payload: unknown): unknown {
-  return isRecord(payload) ? payload.data : undefined;
+function responseData(payload: unknown, httpStatus: number): unknown {
+  if (
+    !isRecord(payload) ||
+    typeof payload.status !== 'number' ||
+    !Number.isInteger(payload.status) ||
+    typeof payload.message !== 'string' ||
+    !Object.prototype.hasOwnProperty.call(payload, 'data')
+  ) {
+    throw new Error('Carelog API response envelope is invalid.');
+  }
+  if (payload.status !== httpStatus) {
+    throw new Error('Carelog API envelope status does not match HTTP status.');
+  }
+  return payload.data;
+}
+
+function responseReadbackState(errors: readonly string[], found: boolean): string {
+  if (errors[0]) return `API response capture failed: ${errors[0]}`;
+  return found ? 'matched' : 'pending';
 }
 
 function customerListContains(body: unknown, customerId: string, displayName: string): boolean {
@@ -93,6 +110,7 @@ test('real Identity login persists a customer and event across logout and re-log
 
   const customerListReads: unknown[] = [];
   const customerEventReads: CapturedCustomerEventsRead[] = [];
+  const responseReadErrors: string[] = [];
   let capturePostLoginReads = false;
   page.on('response', (response) => {
     void (async () => {
@@ -101,16 +119,20 @@ test('real Identity login persists a customer and event across logout and re-log
 
       const url = new URL(response.url());
       if (url.pathname === CUSTOMER_API_PATH) {
-        customerListReads.push(responseData(await response.json()));
+        customerListReads.push(responseData(await response.json(), response.status()));
         return;
       }
       if (url.pathname === CUSTOMER_EVENTS_API_PATH) {
         customerEventReads.push({
           customerId: url.searchParams.get('customerId'),
-          body: responseData(await response.json()),
+          body: responseData(await response.json(), response.status()),
         });
       }
-    })().catch(() => undefined);
+    })().catch((error: unknown) => {
+      responseReadErrors.push(
+        error instanceof Error ? error.message : 'Carelog API response capture failed.',
+      );
+    });
   });
 
   const uniqueSuffix = randomUUID();
@@ -137,7 +159,10 @@ test('real Identity login persists a customer and event across logout and re-log
   await page.locator('[data-customer-form-submit]').click();
   const customerCreateResponse = await customerCreateResponsePromise;
   await expectSuccessful(customerCreateResponse);
-  const customerCreateBody = responseData(await customerCreateResponse.json());
+  const customerCreateBody = responseData(
+    await customerCreateResponse.json(),
+    customerCreateResponse.status(),
+  );
   const customerPublicId = isRecord(customerCreateBody) ? customerCreateBody.publicId : undefined;
   expect(typeof customerPublicId).toBe('string');
 
@@ -159,7 +184,10 @@ test('real Identity login persists a customer and event across logout and re-log
   await page.locator('[data-event-form-submit]').click();
   const eventCreateResponse = await eventCreateResponsePromise;
   await expectSuccessful(eventCreateResponse);
-  const eventCreateBody = responseData(await eventCreateResponse.json());
+  const eventCreateBody = responseData(
+    await eventCreateResponse.json(),
+    eventCreateResponse.status(),
+  );
   const createdEventId = isRecord(eventCreateBody) ? eventCreateBody.id : undefined;
   expect(typeof createdEventId).toBe('string');
   if (typeof createdEventId !== 'string') {
@@ -194,9 +222,12 @@ test('real Identity login persists a customer and event across logout and re-log
   await expect(customerCard).toHaveAttribute('data-customer-id', customerId);
   await expect
     .poll(() =>
-      customerListReads.some((body) => customerListContains(body, customerId, customerName)),
+      responseReadbackState(
+        responseReadErrors,
+        customerListReads.some((body) => customerListContains(body, customerId, customerName)),
+      ),
     )
-    .toBe(true);
+    .toBe('matched');
 
   await customerCard.locator('a').click();
   await expect(page.locator('[data-customer-detail-page]')).toHaveAttribute(
@@ -208,10 +239,13 @@ test('real Identity login persists a customer and event across logout and re-log
   expect(await rereadUpcomingEventLink.getAttribute('href')).toContain(eventId);
   await expect
     .poll(() =>
-      customerEventReads.some(
-        (read) =>
-          read.customerId === customerId && customerEventsContain(read.body, eventId, eventName),
+      responseReadbackState(
+        responseReadErrors,
+        customerEventReads.some(
+          (read) =>
+            read.customerId === customerId && customerEventsContain(read.body, eventId, eventName),
+        ),
       ),
     )
-    .toBe(true);
+    .toBe('matched');
 });
