@@ -14,6 +14,7 @@ import { EventCreateActivationProvider } from '@/state/EventCreateActivationCont
 import {
   AuthBootstrapErrorScreen,
   AuthBootstrapScreen,
+  CustomerDataLoadingScreen,
   AuthRecoveryScreen,
 } from '@/components/auth/AuthStatusSurface';
 import { AuthLayout } from '@/components/auth/AuthLayout';
@@ -27,6 +28,7 @@ import {
   DEFAULT_LOCALE,
   PUBLIC_ROUTE_PATHS,
   buildAuthEntryPath,
+  buildAppCustomersPath,
   buildPublicHomePath,
   toRelativeUnder,
 } from '@/constants/routes';
@@ -71,7 +73,7 @@ function ProtectedAppBoundary() {
 
 function AuthRouteBoundary() {
   const auth = useAuth();
-  const customerCount = useCustomerStore().customers.length;
+  const customerStore = useCustomerStore();
 
   switch (auth.authState.status) {
     case AUTH_STATE.BOOTSTRAPPING:
@@ -81,7 +83,19 @@ function AuthRouteBoundary() {
     case AUTH_STATE.ERROR:
       return <AuthBootstrapErrorScreen onRetry={auth.retryBootstrap} />;
     case AUTH_STATE.AUTHENTICATED:
-      return <Navigate replace to={resolvePostAuthPath(customerCount)} />;
+      if (customerStore.loadState === 'idle' || customerStore.loadState === 'loading') {
+        return <CustomerDataLoadingScreen />;
+      }
+      return (
+        <Navigate
+          replace
+          to={
+            customerStore.loadState === 'error'
+              ? buildAppCustomersPath()
+              : resolvePostAuthPath(customerStore.customers.length)
+          }
+        />
+      );
     case AUTH_STATE.ANONYMOUS:
       return <AuthLayout />;
   }
