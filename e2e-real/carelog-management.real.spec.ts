@@ -4,6 +4,20 @@ import { expect, test, type Page, type Response } from '@playwright/test';
 const CUSTOMER_API_PATH = '/api/v1/users/customers';
 const CUSTOMER_EVENTS_API_PATH = '/api/v1/customer-events';
 const LOGIN_API_PATH = '/api/v1/auth/login';
+const LOGOUT_API_PATH = '/api/v1/auth/logout';
+
+interface CapturedCustomerEventsRead {
+  customerId: string | null;
+  body: unknown;
+}
+
+interface ExpectedCustomerEventReadback {
+  id: string;
+  status: 'OCCURRED' | 'CANCELLED' | 'PLANNED';
+  descriptor: string;
+  scheduledAt?: string;
+  occurredAt?: string;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -30,6 +44,55 @@ function responseData(payload: unknown, httpStatus: number): unknown {
   return payload.data;
 }
 
+function responseReadbackState(errors: readonly string[], found: boolean): string {
+  if (errors[0]) return `API response capture failed: ${errors[0]}`;
+  return found ? 'matched' : 'pending';
+}
+
+function customerListContains(
+  body: unknown,
+  customerId: string,
+  displayName: string,
+  customerMemo: string,
+): boolean {
+  return (
+    Array.isArray(body) &&
+    body.some(
+      (customer) =>
+        isRecord(customer) &&
+        customer.publicId === customerId &&
+        customer.displayName === displayName &&
+        customer.customerMemo === customerMemo,
+    )
+  );
+}
+
+function timestampMatchesSeoulLocalTime(value: unknown, localTime: string): boolean {
+  return typeof value === 'string' && Date.parse(value) === Date.parse(`${localTime}:00+09:00`);
+}
+
+function customerEventsContain(body: unknown, expected: ExpectedCustomerEventReadback): boolean {
+  return (
+    Array.isArray(body) &&
+    body.some((event) => {
+      if (
+        !isRecord(event) ||
+        event.id !== expected.id ||
+        event.status !== expected.status ||
+        event.descriptor !== expected.descriptor
+      ) {
+        return false;
+      }
+      return (
+        (expected.scheduledAt === undefined ||
+          timestampMatchesSeoulLocalTime(event.scheduledAt, expected.scheduledAt)) &&
+        (expected.occurredAt === undefined ||
+          timestampMatchesSeoulLocalTime(event.occurredAt, expected.occurredAt))
+      );
+    })
+  );
+}
+
 async function expectSuccessful(response: Response): Promise<void> {
   expect(
     response.status(),
@@ -52,6 +115,29 @@ async function loginThroughUi(page: Page, account: string, password: string): Pr
   await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expectSuccessful(await loginResponsePromise);
   await expect(page.locator('[data-app-shell]')).toBeVisible();
+}
+
+async function logoutThroughUi(page: Page): Promise<void> {
+  await page.locator('[data-side-navigation] a[href="/app/settings"]').click();
+  const logoutResponsePromise = waitForApiResponse(page, 'POST', LOGOUT_API_PATH);
+  await page.getByRole('button', { name: '로그아웃', exact: true }).click();
+  await expectSuccessful(await logoutResponsePromise);
+  await expect(page.locator('[data-app-shell]')).toBeHidden();
+  await expect(page.locator('[data-auth-entry]')).toBeVisible();
+}
+
+async function openCustomerDetail(page: Page, customerId: string, displayName: string) {
+  await page.locator('[data-side-navigation] a[href="/app/customers"]').click();
+  await expect(page.locator('[data-customers-page]')).toBeVisible();
+  const customerCard = page
+    .locator(`[data-customer-card][data-customer-id="${customerId}"]`)
+    .filter({ hasText: displayName });
+  await expect(customerCard).toHaveCount(1);
+  await customerCard.locator('a').click();
+  await expect(page.locator('[data-customer-detail-page]')).toHaveAttribute(
+    'data-selected-customer-id',
+    customerId,
+  );
 }
 
 function seoulDateTimeLocalAfterMinutes(offsetMinutes: number): string {
@@ -81,19 +167,6 @@ function expectTimestampAtSeoulLocalTime(value: unknown, localTime: string): voi
   expect(Date.parse(value)).toBe(Date.parse(`${localTime}:00+09:00`));
 }
 
-async function readEventFromApi(page: Page, eventId: string): Promise<Record<string, unknown>> {
-  const responsePromise = waitForApiResponse(page, 'GET', `${CUSTOMER_EVENTS_API_PATH}/${eventId}`);
-  await page.goto(`/app/events/${eventId}`);
-  const response = await responsePromise;
-  await expectSuccessful(response);
-  const event = asRecord(responseData(await response.json(), response.status()), 'CustomerEvent');
-  await expect(page.locator('[data-event-detail-page]')).toHaveAttribute(
-    'data-selected-event-id',
-    eventId,
-  );
-  return event;
-}
-
 test('real API customer edit and event management persist across readbacks', async ({ page }) => {
   const disposable = process.env.CARELOG_E2E_DISPOSABLE;
   const accountA = process.env.CARELOG_E2E_ACCOUNT_A?.trim();
@@ -114,11 +187,40 @@ test('real API customer edit and event management persist across readbacks', asy
   const initialScheduledAt = seoulDateTimeLocalAfterMinutes(24 * 60);
   const rescheduledAt = seoulDateTimeLocalAfterMinutes(48 * 60);
   const cancellationScheduledAt = seoulDateTimeLocalAfterMinutes(72 * 60);
+  const customerListReads: unknown[] = [];
+  const customerEventReads: CapturedCustomerEventsRead[] = [];
+  const responseReadErrors: string[] = [];
+  let capturePostLoginReads = false;
+
+  page.on('response', (response) => {
+    void (async () => {
+      const request = response.request();
+      if (!capturePostLoginReads || request.method() !== 'GET' || !response.ok()) return;
+
+      const url = new URL(response.url());
+      if (url.pathname === CUSTOMER_API_PATH) {
+        customerListReads.push(responseData(await response.json(), response.status()));
+        return;
+      }
+      if (url.pathname === CUSTOMER_EVENTS_API_PATH) {
+        customerEventReads.push({
+          customerId: url.searchParams.get('customerId'),
+          body: responseData(await response.json(), response.status()),
+        });
+      }
+    })().catch((error: unknown) => {
+      responseReadErrors.push(
+        error instanceof Error ? error.message : 'Carelog API response capture failed.',
+      );
+    });
+  });
 
   await page.goto('/auth/login');
   await loginThroughUi(page, accountA!, passwordA!);
+  capturePostLoginReads = true;
 
-  await page.goto('/app/customers');
+  await page.locator('[data-side-navigation] a[href="/app/customers"]').click();
+  await expect(page.locator('[data-customers-page]')).toBeVisible();
   const customerCreateCta = page.locator('[data-first-customer-cta], [data-customer-add-cta]');
   await expect(customerCreateCta).toHaveCount(1);
   await customerCreateCta.click();
@@ -166,30 +268,6 @@ test('real API customer edit and event management persist across readbacks', asy
   expect(editedCustomer.displayName).toBe(editedCustomerName);
   expect(editedCustomer.customerMemo).toBe(editedCustomerMemo);
 
-  const customerListReadPromise = waitForApiResponse(page, 'GET', CUSTOMER_API_PATH);
-  await page.goto('/app/customers');
-  const customerListResponse = await customerListReadPromise;
-  await expectSuccessful(customerListResponse);
-  const customerList = responseData(
-    await customerListResponse.json(),
-    customerListResponse.status(),
-  );
-  expect(Array.isArray(customerList)).toBe(true);
-  const rereadCustomer = Array.isArray(customerList)
-    ? customerList.find((customer) => isRecord(customer) && customer.publicId === customerId)
-    : undefined;
-  const customerReadback = asRecord(rereadCustomer, 'Customer list readback');
-  expect(customerReadback.displayName).toBe(editedCustomerName);
-  expect(customerReadback.customerMemo).toBe(editedCustomerMemo);
-
-  const customerCard = page
-    .locator(`[data-customer-card][data-customer-id="${customerId}"]`)
-    .filter({ hasText: editedCustomerName });
-  await expect(customerCard).toHaveCount(1);
-  await customerCard.locator('a').click();
-  await expect(page.getByRole('heading', { name: editedCustomerName })).toBeVisible();
-  await expect(page.getByTestId('customer-memo-copy')).toHaveText(editedCustomerMemo);
-
   await page.locator('[data-add-event]').click();
   await expect(page.locator('[data-event-form]')).toBeVisible();
   await page.locator('[data-event-field="descriptor"]').fill(rescheduleDescriptor);
@@ -232,10 +310,29 @@ test('real API customer edit and event management persist across readbacks', asy
   expect(rescheduledEvent.status).toBe('PLANNED');
   expectTimestampAtSeoulLocalTime(rescheduledEvent.scheduledAt, rescheduledAt);
 
-  const rescheduledReadback = await readEventFromApi(page, eventId);
-  expect(rescheduledReadback.id).toBe(eventId);
-  expect(rescheduledReadback.status).toBe('PLANNED');
-  expectTimestampAtSeoulLocalTime(rescheduledReadback.scheduledAt, rescheduledAt);
+  await expect(page).toHaveURL('/app/schedule');
+  await openCustomerDetail(page, customerId, editedCustomerName);
+  await expect
+    .poll(() =>
+      responseReadbackState(
+        responseReadErrors,
+        customerEventReads.some(
+          (read) =>
+            read.customerId === customerId &&
+            customerEventsContain(read.body, {
+              id: eventId,
+              status: 'PLANNED',
+              descriptor: rescheduleDescriptor,
+              scheduledAt: rescheduledAt,
+            }),
+        ),
+      ),
+    )
+    .toBe('matched');
+  const rescheduledUpcoming = page.locator('[data-upcoming-primary]');
+  await expect(rescheduledUpcoming).toContainText(rescheduleDescriptor);
+  await rescheduledUpcoming.click();
+  await expect(page).toHaveURL(`/app/events/${eventId}`);
   await expect(page.locator('[data-event-detail]')).toHaveAttribute('data-event-status', 'PLANNED');
 
   await page.locator('[data-event-action="occur"]').click();
@@ -259,21 +356,30 @@ test('real API customer edit and event management persist across readbacks', asy
   expectTimestampAtSeoulLocalTime(occurredEvent.scheduledAt, rescheduledAt);
   expectTimestampAtSeoulLocalTime(occurredEvent.occurredAt, occurredAt);
 
-  const occurredReadback = await readEventFromApi(page, eventId);
-  expect(occurredReadback.id).toBe(eventId);
-  expect(occurredReadback.status).toBe('OCCURRED');
-  expectTimestampAtSeoulLocalTime(occurredReadback.scheduledAt, rescheduledAt);
-  expectTimestampAtSeoulLocalTime(occurredReadback.occurredAt, occurredAt);
-  await expect(page.locator('[data-event-detail]')).toHaveAttribute(
-    'data-event-status',
-    'OCCURRED',
-  );
+  await expect(page).toHaveURL('/app/schedule');
+  await openCustomerDetail(page, customerId, editedCustomerName);
+  await expect
+    .poll(() =>
+      responseReadbackState(
+        responseReadErrors,
+        customerEventReads.some(
+          (read) =>
+            read.customerId === customerId &&
+            customerEventsContain(read.body, {
+              id: eventId,
+              status: 'OCCURRED',
+              descriptor: rescheduleDescriptor,
+              scheduledAt: rescheduledAt,
+              occurredAt,
+            }),
+        ),
+      ),
+    )
+    .toBe('matched');
+  await expect(
+    page.locator(`[data-customer-history-item][data-event-id="${eventId}"]`),
+  ).toHaveAttribute('data-event-status', 'OCCURRED');
 
-  await page.goto(`/app/customers/${customerId}`);
-  await expect(page.locator('[data-customer-detail-page]')).toHaveAttribute(
-    'data-selected-customer-id',
-    customerId,
-  );
   await page.locator('[data-add-event]').click();
   await expect(page.locator('[data-event-form]')).toBeVisible();
   await page.locator('[data-event-field="descriptor"]').fill(cancellationDescriptor);
@@ -292,14 +398,11 @@ test('real API customer edit and event management persist across readbacks', asy
     throw new Error('The cancellation candidate has no server-assigned ID.');
   }
 
-  const cancellationCandidateReadback = await readEventFromApi(page, cancellationEventId);
-  expect(cancellationCandidateReadback.customerId).toBe(customerId);
-  expect(cancellationCandidateReadback.status).toBe('PLANNED');
-  expect(cancellationCandidateReadback.descriptor).toBe(cancellationDescriptor);
-  expectTimestampAtSeoulLocalTime(
-    cancellationCandidateReadback.scheduledAt,
-    cancellationScheduledAt,
-  );
+  const cancellationUpcoming = page.locator('[data-upcoming-primary]');
+  await expect(cancellationUpcoming).toContainText(cancellationDescriptor);
+  await cancellationUpcoming.click();
+  await expect(page).toHaveURL(`/app/events/${cancellationEventId}`);
+  await expect(page.locator('[data-event-detail]')).toHaveAttribute('data-event-status', 'PLANNED');
 
   const cancelPromise = waitForApiResponse(
     page,
@@ -316,14 +419,63 @@ test('real API customer edit and event management persist across readbacks', asy
   expect(cancelledEvent.id).toBe(cancellationEventId);
   expect(cancelledEvent.status).toBe('CANCELLED');
 
-  const cancelledReadback = await readEventFromApi(page, cancellationEventId);
-  expect(cancelledReadback.id).toBe(cancellationEventId);
-  expect(cancelledReadback.customerId).toBe(customerId);
-  expect(cancelledReadback.status).toBe('CANCELLED');
-  expect(cancelledReadback.descriptor).toBe(cancellationDescriptor);
-  expectTimestampAtSeoulLocalTime(cancelledReadback.scheduledAt, cancellationScheduledAt);
-  await expect(page.locator('[data-event-detail]')).toHaveAttribute(
-    'data-event-status',
-    'CANCELLED',
-  );
+  await expect(page).toHaveURL('/app/schedule');
+  await logoutThroughUi(page);
+  customerListReads.length = 0;
+  customerEventReads.length = 0;
+  responseReadErrors.length = 0;
+
+  await page.locator('[data-auth-entry] a[href="/auth/login"]').click();
+  await loginThroughUi(page, accountA!, passwordA!);
+  await openCustomerDetail(page, customerId, editedCustomerName);
+  await expect(page.getByTestId('customer-memo-copy')).toHaveText(editedCustomerMemo);
+  await expect
+    .poll(() =>
+      responseReadbackState(
+        responseReadErrors,
+        customerListReads.some((body) =>
+          customerListContains(body, customerId, editedCustomerName, editedCustomerMemo),
+        ),
+      ),
+    )
+    .toBe('matched');
+
+  await expect
+    .poll(() =>
+      responseReadbackState(
+        responseReadErrors,
+        customerEventReads.some(
+          (read) =>
+            read.customerId === customerId &&
+            customerEventsContain(read.body, {
+              id: eventId,
+              status: 'OCCURRED',
+              descriptor: rescheduleDescriptor,
+              scheduledAt: rescheduledAt,
+              occurredAt,
+            }),
+        ),
+      ),
+    )
+    .toBe('matched');
+  await expect
+    .poll(() =>
+      responseReadbackState(
+        responseReadErrors,
+        customerEventReads.some(
+          (read) =>
+            read.customerId === customerId &&
+            customerEventsContain(read.body, {
+              id: cancellationEventId,
+              status: 'CANCELLED',
+              descriptor: cancellationDescriptor,
+              scheduledAt: cancellationScheduledAt,
+            }),
+        ),
+      ),
+    )
+    .toBe('matched');
+  await expect(
+    page.locator(`[data-customer-history-item][data-event-id="${cancellationEventId}"]`),
+  ).toHaveAttribute('data-event-status', 'CANCELLED');
 });
