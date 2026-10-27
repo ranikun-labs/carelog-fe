@@ -141,19 +141,23 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     setCurrentOperationError(null);
 
     const promise = (async () => {
+      let result: AuthCommandResult;
       try {
-        const result = await port.recoverSession();
-        if (!mountedRef.current || recoveryEpoch !== sessionEpochRef.current) return false;
-        if (isSuccessful(result)) {
-          dispatch({ type: 'recovery-authenticated' });
-          return true;
-        }
-      } catch {
-        // A failed recovery has the same safe product outcome as an explicit
-        // rejected recovery: the user returns to Auth Entry.
+        result = await port.recoverSession();
+      } catch (error) {
+        result = { ok: false, failure: normalizeFailure(error) };
       }
 
       if (!mountedRef.current || recoveryEpoch !== sessionEpochRef.current) return false;
+      if (isSuccessful(result)) {
+        dispatch({ type: 'recovery-authenticated' });
+        return true;
+      }
+      if (result.failure.kind !== AUTH_ERROR_KIND.UNAUTHORIZED) {
+        dispatch({ type: 'recovery-authenticated' });
+        setCurrentOperationError({ failure: result.failure });
+        return false;
+      }
       dispatch({ type: 'recovery-anonymous' });
       return false;
     })().finally(() => {

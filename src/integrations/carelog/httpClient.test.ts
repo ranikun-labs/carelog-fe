@@ -188,3 +188,80 @@ it('discards stale network failures without reporting them against B', async () 
   pending.reject(new TypeError('offline'));
   await assertion;
 });
+
+it.each([403, 500])(
+  'does not treat an HTTP %s refresh failure as terminal session expiry',
+  async (status) => {
+    const invalidateSessionIfVersion = vi.fn(() => true);
+    const onTerminalUnauthorized = vi.fn();
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(401, ''));
+    const client = createCarelogHttpClient({
+      baseUrl: 'https://carelog.example.test',
+      fetchImpl,
+      onTerminalUnauthorized,
+      sessionProvider: {
+        getAccessToken: () => 'access-one',
+        getSessionVersion: () => 1,
+        recoverAccessToken: async () => {
+          throw new CarelogHttpError(status);
+        },
+        invalidateSessionIfVersion,
+      },
+    });
+
+    await expect(client.get('/api/v1/private')).rejects.toMatchObject({
+      name: 'CarelogHttpError',
+      status,
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(invalidateSessionIfVersion).not.toHaveBeenCalled();
+    expect(onTerminalUnauthorized).not.toHaveBeenCalled();
+  },
+);
+
+it('does not treat a network refresh failure as terminal session expiry', async () => {
+  const invalidateSessionIfVersion = vi.fn(() => true);
+  const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(401, ''));
+  const client = createCarelogHttpClient({
+    baseUrl: 'https://carelog.example.test',
+    fetchImpl,
+    sessionProvider: {
+      getAccessToken: () => 'access-one',
+      getSessionVersion: () => 1,
+      recoverAccessToken: async () => {
+        throw new CarelogNetworkError('offline');
+      },
+      invalidateSessionIfVersion,
+    },
+  });
+
+  await expect(client.get('/api/v1/private')).rejects.toBeInstanceOf(CarelogNetworkError);
+  expect(invalidateSessionIfVersion).not.toHaveBeenCalled();
+});
+
+it('discards a refresh failure from A after switching to B', async () => {
+  let version = 1;
+  const refresh = deferred<string | undefined>();
+  const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(401, ''));
+  const onTerminalUnauthorized = vi.fn();
+  const client = createCarelogHttpClient({
+    baseUrl: 'https://carelog.example.test',
+    fetchImpl,
+    onTerminalUnauthorized,
+    sessionProvider: {
+      getAccessToken: () => 'synthetic-a',
+      getSessionVersion: () => version,
+      recoverAccessToken: () => refresh.promise,
+      invalidateSessionIfVersion: vi.fn(() => true),
+    },
+  });
+  const result = client.get('/api/v1/private');
+  const assertion = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+  await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledOnce());
+
+  version = 2;
+  refresh.reject(new CarelogHttpError(500));
+  await assertion;
+  expect(onTerminalUnauthorized).not.toHaveBeenCalled();
+  expect(fetchImpl).toHaveBeenCalledOnce();
+});

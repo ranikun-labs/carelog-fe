@@ -84,7 +84,14 @@ export function createCarelogHttpClient({
       sessionIsCurrent()
     ) {
       onUnauthorized?.();
-      const recoveredAccessToken = await sessionProvider.recoverAccessToken();
+      let recoveredAccessToken: string | undefined;
+      try {
+        recoveredAccessToken = await sessionProvider.recoverAccessToken();
+      } catch (error) {
+        // Do not let an A refresh failure leak into B after an account switch.
+        assertCurrentSession();
+        throw error;
+      }
       if (recoveredAccessToken && sessionIsCurrent()) {
         response = await send(recoveredAccessToken);
       }
