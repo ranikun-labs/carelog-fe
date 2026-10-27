@@ -51,7 +51,7 @@ export default defineConfig({
     browserName: 'chromium',
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
-    trace: 'retain-on-failure',
+    trace: 'off',
   },
   webServer: {
     command: `pnpm exec vite --mode real-api-e2e --host 127.0.0.1 --port ${port} --strictPort`,

@@ -190,7 +190,7 @@ test('real Identity login persists a customer and event across logout and re-log
   );
   const createdEventId = isRecord(eventCreateBody) ? eventCreateBody.id : undefined;
   expect(typeof createdEventId).toBe('string');
-  if (typeof createdEventId !== 'string') {
+  if (typeof createdEventId !== 'string' || createdEventId.trim().length === 0) {
     throw new Error('The created event has no server-assigned ID.');
   }
 
