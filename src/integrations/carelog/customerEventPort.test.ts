@@ -36,7 +36,7 @@ describe('Carelog CustomerEvent port', () => {
     expect(createCustomerHistoryQuery(customerId)).toEqual({ customerId, limit: 50 });
   });
 
-  it('uses bounded URL parameters, maps wire invariants, and keeps lifecycle calls server-backed', async () => {
+  it('uses a mocked HTTP client to check bounded URLs, wire mapping, and lifecycle requests', async () => {
     const client = {
       get: vi
         .fn()
@@ -81,6 +81,67 @@ describe('Carelog CustomerEvent port', () => {
       2,
       '/api/v1/customer-events/6ba7b811-9dad-11d1-80b4-00c04fd430c8/cancel',
     );
+  });
+
+  it('binds event management to mocked HTTP requests using canonical time fields', async () => {
+    const rescheduled: CustomerEvent = {
+      ...planned,
+      scheduledAt: '2026-08-22T11:30:00+09:00',
+    };
+    const occurred: CustomerEvent = {
+      ...planned,
+      status: 'OCCURRED',
+      occurredAt: '2026-08-22T11:45:00+09:00',
+    };
+    const editedOccurrence: CustomerEvent = {
+      ...occurred,
+      occurredAt: '2026-08-22T11:50:00+09:00',
+    };
+    const cancelled: CustomerEvent = { ...planned, status: 'CANCELLED' };
+    const client = {
+      get: vi.fn(),
+      post: vi.fn().mockResolvedValueOnce(occurred).mockResolvedValueOnce(cancelled),
+      patch: vi.fn().mockResolvedValueOnce(rescheduled).mockResolvedValueOnce(editedOccurrence),
+    };
+    const port = createCarelogCustomerEventPort(client);
+
+    await port.edit(planned, { scheduledAt: rescheduled.scheduledAt });
+    await port.edit(occurred, { occurredAt: editedOccurrence.occurredAt });
+    await port.occur(eventId, occurred.occurredAt);
+    await port.cancel(eventId);
+
+    expect(client.patch).toHaveBeenNthCalledWith(1, `/api/v1/customer-events/${eventId}`, {
+      scheduledAt: rescheduled.scheduledAt,
+    });
+    expect(client.patch).toHaveBeenNthCalledWith(2, `/api/v1/customer-events/${eventId}`, {
+      occurredAt: editedOccurrence.occurredAt,
+    });
+    expect(client.post).toHaveBeenNthCalledWith(1, `/api/v1/customer-events/${eventId}/occur`, {
+      occurredAt: occurred.occurredAt,
+    });
+    expect(client.post).toHaveBeenNthCalledWith(2, `/api/v1/customer-events/${eventId}/cancel`);
+  });
+
+  it('does not send a reschedule when a local-offset edit preserves the server instant', async () => {
+    const serverEvent: CustomerEvent = {
+      ...planned,
+      scheduledAt: '2026-08-20T01:00:00Z',
+    };
+    const client = {
+      get: vi.fn(),
+      post: vi.fn(),
+      patch: vi.fn().mockResolvedValue({ ...serverEvent, note: '수정 메모' }),
+    };
+    const port = createCarelogCustomerEventPort(client);
+
+    await port.edit(serverEvent, {
+      scheduledAt: '2026-08-20T10:00:00+09:00',
+      note: '수정 메모',
+    });
+
+    expect(client.patch).toHaveBeenCalledWith(`/api/v1/customer-events/${eventId}`, {
+      note: '수정 메모',
+    });
   });
 
   it('rejects unbounded or partial ranges before making an HTTP request', async () => {

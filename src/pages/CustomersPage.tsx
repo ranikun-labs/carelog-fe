@@ -66,7 +66,7 @@ export function CustomersPage() {
 
         {customerStore.loadState === 'loading' ? (
           <p role="status" aria-busy="true" className="text-text-secondary mt-6 text-sm">
-            {t('schedule.loadingLabel')}
+            {t('customers.loadingLabel')}
           </p>
         ) : customerStore.loadState === 'error' ? (
           <EmptyState

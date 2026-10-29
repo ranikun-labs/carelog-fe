@@ -59,6 +59,11 @@ export interface AuthTestControl {
   retryBootstrap: () => void;
   getRecoveryAttemptCount?: () => number;
   getLogoutAttemptCount?: () => number;
+  getRecoveryGuardSnapshot?: () => {
+    authStateRef: AuthStatus;
+    sessionRevisionMatches: boolean;
+    logoutInProgress: boolean;
+  };
 }
 
 declare global {

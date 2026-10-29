@@ -126,6 +126,86 @@ describe('Carelog Production AuthPort', () => {
     expect(sessionStore.getRefreshToken()).toBeUndefined();
   });
 
+  it('reports an expired refresh credential as unauthorized during recovery and clears it', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(401, null));
+    const sessionStore = createCarelogAuthSessionStore();
+    setTokens(sessionStore, 'expired-access', 'revoked-refresh');
+    const runtime = runtimeWith(fetchImpl, sessionStore);
+
+    await expect(runtime.authPort.recoverSession()).resolves.toEqual({
+      ok: false,
+      failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED },
+    });
+    expect(runtime.sessionStore.getAccessToken()).toBeUndefined();
+    expect(runtime.sessionStore.getRefreshToken()).toBeUndefined();
+  });
+
+  it.each([
+    [403, AUTH_ERROR_KIND.FORBIDDEN],
+    [500, AUTH_ERROR_KIND.SERVER],
+  ] as const)(
+    'keeps the stored session and reports HTTP %s during bootstrap refresh',
+    async (status, kind) => {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(status, null));
+      const sessionStore = createCarelogAuthSessionStore();
+      setTokens(sessionStore, 'access-one', 'refresh-one');
+      const runtime = runtimeWith(fetchImpl, sessionStore);
+
+      await expect(runtime.authPort.bootstrapSession()).resolves.toEqual({
+        status: 'error',
+        failure: { kind },
+      });
+      expect(runtime.sessionStore.getAccessToken()).toBe('access-one');
+      expect(runtime.sessionStore.getRefreshToken()).toBe('refresh-one');
+    },
+  );
+
+  it('keeps the stored session and reports a network failure during bootstrap refresh', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('offline'));
+    const sessionStore = createCarelogAuthSessionStore();
+    setTokens(sessionStore, 'access-one', 'refresh-one');
+    const runtime = runtimeWith(fetchImpl, sessionStore);
+
+    await expect(runtime.authPort.bootstrapSession()).resolves.toEqual({
+      status: 'error',
+      failure: { kind: AUTH_ERROR_KIND.NETWORK },
+    });
+    expect(runtime.sessionStore.getRefreshToken()).toBe('refresh-one');
+  });
+
+  it.each([
+    [403, AUTH_ERROR_KIND.FORBIDDEN],
+    [500, AUTH_ERROR_KIND.SERVER],
+  ] as const)(
+    'keeps the session and reports HTTP %s during product-request recovery',
+    async (status, kind) => {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(status, null));
+      const sessionStore = createCarelogAuthSessionStore();
+      setTokens(sessionStore, 'access-one', 'refresh-one');
+      const runtime = runtimeWith(fetchImpl, sessionStore);
+
+      await expect(runtime.authPort.recoverSession()).resolves.toEqual({
+        ok: false,
+        failure: { kind },
+      });
+      expect(runtime.sessionStore.getAccessToken()).toBe('access-one');
+      expect(runtime.sessionStore.getRefreshToken()).toBe('refresh-one');
+    },
+  );
+
+  it('keeps the session and reports a network failure during product-request recovery', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('offline'));
+    const sessionStore = createCarelogAuthSessionStore();
+    setTokens(sessionStore, 'access-one', 'refresh-one');
+    const runtime = runtimeWith(fetchImpl, sessionStore);
+
+    await expect(runtime.authPort.recoverSession()).resolves.toEqual({
+      ok: false,
+      failure: { kind: AUTH_ERROR_KIND.NETWORK },
+    });
+    expect(runtime.sessionStore.getRefreshToken()).toBe('refresh-one');
+  });
+
   it('logs out with the captured bearer, then clears local session state before the request settles', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(204));
     const sessionStore = createCarelogAuthSessionStore();
