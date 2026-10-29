@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - codex/rpl64-f4-1h-integration-20261027
-      - recovery/f4-rpl64
 
 permissions:
   contents: read
