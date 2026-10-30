@@ -131,7 +131,7 @@ test('failed recovery returns to Auth Entry without stale product DOM', async ({
   test.skip(page.viewportSize()?.width !== 1024, 'failure boundary runs at the tablet target');
   await useAuthAdapterScenario(page, {
     bootstrap: 'authenticated',
-    recovery: 'server',
+    recovery: 'unauthorized',
     recoveryDelayMs: 80,
   });
   await page.goto('/app/schedule');
@@ -141,6 +141,30 @@ test('failed recovery returns to Auth Entry without stale product DOM', async ({
   await expect(page.locator('[data-auth-entry]')).toBeVisible();
   await expectProtectedSurfaceAbsent(page);
   await expect(page.locator('[data-auth-recovery-banner]')).toHaveCount(0);
+});
+
+test('server recovery failure retains the authenticated product session', async ({ page }) => {
+  test.skip(
+    page.viewportSize()?.width !== 1024,
+    'server recovery boundary runs at the tablet target',
+  );
+  await useAuthAdapterScenario(page, {
+    bootstrap: 'authenticated',
+    recovery: 'server',
+    recoveryDelayMs: 80,
+  });
+  await page.goto('/app/schedule');
+  await expect(page.locator('[data-schedule-page]')).toBeVisible();
+
+  await triggerAuthFailure(page, 'UNAUTHORIZED');
+
+  await expect(page.locator('[data-auth-operation-error]')).toBeVisible();
+  await expect(page.locator('[data-auth-entry]')).toHaveCount(0);
+  await expect(page.locator('[data-app-shell]')).toHaveCount(1);
+  await expect(page.locator('[data-schedule-page]')).toHaveCount(1);
+  await expect(page.locator('[data-auth-recovery-banner]')).toHaveCount(0);
+  expect(await readAuthRecoveryAttemptCount(page)).toBe(1);
+  expect(await readAuthLogoutAttemptCount(page)).toBe(0);
 });
 
 test('403 keeps the product state and does not show a retry without a callback', async ({

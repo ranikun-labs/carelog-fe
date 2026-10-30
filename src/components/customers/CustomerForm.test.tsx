@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
 import { CustomerForm, type CustomerFormValues } from '@/components/customers/CustomerForm';
+import { CarelogHttpError } from '@/integrations/carelog/errors';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
 
@@ -96,6 +97,28 @@ describe('CustomerForm', () => {
 
     expect(onSubmit).toHaveBeenCalledWith({ displayName: '수정 고객', customerMemo: '' });
     expect(screen.getByRole('button', { name: '저장' })).toBeVisible();
+  });
+
+  it('shows an authentication save error and allows the customer edit to be retried', async () => {
+    const onSubmit = vi
+      .fn<(values: CustomerFormValues) => Promise<boolean>>()
+      .mockRejectedValueOnce(new CarelogHttpError(401))
+      .mockResolvedValueOnce(true);
+    renderForm('edit', onSubmit);
+    fireEvent.change(screen.getByLabelText('고객 이름'), { target: { value: '수정 고객' } });
+    fireEvent.change(screen.getByLabelText('고객 메모'), { target: { value: '수정 메모' } });
+
+    submitForm();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '세션이 만료되었습니다. 잠시 후 다시 시도해 주세요.',
+    );
+
+    submitForm();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    expect(onSubmit).toHaveBeenNthCalledWith(1, {
+      displayName: '수정 고객',
+      customerMemo: '수정 메모',
+    });
   });
 
   it('executes create only once when submit events arrive back-to-back', () => {

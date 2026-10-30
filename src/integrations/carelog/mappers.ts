@@ -4,7 +4,8 @@ import type { CustomerCreateInput } from '@/state/customerStore';
 import type { CustomerRecord } from '@/types/customer';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const OFFSET_TIMESTAMP_PATTERN = /(?:Z|[+-]\d{2}:\d{2})$/;
+const OFFSET_TIMESTAMP_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})$/;
 
 export interface CustomerResponseWire {
   publicId: unknown;
@@ -160,11 +161,13 @@ export function toCustomerEventPatchBody(
   } else if (changes.note !== undefined && nextNote === undefined) {
     body.note = null;
   }
-  if (changes.scheduledAt !== undefined && changes.scheduledAt !== current.scheduledAt) {
-    body.scheduledAt = normalizeRequiredTimestamp(changes.scheduledAt, 'scheduledAt');
+  if (changes.scheduledAt !== undefined) {
+    const scheduledAt = normalizeRequiredTimestamp(changes.scheduledAt, 'scheduledAt');
+    if (!hasSameInstant(scheduledAt, current.scheduledAt)) body.scheduledAt = scheduledAt;
   }
-  if (changes.occurredAt !== undefined && changes.occurredAt !== current.occurredAt) {
-    body.occurredAt = normalizeRequiredTimestamp(changes.occurredAt, 'occurredAt');
+  if (changes.occurredAt !== undefined) {
+    const occurredAt = normalizeRequiredTimestamp(changes.occurredAt, 'occurredAt');
+    if (!hasSameInstant(occurredAt, current.occurredAt)) body.occurredAt = occurredAt;
   }
   return body;
 }
@@ -209,11 +212,7 @@ function mapCustomerMemo(value: unknown): string | undefined {
 
 function mapOptionalTimestamp(value: unknown, label: string): string | undefined {
   if (value === undefined || value === null) return undefined;
-  if (
-    typeof value !== 'string' ||
-    !OFFSET_TIMESTAMP_PATTERN.test(value) ||
-    Number.isNaN(Date.parse(value))
-  ) {
+  if (typeof value !== 'string' || timestampEpochNanoseconds(value) === undefined) {
     throw new CarelogProtocolError(`${label} is not an offset-bearing timestamp.`, value);
   }
   return value;
@@ -226,10 +225,70 @@ function normalizeRequiredText(value: string, label: string): string {
 }
 
 function normalizeRequiredTimestamp(value: string, label: string): string {
-  if (!value || !OFFSET_TIMESTAMP_PATTERN.test(value) || Number.isNaN(Date.parse(value))) {
+  if (timestampEpochNanoseconds(value) === undefined) {
     throw new CarelogProtocolError(`${label} must be an offset-bearing timestamp.`, value);
   }
   return value;
+}
+
+function hasSameInstant(left: string, right: string | undefined): boolean {
+  const leftInstant = timestampEpochNanoseconds(left);
+  return leftInstant !== undefined && leftInstant === timestampEpochNanoseconds(right);
+}
+
+function timestampEpochNanoseconds(value: string | undefined): bigint | undefined {
+  if (!value) return undefined;
+  const match = OFFSET_TIMESTAMP_PATTERN.exec(value);
+  if (!match) return undefined;
+
+  const [
+    ,
+    yearValue,
+    monthValue,
+    dayValue,
+    hourValue,
+    minuteValue,
+    secondValue,
+    fraction = '',
+    offset,
+  ] = match;
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+  const day = Number(dayValue);
+  const hour = Number(hourValue);
+  const minute = Number(minuteValue);
+  const second = Number(secondValue ?? '0');
+  const daysInMonth =
+    month === 2 ? (isLeapYear(year) ? 29 : 28) : [4, 6, 9, 11].includes(month) ? 30 : 31;
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return undefined;
+  }
+
+  if (offset !== 'Z') {
+    const offsetHour = Number(offset.slice(1, 3));
+    const offsetMinute = Number(offset.slice(4, 6));
+    if (offsetHour > 18 || offsetMinute > 59 || (offsetHour === 18 && offsetMinute !== 0)) {
+      return undefined;
+    }
+  }
+
+  const localDateTime = `${yearValue}-${monthValue}-${dayValue}T${hourValue}:${minuteValue}:${String(second).padStart(2, '0')}`;
+  const epochMilliseconds = Date.parse(`${localDateTime}${offset}`);
+  if (Number.isNaN(epochMilliseconds)) return undefined;
+  const fractionNanoseconds = BigInt(fraction.padEnd(9, '0') || '0');
+  return BigInt(epochMilliseconds) * 1_000_000n + fractionNanoseconds;
+}
+
+function isLeapYear(year: number): boolean {
+  return year % 400 === 0 || (year % 4 === 0 && year % 100 !== 0);
 }
 
 function normalizeOptionalInput(value: string | null | undefined): string | undefined {
