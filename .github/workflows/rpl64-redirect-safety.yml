@@ -44,8 +44,8 @@ jobs:
       - name: Install Playwright Chromium and system dependencies
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run Auth Recovery Playwright regression
-        run: pnpm exec playwright test e2e/auth-recovery.spec.ts
+      - name: Run full static UI Playwright regression
+        run: pnpm test:e2e
 
       - name: Run isolated redirect credential safety test
         run: >-
