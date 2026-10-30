@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -85,7 +86,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
   const mountedRef = useRef(true);
   const operationErrorRef = useRef<AuthOperationError | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     authStateRef.current = authState;
     operationErrorRef.current = operationError;
   }, [authState, operationError]);
@@ -354,7 +355,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     setCurrentOperationError(null);
   }, [setCurrentOperationError]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (import.meta.env.MODE !== 'test' || typeof window === 'undefined') return undefined;
 
     const control = {
@@ -369,6 +370,11 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
         const candidate = port as AuthPort & { logoutAttemptCount?: number };
         return candidate.logoutAttemptCount ?? 0;
       },
+      getRecoveryGuardSnapshot: () => ({
+        authStateRef: authStateRef.current.status,
+        sessionRevisionMatches: sessionRevision === sessionRevisionRef.current,
+        logoutInProgress: Boolean(logoutPromiseRef.current),
+      }),
     };
     window.__CARELOG_TEST_AUTH_CONTROL__ = control;
     return () => {
@@ -376,7 +382,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
         delete window.__CARELOG_TEST_AUTH_CONTROL__;
       }
     };
-  }, [port, reportFailure, runBootstrap]);
+  }, [port, reportFailure, runBootstrap, sessionRevision]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

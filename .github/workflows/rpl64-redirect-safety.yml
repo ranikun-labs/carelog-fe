@@ -1,0 +1,49 @@
+name: RPL-64 Redirect Safety
+
+on:
+  push:
+    branches:
+      - codex/rpl64-f4-1h-integration-20261027
+
+permissions:
+  contents: read
+
+jobs:
+  redirect-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout pushed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up pnpm 11.15.1
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          run_install: false
+
+      - name: Set up Node 22.23.1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Verify checked out source SHA
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend verification
+        run: pnpm verify
+
+      - name: Run isolated redirect credential safety test
+        run: >-
+          pnpm exec playwright test
+          --config=playwright.redirect-safety.config.ts
+          e2e-real/carelog-workspace-isolation.real.spec.ts
+          --grep "Carelog HTTP client rejects a loopback 302 without forwarding credentials"

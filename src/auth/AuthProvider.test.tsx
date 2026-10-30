@@ -8,6 +8,7 @@ import {
   type AuthCommandResult,
   type AuthErrorKind,
   type AuthPort,
+  type AuthStatus,
 } from '@/auth/authTypes';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
 import { createUnavailableAuthPort } from '@/auth/unavailableAuthPort';
@@ -66,6 +67,42 @@ function renderProbe(port: AuthPort) {
       <Probe />
     </AuthProvider>,
   );
+}
+
+type RecoveryGuardDiagnostic = {
+  renderedAuthState: AuthStatus;
+  authStateRef: AuthStatus;
+  sessionRevisionMatches: boolean;
+  logoutInProgress: boolean;
+  recoveryCallsBefore: number;
+  recoveryCallsAfter: number;
+};
+
+function ReportUnauthorizedWhenAuthenticated({
+  recoveries,
+  diagnostics,
+}: {
+  recoveries: readonly unknown[];
+  diagnostics: RecoveryGuardDiagnostic[];
+}) {
+  const auth = useAuth();
+
+  useEffect(() => {
+    if (auth.authState.status !== AUTH_STATE.AUTHENTICATED) return;
+    const snapshot = window.__CARELOG_TEST_AUTH_CONTROL__?.getRecoveryGuardSnapshot?.();
+    if (!snapshot) throw new Error('Test auth recovery snapshot is unavailable.');
+
+    const recoveryCallsBefore = recoveries.length;
+    auth.reportFailure({ kind: AUTH_ERROR_KIND.UNAUTHORIZED });
+    diagnostics.push({
+      renderedAuthState: auth.authState.status,
+      ...snapshot,
+      recoveryCallsBefore,
+      recoveryCallsAfter: recoveries.length,
+    });
+  }, [auth.authState.status, auth.reportFailure, diagnostics, recoveries]);
+
+  return <output data-auth-state>{auth.authState.status}</output>;
 }
 
 let capturedAuth: AuthContextValue;
@@ -205,6 +242,29 @@ it('returns to anonymous after a rejected refresh credential', async () => {
   });
   await expectState(AUTH_STATE.ANONYMOUS);
   expect(recoveryCalls).toBe(1);
+});
+
+it('uses the committed authenticated state before a consumer effect reports 401', async () => {
+  const { port, recoveries } = createControlledRecoveryPort();
+  const diagnostics: RecoveryGuardDiagnostic[] = [];
+  render(
+    <AuthProvider authPort={port}>
+      <ReportUnauthorizedWhenAuthenticated recoveries={recoveries} diagnostics={diagnostics} />
+    </AuthProvider>,
+  );
+
+  await waitFor(() => expect(diagnostics).toHaveLength(1));
+  expect(diagnostics).toEqual([
+    {
+      renderedAuthState: AUTH_STATE.AUTHENTICATED,
+      authStateRef: AUTH_STATE.AUTHENTICATED,
+      sessionRevisionMatches: true,
+      logoutInProgress: false,
+      recoveryCallsBefore: 0,
+      recoveryCallsAfter: 1,
+    },
+  ]);
+  expect(recoveries).toHaveLength(1);
 });
 
 it.each([AUTH_ERROR_KIND.FORBIDDEN, AUTH_ERROR_KIND.SERVER, AUTH_ERROR_KIND.NETWORK] as const)(

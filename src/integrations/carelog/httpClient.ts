@@ -3,10 +3,10 @@ import {
   CarelogHttpError,
   CarelogNetworkError,
   CarelogProtocolError,
-} from '@/integrations/carelog/errors';
+} from './errors';
 
 export interface CarelogSessionProvider {
-  credentials?: RequestCredentials;
+  credentials?: 'omit' | 'same-origin' | 'include';
   getAccessToken?: () => string | undefined | Promise<string | undefined>;
   getSessionVersion?: () => number;
   recoverAccessToken?: () => Promise<string | undefined>;
@@ -64,6 +64,7 @@ export function createCarelogHttpClient({
       try {
         return await fetchImpl(joinUrl(normalizedBaseUrl, path), {
           method,
+          redirect: 'error',
           headers,
           ...(sessionProvider?.credentials ? { credentials: sessionProvider.credentials } : {}),
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),

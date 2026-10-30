@@ -45,6 +45,37 @@ describe('Carelog native HTTP client', () => {
     expect(init.headers).not.toHaveProperty('X-Role');
   });
 
+  it('rejects redirects in the native fetch request and does not retry them', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('redirect rejected'));
+    const client = createCarelogHttpClient({
+      baseUrl: 'https://carelog.example.test',
+      fetchImpl,
+      sessionProvider: { getAccessToken: () => 'synthetic-bearer' },
+    });
+
+    await expect(
+      client.post('/api/v1/private', { password: 'synthetic-password' }),
+    ).rejects.toMatchObject({
+      name: 'CarelogNetworkError',
+      message: 'The Carelog API could not be reached.',
+    });
+
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://carelog.example.test/api/v1/private',
+      expect.objectContaining({
+        method: 'POST',
+        redirect: 'error',
+        headers: {
+          Accept: 'application/json',
+          Authorization: 'Bearer synthetic-bearer',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: 'synthetic-password' }),
+      }),
+    );
+  });
+
   it('rejects malformed success envelopes as protocol errors', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response(200, JSON.stringify({ data: {} })));
     const client = createCarelogHttpClient({ baseUrl: 'https://carelog.example.test', fetchImpl });

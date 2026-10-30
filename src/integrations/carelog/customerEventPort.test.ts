@@ -122,6 +122,28 @@ describe('Carelog CustomerEvent port', () => {
     expect(client.post).toHaveBeenNthCalledWith(2, `/api/v1/customer-events/${eventId}/cancel`);
   });
 
+  it('does not send a reschedule when a local-offset edit preserves the server instant', async () => {
+    const serverEvent: CustomerEvent = {
+      ...planned,
+      scheduledAt: '2026-08-20T01:00:00Z',
+    };
+    const client = {
+      get: vi.fn(),
+      post: vi.fn(),
+      patch: vi.fn().mockResolvedValue({ ...serverEvent, note: '수정 메모' }),
+    };
+    const port = createCarelogCustomerEventPort(client);
+
+    await port.edit(serverEvent, {
+      scheduledAt: '2026-08-20T10:00:00+09:00',
+      note: '수정 메모',
+    });
+
+    expect(client.patch).toHaveBeenCalledWith(`/api/v1/customer-events/${eventId}`, {
+      note: '수정 메모',
+    });
+  });
+
   it('rejects unbounded or partial ranges before making an HTTP request', async () => {
     const client = { get: vi.fn(), post: vi.fn(), patch: vi.fn() };
     const port = createCarelogCustomerEventPort(client);
