@@ -244,6 +244,20 @@ it('returns to anonymous after a rejected refresh credential', async () => {
   expect(recoveryCalls).toBe(1);
 });
 
+it('clears the in-memory session after unauthorized recovery', async () => {
+  const port = createInMemoryAuthPort({
+    bootstrap: 'authenticated',
+    recovery: 'unauthorized',
+  });
+
+  expect(await port.bootstrapSession()).toEqual({ status: 'authenticated' });
+  expect(await port.recoverSession()).toEqual({
+    ok: false,
+    failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED },
+  });
+  expect(await port.bootstrapSession()).toEqual({ status: 'anonymous' });
+});
+
 it('uses the committed authenticated state before a consumer effect reports 401', async () => {
   const { port, recoveries } = createControlledRecoveryPort();
   const diagnostics: RecoveryGuardDiagnostic[] = [];

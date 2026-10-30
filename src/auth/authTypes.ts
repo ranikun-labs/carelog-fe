@@ -81,6 +81,9 @@ export type InMemoryAuthCommandOutcome =
   | 'network'
   | 'unknown';
 
+export type InMemoryAuthRecoveryOutcome =
+  Exclude<InMemoryAuthCommandOutcome, 'invalid-credentials' | 'generic-failure'> | 'unauthorized';
+
 export type InMemoryAuthBootstrapMode = 'anonymous' | 'authenticated' | 'recoverable' | 'error';
 
 /**
@@ -93,7 +96,7 @@ export interface InMemoryAuthAdapterOptions {
   bootstrapFailure?: AuthErrorKind;
   login?: InMemoryAuthCommandOutcome;
   signup?: InMemoryAuthCommandOutcome;
-  recovery?: Exclude<InMemoryAuthCommandOutcome, 'invalid-credentials' | 'generic-failure'>;
+  recovery?: InMemoryAuthRecoveryOutcome;
   /** Test-only timing controls for exercising async auth boundaries. */
   bootstrapDelayMs?: number;
   recoveryDelayMs?: number;
