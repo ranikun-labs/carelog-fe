@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 
 import { AppRouter } from '@/app/AppRouter';
-import { AUTH_STATE } from '@/auth/authTypes';
+import { AUTH_ERROR_KIND, AUTH_STATE, type AuthPort } from '@/auth/authTypes';
 import { useOptionalAuth } from '@/auth/AuthProvider';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
 import { FixtureStateProviders } from '@/components/layout/FixtureStateProviders';
@@ -88,7 +88,10 @@ async function signInFromLoginPage() {
   await screen.findByRole('heading', { name: 'Carelog 로그인' });
   fireEvent.change(screen.getByLabelText('계정'), { target: { value: 'owner@example.test' } });
   fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'test-secret' } });
-  fireEvent.click(screen.getByRole('button', { name: '로그인' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: '로그인' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 describe('application router', () => {
@@ -365,6 +368,42 @@ describe('application router', () => {
     expect(screen.getByRole('link', { name: '첫 고객 추가' })).toBeVisible();
   });
 
+  it.each([
+    { customers: [] as readonly CustomerRecord[], destination: 'customers' },
+    { customers: CUSTOMER_FIXTURE_RECORDS.slice(0, 1), destination: 'schedule' },
+  ])(
+    'waits for bootstrap customer data before routing an authenticated session with $destination',
+    async ({ customers: loadedCustomers, destination }) => {
+      const request = createDeferred<readonly CustomerRecord[]>();
+      const list = vi.fn(() => request.promise);
+      const authPort = createInMemoryAuthPort({ bootstrap: 'authenticated' });
+      render(
+        <MemoryRouter initialEntries={['/auth/entry']}>
+          <AppRouter
+            authPort={authPort}
+            stateProviders={createPostLoginStateProviders(createListCustomerPort(list))}
+          />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+      expect(screen.getByRole('status')).toHaveTextContent('고객 정보를 불러오는 중입니다');
+      expect(screen.queryByText('아직 고객이 없습니다')).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: '일정' })).not.toBeInTheDocument();
+
+      await act(async () => {
+        request.resolve(loadedCustomers);
+        await request.promise;
+      });
+
+      if (destination === 'customers') {
+        expect(await screen.findByText('아직 고객이 없습니다')).toBeVisible();
+      } else {
+        expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
+      }
+    },
+  );
+
   it('routes a customer read failure to the mapped Customers retry path', async () => {
     const failedRead = createDeferred<readonly CustomerRecord[]>();
     const list = vi
@@ -421,5 +460,43 @@ describe('application router', () => {
     expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
     expect(authPort.recoveryAttemptCount).toBe(1);
     expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns an expired session to a fresh login form', async () => {
+    const authPort: AuthPort = {
+      bootstrapSession: async () => ({ status: 'anonymous' }),
+      login: async () => ({ ok: true }),
+      signup: async () => ({ ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } }),
+      logout: async () => undefined,
+      recoverSession: async () => ({
+        ok: false,
+        failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED },
+      }),
+    };
+    const customerRequest = createDeferred<readonly CustomerRecord[]>();
+    const list = vi.fn<CustomerPort['list']>(() => customerRequest.promise);
+    render(
+      <MemoryRouter initialEntries={['/app']}>
+        <AppRouter
+          authPort={authPort}
+          stateProviders={createPostLoginStateProviders(createListCustomerPort(list))}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('link', { name: '로그인' }));
+    await signInFromLoginPage();
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      customerRequest.reject(new CarelogHttpError(401));
+      await customerRequest.promise.catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await waitFor(() => expect(screen.getByLabelText('계정')).toHaveValue(''));
+    expect(screen.getByRole('heading', { name: 'Carelog 로그인' })).toBeVisible();
+    expect(screen.getByRole('link', { name: '회원가입' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: '일정' })).not.toBeInTheDocument();
+    expect(list).toHaveBeenCalledTimes(1);
   });
 });

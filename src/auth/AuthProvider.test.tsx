@@ -8,6 +8,7 @@ import {
   type AuthCommandResult,
   type AuthErrorKind,
   type AuthPort,
+  type AuthStatus,
 } from '@/auth/authTypes';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
 import { createUnavailableAuthPort } from '@/auth/unavailableAuthPort';
@@ -66,6 +67,42 @@ function renderProbe(port: AuthPort) {
       <Probe />
     </AuthProvider>,
   );
+}
+
+type RecoveryGuardDiagnostic = {
+  renderedAuthState: AuthStatus;
+  authStateRef: AuthStatus;
+  sessionRevisionMatches: boolean;
+  logoutInProgress: boolean;
+  recoveryCallsBefore: number;
+  recoveryCallsAfter: number;
+};
+
+function ReportUnauthorizedWhenAuthenticated({
+  recoveries,
+  diagnostics,
+}: {
+  recoveries: readonly unknown[];
+  diagnostics: RecoveryGuardDiagnostic[];
+}) {
+  const auth = useAuth();
+
+  useEffect(() => {
+    if (auth.authState.status !== AUTH_STATE.AUTHENTICATED) return;
+    const snapshot = window.__CARELOG_TEST_AUTH_CONTROL__?.getRecoveryGuardSnapshot?.();
+    if (!snapshot) throw new Error('Test auth recovery snapshot is unavailable.');
+
+    const recoveryCallsBefore = recoveries.length;
+    auth.reportFailure({ kind: AUTH_ERROR_KIND.UNAUTHORIZED });
+    diagnostics.push({
+      renderedAuthState: auth.authState.status,
+      ...snapshot,
+      recoveryCallsBefore,
+      recoveryCallsAfter: recoveries.length,
+    });
+  }, [auth.authState.status, auth.reportFailure, diagnostics, recoveries]);
+
+  return <output data-auth-state>{auth.authState.status}</output>;
 }
 
 let capturedAuth: AuthContextValue;
@@ -190,8 +227,13 @@ it('coalesces concurrent 401 signals into one recovery promise', async () => {
   expect(port.recoveryAttemptCount).toBe(1);
 });
 
-it('returns to anonymous after one failed recovery', async () => {
-  const port = createInMemoryAuthPort({ bootstrap: 'authenticated', recovery: 'server' });
+it('returns to anonymous after a rejected refresh credential', async () => {
+  const port = createInMemoryAuthPort({ bootstrap: 'authenticated' });
+  let recoveryCalls = 0;
+  port.recoverSession = async () => {
+    recoveryCalls += 1;
+    return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED } };
+  };
   renderProbe(port);
   await expectState(AUTH_STATE.AUTHENTICATED);
   await act(async () => {
@@ -199,8 +241,67 @@ it('returns to anonymous after one failed recovery', async () => {
     await Promise.resolve();
   });
   await expectState(AUTH_STATE.ANONYMOUS);
-  expect(port.recoveryAttemptCount).toBe(1);
+  expect(recoveryCalls).toBe(1);
 });
+
+it('clears the in-memory session after unauthorized recovery', async () => {
+  const port = createInMemoryAuthPort({
+    bootstrap: 'authenticated',
+    recovery: 'unauthorized',
+  });
+
+  expect(await port.bootstrapSession()).toEqual({ status: 'authenticated' });
+  expect(await port.recoverSession()).toEqual({
+    ok: false,
+    failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED },
+  });
+  expect(await port.bootstrapSession()).toEqual({ status: 'anonymous' });
+});
+
+it('uses the committed authenticated state before a consumer effect reports 401', async () => {
+  const { port, recoveries } = createControlledRecoveryPort();
+  const diagnostics: RecoveryGuardDiagnostic[] = [];
+  render(
+    <AuthProvider authPort={port}>
+      <ReportUnauthorizedWhenAuthenticated recoveries={recoveries} diagnostics={diagnostics} />
+    </AuthProvider>,
+  );
+
+  await waitFor(() => expect(diagnostics).toHaveLength(1));
+  expect(diagnostics).toEqual([
+    {
+      renderedAuthState: AUTH_STATE.AUTHENTICATED,
+      authStateRef: AUTH_STATE.AUTHENTICATED,
+      sessionRevisionMatches: true,
+      logoutInProgress: false,
+      recoveryCallsBefore: 0,
+      recoveryCallsAfter: 1,
+    },
+  ]);
+  expect(recoveries).toHaveLength(1);
+});
+
+it.each([AUTH_ERROR_KIND.FORBIDDEN, AUTH_ERROR_KIND.SERVER, AUTH_ERROR_KIND.NETWORK] as const)(
+  'preserves the authenticated session when recovery fails with %s',
+  async (kind) => {
+    const { port, recoveries } = createControlledRecoveryPort();
+    renderProbe(port);
+    await expectState(AUTH_STATE.AUTHENTICATED);
+
+    await act(async () => {
+      screen.getByRole('button', { name: '401' }).click();
+    });
+    await waitFor(() => expect(recoveries).toHaveLength(1));
+
+    await act(async () => {
+      recoveries[0]!.resolve({ ok: false, failure: { kind } });
+      await recoveries[0]!.promise;
+    });
+
+    await expectState(AUTH_STATE.AUTHENTICATED);
+    expect(document.querySelector('[data-operation-error]')).toHaveTextContent(kind);
+  },
+);
 
 it.each([
   [AUTH_ERROR_KIND.FORBIDDEN, '403'],

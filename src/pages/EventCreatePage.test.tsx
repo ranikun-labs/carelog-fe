@@ -76,7 +76,8 @@ describe('EventCreatePage', () => {
     );
     expect(screen.getByText('박세입 고객')).toBeVisible();
     expect(screen.queryByDisplayValue('OCCURRED')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('예정 시각')).toHaveValue('2026-08-15T12:00');
+    const localTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    expect(screen.getByLabelText('예정 시각')).toHaveValue(`2026-08-15T${localTime}`);
   });
 
   it('creates exactly one PLANNED event and returns it to the selected agenda date', async () => {
