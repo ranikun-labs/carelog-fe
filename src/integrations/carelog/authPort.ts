@@ -131,10 +131,13 @@ export function createCarelogAuthRuntime({
         const tokens = readTokenPair(payload);
         return sessionStore.saveTokens(tokens, version) ? tokens.accessToken : undefined;
       } catch (error) {
-        // A rejected refresh credential means the session has expired. Other
-        // failures are temporary or authorization errors and must stay
-        // distinguishable so callers do not turn them into a logout.
-        if (failureFor(error).kind === AUTH_ERROR_KIND.UNAUTHORIZED) return undefined;
+        // The refresh contract rejects a terminal refresh credential with
+        // either 401 (invalid/expired) or 404 (absent from the session store).
+        // Other failures stay distinguishable so callers do not turn a
+        // temporary server or network problem into a logout.
+        if (error instanceof CarelogHttpError && (error.status === 401 || error.status === 404)) {
+          return undefined;
+        }
         throw error;
       }
     })().finally(() => {

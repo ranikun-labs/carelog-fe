@@ -67,6 +67,7 @@ describe('Carelog Production AuthPort', () => {
   it.each([
     [401, AUTH_ERROR_KIND.UNAUTHORIZED],
     [403, AUTH_ERROR_KIND.FORBIDDEN],
+    [404, AUTH_ERROR_KIND.UNKNOWN],
     [500, AUTH_ERROR_KIND.SERVER],
   ] as const)('maps HTTP %s login failures without creating a session', async (status, kind) => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(status, null));
@@ -115,30 +116,36 @@ describe('Carelog Production AuthPort', () => {
     expect(sessionStore.getRefreshToken()).toBe('refresh-two');
   });
 
-  it('transitions safely to anonymous and clears tokens after a rejected refresh', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(401, null));
-    const sessionStore = createCarelogAuthSessionStore();
-    setTokens(sessionStore, 'expired-access', 'revoked-refresh');
-    const runtime = runtimeWith(fetchImpl, sessionStore);
+  it.each([401, 404] as const)(
+    'transitions safely to anonymous and clears tokens after refresh HTTP %s',
+    async (status) => {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(status, null));
+      const sessionStore = createCarelogAuthSessionStore();
+      setTokens(sessionStore, 'expired-access', 'revoked-refresh');
+      const runtime = runtimeWith(fetchImpl, sessionStore);
 
-    await expect(runtime.authPort.bootstrapSession()).resolves.toEqual({ status: 'anonymous' });
-    expect(runtime.sessionProvider.getAccessToken?.()).toBeUndefined();
-    expect(sessionStore.getRefreshToken()).toBeUndefined();
-  });
+      await expect(runtime.authPort.bootstrapSession()).resolves.toEqual({ status: 'anonymous' });
+      expect(runtime.sessionProvider.getAccessToken?.()).toBeUndefined();
+      expect(sessionStore.getRefreshToken()).toBeUndefined();
+    },
+  );
 
-  it('reports an expired refresh credential as unauthorized during recovery and clears it', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(401, null));
-    const sessionStore = createCarelogAuthSessionStore();
-    setTokens(sessionStore, 'expired-access', 'revoked-refresh');
-    const runtime = runtimeWith(fetchImpl, sessionStore);
+  it.each([401, 404] as const)(
+    'reports refresh HTTP %s as unauthorized during recovery and clears it',
+    async (status) => {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(status, null));
+      const sessionStore = createCarelogAuthSessionStore();
+      setTokens(sessionStore, 'expired-access', 'revoked-refresh');
+      const runtime = runtimeWith(fetchImpl, sessionStore);
 
-    await expect(runtime.authPort.recoverSession()).resolves.toEqual({
-      ok: false,
-      failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED },
-    });
-    expect(runtime.sessionStore.getAccessToken()).toBeUndefined();
-    expect(runtime.sessionStore.getRefreshToken()).toBeUndefined();
-  });
+      await expect(runtime.authPort.recoverSession()).resolves.toEqual({
+        ok: false,
+        failure: { kind: AUTH_ERROR_KIND.UNAUTHORIZED },
+      });
+      expect(runtime.sessionStore.getAccessToken()).toBeUndefined();
+      expect(runtime.sessionStore.getRefreshToken()).toBeUndefined();
+    },
+  );
 
   it.each([
     [403, AUTH_ERROR_KIND.FORBIDDEN],
@@ -284,6 +291,31 @@ describe('Carelog Production AuthPort', () => {
     ]);
     expect(onUnauthorized).toHaveBeenCalledTimes(2);
     expect(runtime.sessionStore.getRefreshToken()).toBe('refresh-two');
+  });
+
+  it('clears a stale session when the refresh token is absent from the server store', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+      return String(input).endsWith('/api/v1/auth/refresh')
+        ? response(404, null)
+        : response(401, null);
+    });
+    const sessionStore = createCarelogAuthSessionStore();
+    setTokens(sessionStore, 'expired-access', 'missing-refresh');
+    const runtime = runtimeWith(fetchImpl, sessionStore);
+    const onTerminalUnauthorized = vi.fn();
+    const client = createCarelogHttpClient({
+      baseUrl: runtime.apiBaseUrl,
+      fetchImpl,
+      sessionProvider: runtime.sessionProvider,
+      onTerminalUnauthorized,
+    });
+
+    await expect(client.get('/api/v1/private')).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sessionStore.getAccessToken()).toBeUndefined();
+    expect(sessionStore.getRefreshToken()).toBeUndefined();
+    expect(onTerminalUnauthorized).toHaveBeenCalledOnce();
   });
 
   it('invalidates tokens after a refreshed product retry receives terminal 401', async () => {
