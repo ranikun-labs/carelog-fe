@@ -172,6 +172,17 @@ export function EventStoreProvider({
         recordError(nextError);
         setScheduleLoadState('error');
         throw nextError;
+      } finally {
+        // A confirmed mutation invalidates this read's data, not its completion.
+        // Do not clear the loading state owned by a newer request or session.
+        if (
+          mountedRef.current &&
+          isSessionOwner() &&
+          readGeneration === scheduleReadGenerationRef.current &&
+          mutationEpoch !== mutationEpochRef.current
+        ) {
+          setScheduleLoadState('ready');
+        }
       }
     },
     [isSessionOwner, port, recordError, requireSessionOwner],
