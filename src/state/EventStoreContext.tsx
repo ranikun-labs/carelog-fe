@@ -189,7 +189,7 @@ export function EventStoreProvider({
   );
 
   const loadCustomerDetail = useCallback(
-    async (customerId: string, now: Date) => {
+    async function readLatestCustomerDetail(customerId: string, now: Date): Promise<void> {
       requireSessionOwner();
       const readGeneration = ++detailReadGenerationRef.current;
       const mutationEpoch = mutationEpochRef.current;
@@ -205,10 +205,14 @@ export function EventStoreProvider({
         if (
           !mountedRef.current ||
           !isSessionOwner() ||
-          readGeneration !== detailReadGenerationRef.current ||
-          mutationEpoch !== mutationEpochRef.current
+          readGeneration !== detailReadGenerationRef.current
         ) {
           return;
+        }
+        // Only a confirmed mutation invalidates the current snapshot. Refetch it
+        // under a new generation instead of publishing partial or obsolete data.
+        if (mutationEpoch !== mutationEpochRef.current) {
+          return readLatestCustomerDetail(customerId, now);
         }
         setSnapshots((current) => ({ ...current, [customerId]: { upcoming, history } }));
         for (const event of [...upcoming, ...history]) dispatch({ type: 'upsert', event });
@@ -217,10 +221,12 @@ export function EventStoreProvider({
         if (
           !mountedRef.current ||
           !isSessionOwner() ||
-          readGeneration !== detailReadGenerationRef.current ||
-          mutationEpoch !== mutationEpochRef.current
+          readGeneration !== detailReadGenerationRef.current
         ) {
           return;
+        }
+        if (mutationEpoch !== mutationEpochRef.current) {
+          return readLatestCustomerDetail(customerId, now);
         }
         recordError(nextError);
         setDetailLoadState('error');
