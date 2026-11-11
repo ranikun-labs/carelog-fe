@@ -88,6 +88,91 @@ function customerPort(overrides: Partial<CustomerPort>): CustomerPort {
 }
 
 describe('async read race guards', () => {
+  it.each(['resolve', 'reject'] as const)(
+    'settles schedule loading when a pre-mutation read later %ss',
+    async (outcome) => {
+      const oldRead = deferred<readonly CustomerEvent[]>();
+      const createdEvent = { ...eventB, id: 'confirmed-after-pending-read' };
+      let store: EventStoreValue | undefined;
+      render(
+        <EventStoreProvider
+          initialEvents={[]}
+          port={eventPort({
+            list: vi.fn().mockReturnValue(oldRead.promise),
+            create: vi.fn().mockResolvedValue(createdEvent),
+          })}
+        >
+          <EventProbe onStore={(value) => (store = value)} />
+        </EventStoreProvider>,
+      );
+      let read: Promise<void>;
+      await act(async () => {
+        read = store!.loadSchedule(rangeA);
+      });
+      expect(store!.scheduleLoadState).toBe('loading');
+      await act(async () => {
+        await store!.createEvent({
+          status: 'PLANNED',
+          customerId: createdEvent.customerId,
+          scheduledAt: createdEvent.scheduledAt,
+        });
+      });
+      await act(async () => {
+        if (outcome === 'resolve') oldRead.resolve([eventA]);
+        else oldRead.reject(new Error('obsolete pre-mutation failure'));
+        await read!;
+      });
+      expect(store!.events).toEqual([createdEvent]);
+      expect(store!.error).toBeNull();
+      expect(store!.scheduleLoadState).toBe('ready');
+    },
+  );
+
+  it('keeps a newer schedule read loading when the pre-mutation read settles', async () => {
+    const oldRead = deferred<readonly CustomerEvent[]>();
+    const newRead = deferred<readonly CustomerEvent[]>();
+    const createdEvent = { ...eventB, id: 'confirmed-before-newer-read' };
+    let store: EventStoreValue | undefined;
+    render(
+      <EventStoreProvider
+        initialEvents={[]}
+        port={eventPort({
+          list: vi.fn().mockReturnValueOnce(oldRead.promise).mockReturnValueOnce(newRead.promise),
+          create: vi.fn().mockResolvedValue(createdEvent),
+        })}
+      >
+        <EventProbe onStore={(value) => (store = value)} />
+      </EventStoreProvider>,
+    );
+    let older: Promise<void>;
+    let newer: Promise<void>;
+    await act(async () => {
+      older = store!.loadSchedule(rangeA);
+    });
+    await act(async () => {
+      await store!.createEvent({
+        status: 'PLANNED',
+        customerId: createdEvent.customerId,
+        scheduledAt: createdEvent.scheduledAt,
+      });
+    });
+    await act(async () => {
+      newer = store!.loadSchedule(rangeB);
+    });
+    await act(async () => {
+      oldRead.resolve([eventA]);
+      await older!;
+    });
+    expect(store!.events).toEqual([createdEvent]);
+    expect(store!.scheduleLoadState).toBe('loading');
+    await act(async () => {
+      newRead.resolve([createdEvent, eventA]);
+      await newer!;
+    });
+    expect(store!.events).toEqual([createdEvent, eventA]);
+    expect(store!.scheduleLoadState).toBe('ready');
+  });
+
   it('keeps the newest schedule range when an older request resolves last', async () => {
     const requestA = deferred<readonly CustomerEvent[]>();
     const requestB = deferred<readonly CustomerEvent[]>();

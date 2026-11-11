@@ -13,7 +13,7 @@ import { EventStoreProvider } from '@/state/EventStoreContext';
 import type { CustomerRecord } from '@/types/customer';
 import { CarelogHttpError } from '@/integrations/carelog/errors';
 
-const now = new Date('2026-08-11T12:00:00+09:00');
+const now = new Date(2026, 7, 11, 12, 0, 0);
 const customer: CustomerRecord = {
   id: 'customer-1',
   displayName: '박세입',
