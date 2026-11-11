@@ -146,6 +146,17 @@ export function CustomerStoreProvider({
       recordError(nextError);
       setLoadState('error');
       throw nextError;
+    } finally {
+      // A confirmed save invalidates the read's data, not its completion.
+      // Preserve loading owned by a newer refresh or a different session.
+      if (
+        mountedRef.current &&
+        isSessionOwner() &&
+        readGeneration === listReadGenerationRef.current &&
+        mutationEpoch !== mutationEpochRef.current
+      ) {
+        setLoadState('ready');
+      }
     }
   }, [isSessionOwner, port, recordError, requireSessionOwner]);
 
