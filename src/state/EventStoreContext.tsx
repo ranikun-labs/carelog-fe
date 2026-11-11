@@ -189,13 +189,19 @@ export function EventStoreProvider({
   );
 
   const loadCustomerDetail = useCallback(
-    async function readLatestCustomerDetail(customerId: string, now: Date): Promise<void> {
+    async function readLatestCustomerDetail(
+      customerId: string,
+      now: Date,
+      resetErrorOnStart = true,
+    ): Promise<void> {
       requireSessionOwner();
       const readGeneration = ++detailReadGenerationRef.current;
       const mutationEpoch = mutationEpochRef.current;
       setDetailLoadState('loading');
-      setError(null);
-      setErrorCode(null);
+      if (resetErrorOnStart) {
+        setError(null);
+        setErrorCode(null);
+      }
       const range = buildCustomerUpcomingRange(now, 366);
       try {
         const [upcoming, history] = await Promise.all([
@@ -212,7 +218,7 @@ export function EventStoreProvider({
         // Only a confirmed mutation invalidates the current snapshot. Refetch it
         // under a new generation instead of publishing partial or obsolete data.
         if (mutationEpoch !== mutationEpochRef.current) {
-          return readLatestCustomerDetail(customerId, now);
+          return readLatestCustomerDetail(customerId, now, false);
         }
         setSnapshots((current) => ({ ...current, [customerId]: { upcoming, history } }));
         for (const event of [...upcoming, ...history]) dispatch({ type: 'upsert', event });
@@ -226,7 +232,7 @@ export function EventStoreProvider({
           return;
         }
         if (mutationEpoch !== mutationEpochRef.current) {
-          return readLatestCustomerDetail(customerId, now);
+          return readLatestCustomerDetail(customerId, now, false);
         }
         recordError(nextError);
         setDetailLoadState('error');

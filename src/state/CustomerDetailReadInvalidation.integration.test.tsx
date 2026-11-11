@@ -310,3 +310,45 @@ it('does not invalidate the detail read when saving fails', async () => {
   expect(list).toHaveBeenCalledTimes(2);
   expect(value().events).not.toContainEqual(confirmed);
 });
+
+it('retains a later save error while automatically refreshing an invalidated detail read', async () => {
+  const old = pendingValue<readonly CustomerEvent[]>();
+  const rejectedSave = new Error('second save rejected');
+  const list = vi
+    .fn<CustomerEventPort['list']>()
+    .mockReturnValueOnce(old.promise)
+    .mockReturnValueOnce(old.promise)
+    .mockImplementation((query) => Promise.resolve(query.from ? [confirmed] : [previous]));
+  const port = portWith(list);
+  port.create = vi.fn().mockResolvedValueOnce(confirmed).mockRejectedValueOnce(rejectedSave);
+  const { value } = mountStore(port);
+  let read!: Promise<void>;
+  await act(async () => {
+    read = value().loadCustomerDetail(customer.id, now);
+  });
+  await save(value);
+  await act(async () => {
+    await expect(
+      value().createEvent({
+        status: 'PLANNED',
+        customerId: customer.id,
+        scheduledAt: confirmed.scheduledAt!,
+      }),
+    ).rejects.toBe(rejectedSave);
+  });
+  expect(value().error).toBe(rejectedSave);
+  const errorCode = value().errorCode;
+  expect(errorCode).not.toBeNull();
+  await act(async () => {
+    old.finish([]);
+    await read;
+  });
+  expect(value().error).toBe(rejectedSave);
+  expect(value().errorCode).toBe(errorCode);
+  expect(value().detailLoadState).toBe('ready');
+  expect(value().getCustomerSnapshot(customer.id)).toEqual({
+    upcoming: [confirmed],
+    history: [previous],
+  });
+  expect(list).toHaveBeenCalledTimes(4);
+});
