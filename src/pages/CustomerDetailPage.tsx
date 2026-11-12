@@ -57,6 +57,7 @@ export function CustomerDetailPage({
   const loadCustomerDetail = eventStore?.loadCustomerDetail;
   const remoteReadsEnabled = eventStore?.remoteReadsEnabled ?? false;
   const [isCreating, setIsCreating] = useState(false);
+  const addEventTriggerRef = useRef<HTMLButtonElement>(null);
   const scrollSurfaceRef = useRef<HTMLDivElement>(null);
   const customer = customerStore.getCustomer(customerId);
   const queryNowRef = useRef(now);
@@ -227,6 +228,7 @@ export function CustomerDetailPage({
 
           <div className="mt-6 flex flex-wrap gap-2">
             <Button
+              ref={addEventTriggerRef}
               type="button"
               variant="outline"
               disabled={!createEvent || eventStore?.mutationPending}
@@ -258,6 +260,7 @@ export function CustomerDetailPage({
               onCancel={() => {
                 eventCreateActivation?.clearCreateReturnProvenance();
                 setIsCreating(false);
+                addEventTriggerRef.current?.focus();
               }}
             />
           ) : null}
