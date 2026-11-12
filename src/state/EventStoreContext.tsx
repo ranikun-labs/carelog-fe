@@ -189,13 +189,19 @@ export function EventStoreProvider({
   );
 
   const loadCustomerDetail = useCallback(
-    async (customerId: string, now: Date) => {
+    async function readLatestCustomerDetail(
+      customerId: string,
+      now: Date,
+      resetErrorOnStart = true,
+    ): Promise<void> {
       requireSessionOwner();
       const readGeneration = ++detailReadGenerationRef.current;
       const mutationEpoch = mutationEpochRef.current;
       setDetailLoadState('loading');
-      setError(null);
-      setErrorCode(null);
+      if (resetErrorOnStart) {
+        setError(null);
+        setErrorCode(null);
+      }
       const range = buildCustomerUpcomingRange(now, 366);
       try {
         const [upcoming, history] = await Promise.all([
@@ -205,10 +211,14 @@ export function EventStoreProvider({
         if (
           !mountedRef.current ||
           !isSessionOwner() ||
-          readGeneration !== detailReadGenerationRef.current ||
-          mutationEpoch !== mutationEpochRef.current
+          readGeneration !== detailReadGenerationRef.current
         ) {
           return;
+        }
+        // Only a confirmed mutation invalidates the current snapshot. Refetch it
+        // under a new generation instead of publishing partial or obsolete data.
+        if (mutationEpoch !== mutationEpochRef.current) {
+          return readLatestCustomerDetail(customerId, now, false);
         }
         setSnapshots((current) => ({ ...current, [customerId]: { upcoming, history } }));
         for (const event of [...upcoming, ...history]) dispatch({ type: 'upsert', event });
@@ -217,10 +227,12 @@ export function EventStoreProvider({
         if (
           !mountedRef.current ||
           !isSessionOwner() ||
-          readGeneration !== detailReadGenerationRef.current ||
-          mutationEpoch !== mutationEpochRef.current
+          readGeneration !== detailReadGenerationRef.current
         ) {
           return;
+        }
+        if (mutationEpoch !== mutationEpochRef.current) {
+          return readLatestCustomerDetail(customerId, now, false);
         }
         recordError(nextError);
         setDetailLoadState('error');
