@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +50,7 @@ export function EventDetail({
   const { locale, t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingOccurrence, setIsConfirmingOccurrence] = useState(false);
+  const occurrenceTriggerRef = useRef<HTMLButtonElement>(null);
   const [isActionPending, setIsActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [occurrenceTime, setOccurrenceTime] = useState(
@@ -195,6 +196,7 @@ export function EventDetail({
             ) : null}
             {event.status === 'PLANNED' && onOccurEvent ? (
               <Button
+                ref={occurrenceTriggerRef}
                 type="button"
                 variant="primary"
                 size="sm"
@@ -255,7 +257,10 @@ export function EventDetail({
                 variant="ghost"
                 size="sm"
                 data-event-occurrence-cancel
-                onClick={() => setIsConfirmingOccurrence(false)}
+                onClick={() => {
+                  setIsConfirmingOccurrence(false);
+                  occurrenceTriggerRef.current?.focus();
+                }}
                 disabled={isActionPending}
               >
                 {t('eventDetail.closeOccurrence')}
