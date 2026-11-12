@@ -158,6 +158,7 @@ export const ko: Messages = {
   customers: {
     title: '고객',
     description: '내가 관리하는 고객 목록입니다.',
+    loadingLabel: '고객 정보를 불러오는 중입니다',
     add: '고객 추가',
     emptyTitle: '아직 고객이 없습니다',
     emptyDescription: '첫 고객을 추가하고 일정을 시작해 보세요.',

@@ -1,14 +1,94 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 
 import { AppRouter } from '@/app/AppRouter';
+import { AUTH_STATE } from '@/auth/authTypes';
+import { useOptionalAuth } from '@/auth/AuthProvider';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
 import { FixtureStateProviders } from '@/components/layout/FixtureStateProviders';
+import type {
+  ProductStateProvider,
+  ProductStateProviderProps,
+} from '@/components/layout/ProductionStateProviders';
+import { CarelogHttpError } from '@/integrations/carelog/errors';
+import { toAuthFailure } from '@/integrations/carelog/errorMapping';
+import type { CustomerPort } from '@/integrations/carelog/customerPort';
+import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
+import { CUSTOMER_FIXTURE_RECORDS } from '@/fixtures/scenarios';
+import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
+import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
+import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
+import { EventStoreProvider } from '@/state/EventStoreContext';
+import type { CustomerRecord } from '@/types/customer';
 
 const authenticatedAuthPort = createInMemoryAuthPort({ bootstrap: 'authenticated' });
 
 function TestAppRouter(props: React.ComponentProps<typeof AppRouter>) {
   return <AppRouter {...props} stateProviders={FixtureStateProviders} />;
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function createPostLoginStateProviders(customerPort: CustomerPort): ProductStateProvider {
+  return function PostLoginStateProviders({ children }: ProductStateProviderProps) {
+    const auth = useOptionalAuth();
+    const remoteReadsEnabled = auth?.authState.status === AUTH_STATE.AUTHENTICATED;
+    const reportFailure = auth?.reportFailure;
+    const onFailure = useMemo(
+      () => (error: unknown) => {
+        const failure = toAuthFailure(error);
+        if (failure) reportFailure?.(failure);
+      },
+      [reportFailure],
+    );
+
+    return (
+      <CustomerStoreProvider
+        port={customerPort}
+        remoteReadsEnabled={remoteReadsEnabled}
+        onFailure={onFailure}
+      >
+        <EventStoreProvider initialEvents={SCHEDULE_FIXTURE.events}>
+          <CustomerFormDraftProvider>
+            <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+          </CustomerFormDraftProvider>
+        </EventStoreProvider>
+      </CustomerStoreProvider>
+    );
+  };
+}
+
+function createListCustomerPort(list: CustomerPort['list']): CustomerPort {
+  return {
+    list,
+    get: async (customerId) => {
+      const customer = CUSTOMER_FIXTURE_RECORDS.find((candidate) => candidate.id === customerId);
+      if (!customer) throw new Error(`Unknown test customer: ${customerId}`);
+      return customer;
+    },
+    create: async (input) => ({ id: 'created-test-customer', displayName: input.displayName }),
+    edit: async (customerId, current, input) => ({
+      ...current,
+      id: customerId,
+      displayName: input.displayName,
+    }),
+  };
+}
+
+async function signInFromLoginPage() {
+  await screen.findByRole('heading', { name: 'Carelog 로그인' });
+  fireEvent.change(screen.getByLabelText('계정'), { target: { value: 'owner@example.test' } });
+  fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'test-secret' } });
+  fireEvent.click(screen.getByRole('button', { name: '로그인' }));
 }
 
 describe('application router', () => {
@@ -231,5 +311,115 @@ describe('application router', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: '계약 갱신 상담' })).toBeVisible();
+  });
+
+  it('waits for the post-login customer read before routing a returning customer to Schedule', async () => {
+    const request = createDeferred<readonly CustomerRecord[]>();
+    const list = vi.fn(() => request.promise);
+    const authPort = createInMemoryAuthPort({ bootstrap: 'anonymous' });
+    render(
+      <MemoryRouter initialEntries={['/auth/login']}>
+        <AppRouter
+          authPort={authPort}
+          stateProviders={createPostLoginStateProviders(createListCustomerPort(list))}
+        />
+      </MemoryRouter>,
+    );
+
+    await signInFromLoginPage();
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('status')).toHaveTextContent('고객 정보를 불러오는 중입니다');
+    expect(screen.queryByText('아직 고객이 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '일정' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      request.resolve(CUSTOMER_FIXTURE_RECORDS.slice(0, 1));
+      await request.promise;
+    });
+    expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
+  });
+
+  it('routes a post-login empty customer result to Customers only after the read is ready', async () => {
+    const request = createDeferred<readonly CustomerRecord[]>();
+    const list = vi.fn(() => request.promise);
+    const authPort = createInMemoryAuthPort({ bootstrap: 'anonymous' });
+    render(
+      <MemoryRouter initialEntries={['/auth/login']}>
+        <AppRouter
+          authPort={authPort}
+          stateProviders={createPostLoginStateProviders(createListCustomerPort(list))}
+        />
+      </MemoryRouter>,
+    );
+
+    await signInFromLoginPage();
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('status')).toHaveTextContent('고객 정보를 불러오는 중입니다');
+    expect(screen.queryByText('아직 고객이 없습니다')).not.toBeInTheDocument();
+
+    await act(async () => {
+      request.resolve([]);
+      await request.promise;
+    });
+    expect(await screen.findByText('아직 고객이 없습니다')).toBeVisible();
+    expect(screen.getByRole('link', { name: '첫 고객 추가' })).toBeVisible();
+  });
+
+  it('routes a customer read failure to the mapped Customers retry path', async () => {
+    const failedRead = createDeferred<readonly CustomerRecord[]>();
+    const list = vi
+      .fn<CustomerPort['list']>()
+      .mockImplementationOnce(() => failedRead.promise)
+      .mockResolvedValueOnce(CUSTOMER_FIXTURE_RECORDS.slice(0, 1));
+    const authPort = createInMemoryAuthPort({ bootstrap: 'anonymous' });
+    render(
+      <MemoryRouter initialEntries={['/auth/login']}>
+        <AppRouter
+          authPort={authPort}
+          stateProviders={createPostLoginStateProviders(createListCustomerPort(list))}
+        />
+      </MemoryRouter>,
+    );
+
+    await signInFromLoginPage();
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      failedRead.reject(new CarelogHttpError(503));
+      await failedRead.promise.catch(() => undefined);
+    });
+    expect(
+      await screen.findByText('서비스가 잠시 응답하지 않습니다. 데이터는 보존됩니다.'),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: '첫 고객 추가' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByText('박세입')).toBeVisible();
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the existing auth recovery flow for a post-login customer 401', async () => {
+    const list = vi
+      .fn<CustomerPort['list']>()
+      .mockRejectedValueOnce(new CarelogHttpError(401))
+      .mockResolvedValueOnce(CUSTOMER_FIXTURE_RECORDS.slice(0, 1));
+    const authPort = createInMemoryAuthPort({
+      bootstrap: 'anonymous',
+      recoveryDelayMs: 50,
+    });
+    render(
+      <MemoryRouter initialEntries={['/auth/login']}>
+        <AppRouter
+          authPort={authPort}
+          stateProviders={createPostLoginStateProviders(createListCustomerPort(list))}
+        />
+      </MemoryRouter>,
+    );
+
+    await signInFromLoginPage();
+    expect(await screen.findByText('세션을 복구하는 중입니다')).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
+    expect(authPort.recoveryAttemptCount).toBe(1);
+    expect(list).toHaveBeenCalledTimes(2);
   });
 });

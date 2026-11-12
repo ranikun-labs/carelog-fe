@@ -143,6 +143,7 @@ export interface Messages {
   customers: {
     title: string;
     description: string;
+    loadingLabel: string;
     add: string;
     emptyTitle: string;
     emptyDescription: string;
