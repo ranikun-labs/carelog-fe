@@ -33,6 +33,27 @@ function getTimeTexts() {
 }
 
 describe('EventDetail', () => {
+  it.each(['2026-08-12T09:00:00+09:00', '2026-08-11T09:00:00+09:00'])(
+    'returns focus to the occurrence trigger after closing confirmation for %s',
+    (scheduledAt) => {
+      const onOccurEvent = vi.fn();
+      renderDetail(
+        { id: 'focus-event', customerId: 'customer-1', status: 'PLANNED', scheduledAt },
+        onOccurEvent,
+      );
+      const trigger = screen.getByRole('button', { name: '기록 완료' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      const close = screen.getByRole('button', { name: '닫기' });
+      close.focus();
+      expect(close).toHaveFocus();
+      fireEvent.click(close);
+      expect(document.querySelector('[data-event-occurrence-confirmation]')).toBeNull();
+      expect(trigger).toHaveFocus();
+      expect(onOccurEvent).not.toHaveBeenCalled();
+    },
+  );
+
   it('renders normal and overdue planned states without mutation controls', () => {
     const { unmount } = renderDetail({
       id: 'planned',
