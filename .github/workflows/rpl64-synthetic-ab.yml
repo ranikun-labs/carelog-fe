@@ -1,0 +1,121 @@
+name: Carelog RPL-64 synthetic browser A/B
+
+on:
+  push:
+    branches:
+      - codex/rpl64-synthetic-ab-hosted-20261118
+    paths:
+      - .github/workflows/rpl64-synthetic-ab.yml
+      - scripts/rpl64-hosted-synthetic-ab.sh
+      - scripts/rpl64-hosted-synthetic-ab-browser.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: carelog-rpl64-synthetic-ab-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  synthetic-account-isolation:
+    if: github.repository == 'ranikun-labs/carelog-fe' && github.ref == 'refs/heads/codex/rpl64-synthetic-ab-hosted-20261118'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:18.4-alpine3.24
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+      valkey:
+        image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+        ports:
+          - 127.0.0.1:6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - name: Check out workflow candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Check out merged Carelog FE
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ranikun-labs/carelog-fe
+          ref: c4d67d4986fb0fabcf2014e73753b19f4ce0334d
+          path: carelog-fe-source
+          persist-credentials: false
+      - name: Check out current Carelog BE default
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ranikun-labs/carelog-be
+          ref: a03e19a4a15c52e2de79bf08934b060cd71d7b3a
+          path: carelog-be-source
+          persist-credentials: false
+      - name: Check out merged Core and Gateway
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ranikun-labs/platform-services
+          ref: 5a0b0dc38f1d53655cc21613f9b202a317d7c37d
+          path: platform-source
+          persist-credentials: false
+      - name: Bind exact source trees and relevant contracts
+        shell: bash
+        env:
+          WORKFLOW_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "ranikun-labs/carelog-fe"
+          test "$GITHUB_REF" = "refs/heads/codex/rpl64-synthetic-ab-hosted-20261118"
+          test "$(git -C candidate rev-parse HEAD)" = "$WORKFLOW_SOURCE_SHA"
+          test "$(git -C carelog-fe-source rev-parse HEAD)" = "c4d67d4986fb0fabcf2014e73753b19f4ce0334d"
+          test "$(git -C carelog-fe-source rev-parse 'HEAD^{tree}')" = "ed145d2d2b43ec3a4ee5e2f21efb513e336e1af2"
+          test "$(git -C carelog-fe-source rev-parse HEAD:vite.config.ts)" = "22be4bd5611c05a5e89ea823fe03552efd4c124c"
+          test "$(git -C carelog-be-source rev-parse HEAD)" = "a03e19a4a15c52e2de79bf08934b060cd71d7b3a"
+          test "$(git -C carelog-be-source rev-parse 'HEAD^{tree}')" = "39bb59a423e264bb345924a8ad825e5af30c9551"
+          test "$(git -C carelog-be-source rev-parse HEAD:carelog-be/src/main/resources/application.yml)" = "25b267920f33136d79e8dbcf6468b544b1009d45"
+          test "$(git -C carelog-be-source rev-parse HEAD:carelog-be/src/main/resources/db/migration/V8__customer_events.sql)" = "57f345e601e77f142d3bcafae5bdd06d8166d743"
+          test "$(git -C platform-source rev-parse HEAD)" = "5a0b0dc38f1d53655cc21613f9b202a317d7c37d"
+          test "$(git -C platform-source rev-parse 'HEAD^{tree}')" = "9057914850b9e0026fa8851cbb062c692a51b4b3"
+          test "$(git -C platform-source rev-parse HEAD:gateway-app/src/main/resources/application.yml)" = "16749f29e103292d0f71e2127e79f1f093f4e123"
+          printf 'candidate_sha=%s\ncarelog_fe_sha=c4d67d4986fb0fabcf2014e73753b19f4ce0334d\ncarelog_fe_tree=ed145d2d2b43ec3a4ee5e2f21efb513e336e1af2\ncarelog_be_sha=a03e19a4a15c52e2de79bf08934b060cd71d7b3a\ncarelog_be_tree=39bb59a423e264bb345924a8ad825e5af30c9551\nplatform_sha=5a0b0dc38f1d53655cc21613f9b202a317d7c37d\nplatform_tree=9057914850b9e0026fa8851cbb062c692a51b4b3\n' \
+            "$WORKFLOW_SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Set up Java 17 and 21
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+      - name: Set up Node.js and pnpm for pinned FE
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.23.1
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 11.15.1
+          run_install: false
+      - name: Install exact FE dependencies and Chromium
+        working-directory: carelog-fe-source
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+      - name: Run list-only synthetic account A/B flow
+        working-directory: candidate
+        run: >-
+          bash ./scripts/rpl64-hosted-synthetic-ab.sh
+          "$GITHUB_WORKSPACE/carelog-fe-source"
+          "$GITHUB_WORKSPACE/carelog-be-source"
+          "$GITHUB_WORKSPACE/platform-source"
