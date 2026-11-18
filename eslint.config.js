@@ -34,7 +34,7 @@ export default tseslint.config(
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['*.config.ts', 'e2e/**/*.ts'],
+    files: ['*.config.ts', 'e2e/**/*.ts', 'e2e-real/**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,

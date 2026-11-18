@@ -130,8 +130,15 @@ export function createCarelogAuthRuntime({
         const payload = await requireClient().post<unknown>(REFRESH_PATH, { refreshToken });
         const tokens = readTokenPair(payload);
         return sessionStore.saveTokens(tokens, version) ? tokens.accessToken : undefined;
-      } catch {
-        return undefined;
+      } catch (error) {
+        // The refresh contract rejects a terminal refresh credential with
+        // either 401 (invalid/expired) or 404 (absent from the session store).
+        // Other failures stay distinguishable so callers do not turn a
+        // temporary server or network problem into a logout.
+        if (error instanceof CarelogHttpError && (error.status === 401 || error.status === 404)) {
+          return undefined;
+        }
+        throw error;
       }
     })().finally(() => {
       if (refreshFlight?.promise === promise) refreshFlight = undefined;
@@ -162,7 +169,12 @@ export function createCarelogAuthRuntime({
       if (!client) return { status: 'error', failure: failureFor(clientError) };
       if (!sessionStore.getRefreshToken()) return { status: 'anonymous' };
       const version = sessionStore.getSessionVersion();
-      const accessToken = await recoverAccessToken();
+      let accessToken: string | undefined;
+      try {
+        accessToken = await recoverAccessToken();
+      } catch (error) {
+        return { status: 'error', failure: failureFor(error) };
+      }
       if (
         accessToken &&
         sessionStore.getSessionVersion() === version &&
@@ -232,7 +244,12 @@ export function createCarelogAuthRuntime({
 
     async recoverSession(): Promise<AuthCommandResult> {
       const version = sessionStore.getSessionVersion();
-      const accessToken = await recoverAccessToken();
+      let accessToken: string | undefined;
+      try {
+        accessToken = await recoverAccessToken();
+      } catch (error) {
+        return { ok: false, failure: failureFor(error) };
+      }
       if (
         accessToken &&
         sessionStore.getSessionVersion() === version &&
