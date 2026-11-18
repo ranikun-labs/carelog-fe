@@ -184,8 +184,12 @@ if ! "$JAVA_HOME_17_X64/bin/javac" -cp "$crypto_jar:$spring_jcl_jar" -d "$log_di
   fail
 fi
 password_hashes="$(printf '%s\n%s\n' "$password_a" "$password_b" | "$JAVA_HOME_17_X64/bin/java" -cp "$log_dir/classes:$crypto_jar:$spring_jcl_jar" SyntheticPasswordHash 2>"$log_dir/hash-runtime.log")" || fail
-IFS=$'\n' read -r password_hash_a password_hash_b <<< "$password_hashes"
+mapfile -t password_hash_lines <<< "$password_hashes"
 unset password_hashes
+[[ "${#password_hash_lines[@]}" -eq 2 ]] || fail
+password_hash_a="${password_hash_lines[0]}"
+password_hash_b="${password_hash_lines[1]}"
+unset password_hash_lines
 [[ -n "$password_hash_a" && -n "$password_hash_b" ]] || fail
 printf '::add-mask::%s\n::add-mask::%s\n' "$password_hash_a" "$password_hash_b"
 
