@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 
 import { CUSTOMER_FIXTURE_RECORDS, landlordTenantScenario } from '@/fixtures/scenarios';
@@ -33,6 +33,25 @@ function renderAt(customerId: string, props: CustomerDetailPageProps = {}) {
 }
 
 describe('CustomerDetailPage', () => {
+  it.each(['PLANNED', 'OCCURRED'] as const)(
+    'returns keyboard focus to the existing add-event trigger after cancelling %s entry',
+    (status) => {
+      const createEvent = vi.fn();
+      renderAt(landlordTenantScenario.customer.id, { onCreateEvent: createEvent });
+      const trigger = screen.getByRole('button', { name: '일정 추가' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      if (status === 'OCCURRED') fireEvent.click(screen.getByRole('radio', { name: '지금 기록' }));
+      const cancel = document.querySelector<HTMLButtonElement>('[data-event-form-cancel]')!;
+      cancel.focus();
+      expect(cancel).toHaveFocus();
+      fireEvent.click(cancel);
+      expect(document.querySelector('[data-event-form]')).toBeNull();
+      expect(trigger).toHaveFocus();
+      expect(createEvent).not.toHaveBeenCalled();
+    },
+  );
+
   it('renders identity, workspace badge, and context for a known customer', () => {
     renderAt(landlordTenantScenario.customer.id);
     expect(
