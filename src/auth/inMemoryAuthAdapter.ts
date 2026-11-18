@@ -7,6 +7,7 @@ import {
   type AuthPort,
   type InMemoryAuthAdapterOptions,
   type InMemoryAuthCommandOutcome,
+  type InMemoryAuthRecoveryOutcome,
 } from '@/auth/authTypes';
 
 export interface InMemoryAuthPort extends AuthPort {
@@ -41,10 +42,12 @@ function commandResult(outcome: InMemoryAuthCommandOutcome): AuthCommandResult {
   return outcome === 'success' ? { ok: true } : { ok: false, failure: outcomeFailure(outcome) };
 }
 
-function recoveryOutcomeResult(
-  outcome: Exclude<InMemoryAuthCommandOutcome, 'invalid-credentials' | 'generic-failure'>,
-): AuthCommandResult {
-  return outcome === 'success' ? { ok: true } : { ok: false, failure: outcomeFailure(outcome) };
+function recoveryOutcomeResult(outcome: InMemoryAuthRecoveryOutcome): AuthCommandResult {
+  if (outcome === 'success') return { ok: true };
+  if (outcome === 'unauthorized') {
+    return { ok: false, failure: failure(AUTH_ERROR_KIND.UNAUTHORIZED) };
+  }
+  return { ok: false, failure: outcomeFailure(outcome) };
 }
 
 async function waitForTestDelay(milliseconds: number | undefined): Promise<void> {
@@ -107,6 +110,7 @@ export function createInMemoryAuthPort(options: InMemoryAuthAdapterOptions = {})
       await waitForTestDelay(options.recoveryDelayMs);
       const result = recoveryOutcomeResult(recoveryOutcome);
       if (result.ok) authenticated = true;
+      else if (result.failure.kind === AUTH_ERROR_KIND.UNAUTHORIZED) authenticated = false;
       return result;
     },
   };

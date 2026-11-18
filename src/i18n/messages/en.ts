@@ -158,6 +158,7 @@ export const en: Messages = {
   customers: {
     title: 'Customers',
     description: 'The customers you manage.',
+    loadingLabel: 'Loading customer data',
     add: 'Add customer',
     emptyTitle: 'No customers yet',
     emptyDescription: 'Add your first customer to start planning their events.',

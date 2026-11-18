@@ -14,6 +14,7 @@ import { EventCreateActivationProvider } from '@/state/EventCreateActivationCont
 import {
   AuthBootstrapErrorScreen,
   AuthBootstrapScreen,
+  CustomerDataLoadingScreen,
   AuthRecoveryScreen,
 } from '@/components/auth/AuthStatusSurface';
 import { AuthLayout } from '@/components/auth/AuthLayout';
@@ -27,6 +28,7 @@ import {
   DEFAULT_LOCALE,
   PUBLIC_ROUTE_PATHS,
   buildAuthEntryPath,
+  buildAppCustomersPath,
   buildPublicHomePath,
   toRelativeUnder,
 } from '@/constants/routes';
@@ -72,7 +74,6 @@ function ProtectedAppBoundary() {
 function AuthRouteBoundary() {
   const auth = useAuth();
   const customerStore = useCustomerStore();
-  const customerCount = customerStore.customers.length;
 
   switch (auth.authState.status) {
     case AUTH_STATE.BOOTSTRAPPING:
@@ -82,11 +83,24 @@ function AuthRouteBoundary() {
     case AUTH_STATE.ERROR:
       return <AuthBootstrapErrorScreen onRetry={auth.retryBootstrap} />;
     case AUTH_STATE.AUTHENTICATED:
-      // 조회 중인 빈 배열을 신규 고객 0명으로 확정하지 않는다.
-      if (customerStore.remoteReadsEnabled && customerStore.loadState === 'loading') {
-        return <AuthBootstrapScreen />;
+      // Keep fixture-backed routes immediate while real Customer reads settle.
+      if (
+        customerStore.remoteReadsEnabled &&
+        (customerStore.loadState === 'idle' || customerStore.loadState === 'loading')
+      ) {
+        return <CustomerDataLoadingScreen />;
       }
-      return <Navigate replace to={resolvePostAuthPath(customerCount)} />;
+      // A failed real read must land on Customers so its retry state is visible.
+      return (
+        <Navigate
+          replace
+          to={
+            customerStore.remoteReadsEnabled && customerStore.loadState === 'error'
+              ? buildAppCustomersPath()
+              : resolvePostAuthPath(customerStore.customers.length)
+          }
+        />
+      );
     case AUTH_STATE.ANONYMOUS:
       return <AuthLayout />;
   }

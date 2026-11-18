@@ -17,5 +17,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "capacitor.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "playwright.config.ts",
+    "playwright.real-api.config.ts",
+    "e2e-real/**/*.ts",
+    "capacitor.config.ts"
+  ]
 }

@@ -134,4 +134,37 @@ describe('Carelog wire mappers', () => {
       note: '새 메모',
     });
   });
+
+  it('does not resend timestamps when offsets differ but instants are unchanged', () => {
+    const planned: CustomerEvent = {
+      id: eventId,
+      customerId,
+      status: 'PLANNED',
+      scheduledAt: '2026-08-20T01:00:00.000001Z',
+    };
+    const occurred: CustomerEvent = {
+      id: eventId,
+      customerId,
+      status: 'OCCURRED',
+      occurredAt: '2026-08-20T01:30:00.000001Z',
+    };
+
+    expect(
+      toCustomerEventPatchBody(planned, {
+        scheduledAt: '2026-08-20T10:00:00.000001+09:00',
+        note: '수정 메모',
+      }),
+    ).toEqual({ note: '수정 메모' });
+    expect(
+      toCustomerEventPatchBody(occurred, {
+        occurredAt: '2026-08-20T10:30:00.000001+09:00',
+        note: '수정 메모',
+      }),
+    ).toEqual({ note: '수정 메모' });
+    expect(
+      toCustomerEventPatchBody(planned, {
+        scheduledAt: '2026-08-20T10:00:00.000002+09:00',
+      }),
+    ).toEqual({ scheduledAt: '2026-08-20T10:00:00.000002+09:00' });
+  });
 });

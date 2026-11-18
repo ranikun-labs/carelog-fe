@@ -3,10 +3,10 @@ import {
   CarelogHttpError,
   CarelogNetworkError,
   CarelogProtocolError,
-} from '@/integrations/carelog/errors';
+} from './errors';
 
 export interface CarelogSessionProvider {
-  credentials?: RequestCredentials;
+  credentials?: 'omit' | 'same-origin' | 'include';
   getAccessToken?: () => string | undefined | Promise<string | undefined>;
   getSessionVersion?: () => number;
   recoverAccessToken?: () => Promise<string | undefined>;
@@ -64,6 +64,7 @@ export function createCarelogHttpClient({
       try {
         return await fetchImpl(joinUrl(normalizedBaseUrl, path), {
           method,
+          redirect: 'error',
           headers,
           ...(sessionProvider?.credentials ? { credentials: sessionProvider.credentials } : {}),
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -84,7 +85,14 @@ export function createCarelogHttpClient({
       sessionIsCurrent()
     ) {
       onUnauthorized?.();
-      const recoveredAccessToken = await sessionProvider.recoverAccessToken();
+      let recoveredAccessToken: string | undefined;
+      try {
+        recoveredAccessToken = await sessionProvider.recoverAccessToken();
+      } catch (error) {
+        // Do not let an A refresh failure leak into B after an account switch.
+        assertCurrentSession();
+        throw error;
+      }
       if (recoveredAccessToken && sessionIsCurrent()) {
         response = await send(recoveredAccessToken);
       }
