@@ -5,5 +5,7 @@
     "directory": "./dist",
     "not_found_handling": "single-page-application"
   },
-  "previews": {}
+  "previews": {},
+  "workers_dev": false,
+  "previews_enabled": true
 }
