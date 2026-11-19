@@ -25,7 +25,9 @@ export function getAgendaCoordinate(event: CustomerEvent): string {
 }
 
 export function getAgendaDateKey(event: CustomerEvent): string {
-  return formatDate(getAgendaCoordinate(event));
+  const coordinate = getAgendaCoordinate(event);
+  const date = new Date(coordinate);
+  return Number.isNaN(date.getTime()) ? formatDate(coordinate) : getDateKeyFromDate(date);
 }
 
 export function getEventTitle(event: CustomerEvent): string | undefined {
