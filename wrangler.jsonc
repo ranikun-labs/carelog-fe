@@ -7,5 +7,5 @@
   },
   "previews": {},
   "workers_dev": false,
-  "previews_enabled": true
+  "preview_urls": true
 }
