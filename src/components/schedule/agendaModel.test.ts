@@ -2,6 +2,7 @@ import {
   buildAgendaSections,
   formatOverdueCount,
   getAgendaCoordinate,
+  getAgendaDateKey,
   getAgendaStatusPresentation,
   getOverdueEvents,
   getWeekDaysForDate,
@@ -9,40 +10,41 @@ import {
 } from '@/components/schedule/agendaModel';
 import type { CustomerEvent } from '@/domain/customerEvent';
 
-const now = new Date('2026-08-11T12:00:00+09:00');
+const now = new Date(2026, 7, 11, 12);
+const localTimestamp = (day: number, hour: number) => new Date(2026, 7, day, hour).toISOString();
 
 const events: CustomerEvent[] = [
   {
     id: 'future-planned',
     customerId: 'customer-1',
     status: 'PLANNED',
-    scheduledAt: '2026-08-12T09:00:00+09:00',
+    scheduledAt: localTimestamp(12, 9),
   },
   {
     id: 'today-occurred',
     customerId: 'customer-1',
     status: 'OCCURRED',
-    occurredAt: '2026-08-11T10:00:00+09:00',
+    occurredAt: localTimestamp(11, 10),
   },
   {
     id: 'past-planned',
     customerId: 'customer-1',
     status: 'PLANNED',
-    scheduledAt: '2026-08-10T09:00:00+09:00',
+    scheduledAt: localTimestamp(10, 9),
   },
   {
     id: 'cancelled',
     customerId: 'customer-1',
     status: 'CANCELLED',
-    scheduledAt: '2026-08-12T10:00:00+09:00',
+    scheduledAt: localTimestamp(12, 10),
   },
 ];
 
 describe('agenda model', () => {
   it('uses each canonical status coordinate without changing the source events', () => {
-    expect(getAgendaCoordinate(events[0])).toBe('2026-08-12T09:00:00+09:00');
-    expect(getAgendaCoordinate(events[1])).toBe('2026-08-11T10:00:00+09:00');
-    expect(getAgendaCoordinate(events[3])).toBe('2026-08-12T10:00:00+09:00');
+    expect(getAgendaCoordinate(events[0])).toBe(localTimestamp(12, 9));
+    expect(getAgendaCoordinate(events[1])).toBe(localTimestamp(11, 10));
+    expect(getAgendaCoordinate(events[3])).toBe(localTimestamp(12, 10));
   });
 
   it('builds chronology from past through today to future and adds only the selected empty date', () => {
@@ -57,6 +59,28 @@ describe('agenda model', () => {
     expect(sections.find((section) => section.dateKey === '2026-08-13')?.events).toEqual([]);
   });
 
+  it('groups equivalent timestamps under the same local calendar date', () => {
+    const localMidnight = new Date(2026, 10, 1, 0, 30);
+    const eastOfUtc = new Date(localMidnight.getTime() + 14 * 60 * 60 * 1000)
+      .toISOString()
+      .replace('Z', '+14:00');
+    const westOfUtc = new Date(localMidnight.getTime() - 12 * 60 * 60 * 1000)
+      .toISOString()
+      .replace('Z', '-12:00');
+
+    for (const scheduledAt of [eastOfUtc, westOfUtc]) {
+      expect(Date.parse(scheduledAt)).toBe(localMidnight.getTime());
+      expect(
+        getAgendaDateKey({
+          id: 'same-instant',
+          customerId: 'customer-1',
+          status: 'PLANNED',
+          scheduledAt,
+        }),
+      ).toBe('2026-11-01');
+    }
+  });
+
   it('derives overdue only from planned events and keeps the latest scheduled date first', () => {
     const overdue = getOverdueEvents(
       [
@@ -65,7 +89,7 @@ describe('agenda model', () => {
           id: 'latest-overdue',
           customerId: 'customer-1',
           status: 'PLANNED',
-          scheduledAt: '2026-08-11T11:00:00+09:00',
+          scheduledAt: localTimestamp(11, 11),
         },
       ],
       now,

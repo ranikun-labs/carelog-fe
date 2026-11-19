@@ -6,28 +6,29 @@ import { I18nProvider } from '@/i18n/I18nContext';
 import { SchedulePage } from '@/pages/SchedulePage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 
-const now = new Date('2026-08-11T12:00:00+09:00');
+const now = new Date(2026, 7, 11, 12);
+const localTimestamp = (day: number, hour: number) => new Date(2026, 7, day, hour).toISOString();
 const customers = [{ id: 'customer-1', displayName: '박세입' }];
 const events: CustomerEvent[] = [
   {
     id: 'past',
     customerId: 'customer-1',
     status: 'OCCURRED',
-    occurredAt: '2026-08-10T10:00:00+09:00',
+    occurredAt: localTimestamp(10, 10),
     descriptor: '지난 기록',
   },
   {
     id: 'today',
     customerId: 'customer-1',
     status: 'PLANNED',
-    scheduledAt: '2026-08-11T09:00:00+09:00',
+    scheduledAt: localTimestamp(11, 9),
     descriptor: '오늘 일정',
   },
   {
     id: 'future',
     customerId: 'customer-1',
     status: 'CANCELLED',
-    scheduledAt: '2026-08-12T10:00:00+09:00',
+    scheduledAt: localTimestamp(12, 10),
     descriptor: '미래 취소 일정',
   },
 ];
@@ -80,7 +81,7 @@ describe('SchedulePage', () => {
           id: 'overdue-latest',
           customerId: 'customer-1',
           status: 'PLANNED',
-          scheduledAt: '2026-08-11T11:00:00+09:00',
+          scheduledAt: localTimestamp(11, 11),
           descriptor: '가장 최근 지난 일정',
         },
       ],
@@ -106,14 +107,14 @@ describe('SchedulePage', () => {
             id: 'overdue-earlier',
             customerId: 'customer-1',
             status: 'PLANNED',
-            scheduledAt: '2026-08-11T09:00:00+09:00',
+            scheduledAt: localTimestamp(11, 9),
             descriptor: '더 이른 지난 일정',
           },
           {
             id: 'overdue-latest',
             customerId: 'customer-1',
             status: 'PLANNED',
-            scheduledAt: '2026-08-11T11:00:00+09:00',
+            scheduledAt: localTimestamp(11, 11),
             descriptor: '가장 최근 지난 일정',
           },
         ],
