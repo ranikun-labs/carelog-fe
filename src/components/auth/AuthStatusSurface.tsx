@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { AUTH_ERROR_KIND, type AuthErrorKind, type AuthFailure } from '@/auth/authTypes';
+import { buildPublicHomePath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import type { MessageKey } from '@/i18n/dictionary';
 
@@ -102,7 +104,7 @@ export function AuthRecoveryBanner() {
 }
 
 export function AuthBootstrapErrorScreen({ onRetry }: { onRetry: () => void }) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   return (
     <AuthSurfaceFrame>
       <AuthStatusContent
@@ -110,9 +112,17 @@ export function AuthBootstrapErrorScreen({ onRetry }: { onRetry: () => void }) {
         description={t('auth.bootstrap.errorDescription')}
         status="alert"
         action={
-          <Button type="button" onClick={onRetry} className="w-full">
-            {t('auth.bootstrap.retry')}
-          </Button>
+          <div className="grid gap-2">
+            <Button type="button" onClick={onRetry} className="w-full">
+              {t('auth.bootstrap.retry')}
+            </Button>
+            <Link
+              to={buildPublicHomePath(locale)}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              {t('notFound.action')}
+            </Link>
+          </div>
         }
       />
     </AuthSurfaceFrame>

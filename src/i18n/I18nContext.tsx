@@ -26,10 +26,18 @@ function interpolate(template: string, params?: Record<string, string>): string 
   return template.replace(/\{\{(\w+)\}\}/g, (match, name: string) => params[name] ?? match);
 }
 
-export function I18nProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
+export function I18nProvider({
+  locale,
+  children,
+  syncDocumentLang = true,
+}: {
+  locale: Locale;
+  children: ReactNode;
+  syncDocumentLang?: boolean;
+}) {
   useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
+    if (syncDocumentLang) document.documentElement.lang = locale;
+  }, [locale, syncDocumentLang]);
 
   const value = useMemo<I18nContextValue>(
     () => ({ locale, t: (key, params) => interpolate(resolveMessage(key, locale), params) }),

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router';
+import { matchPath, Navigate, Route, Routes, useLocation } from 'react-router';
 
 import { AssistantAdapterProvider } from '@/assistant/AssistantAdapterContext';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
@@ -203,8 +203,13 @@ export function AppRouter({
   stateProviders,
 }: AppInitialization & { authPort?: AuthPort; stateProviders?: ProductStateProvider } = {}) {
   const StateProviders = stateProviders ?? ProductionStateProviders;
+  const { pathname } = useLocation();
+  const isAppOrAuthRoute = Boolean(
+    matchPath({ path: APP_BASE, end: false }, pathname) ||
+    matchPath({ path: AUTH_BASE, end: false }, pathname),
+  );
   return (
-    <AppLocaleProvider>
+    <AppLocaleProvider syncDocumentLang={isAppOrAuthRoute}>
       <AuthProvider authPort={authPort}>
         <AssistantAdapterProvider adapter={assistantAdapter}>
           <EventCreateActivationProvider>

@@ -95,6 +95,27 @@ async function signInFromLoginPage() {
 }
 
 describe('application router', () => {
+  it.each(['/app/schedule', '/auth/login'])(
+    'offers retry and public home when session bootstrap fails at %s',
+    async (path) => {
+      const authPort = createInMemoryAuthPort({ bootstrap: 'error' });
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <TestAppRouter authPort={authPort} />
+        </MemoryRouter>,
+      );
+
+      expect(await screen.findByRole('alert')).toBeVisible();
+      const attempts = authPort.bootstrapAttemptCount;
+      fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+      await waitFor(() => expect(authPort.bootstrapAttemptCount).toBe(attempts + 1));
+      expect(await screen.findByRole('alert')).toBeVisible();
+      fireEvent.click(screen.getByRole('link', { name: '홈으로 이동' }));
+      expect(await screen.findByRole('heading', { name: /고객 맥락과 후속 업무/ })).toBeVisible();
+      expect(authPort.bootstrapAttemptCount).toBe(attempts + 1);
+    },
+  );
+
   it('renders the schedule at the app entry and schedule path', async () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/app']}>
@@ -133,6 +154,40 @@ describe('application router', () => {
     ).toBeInTheDocument();
   });
 
+  it.each([
+    ['ko', 'en'],
+    ['en', 'ko'],
+  ] as const)(
+    'uses public locale %s for the document when the app locale is %s',
+    async (publicLocale, appLocale) => {
+      window.localStorage.setItem('carelog.language', appLocale);
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[`/${publicLocale}/features`]}>
+          <TestAppRouter authPort={authenticatedAuthPort} />
+        </MemoryRouter>,
+      );
+      await waitFor(() => expect(document.documentElement.lang).toBe(publicLocale));
+      unmount();
+      window.localStorage.removeItem('carelog.language');
+    },
+  );
+
+  it.each(['/APP', '/AUTH/login'])(
+    'uses the app locale for case-insensitive route %s',
+    async (path) => {
+      window.localStorage.setItem('carelog.language', 'en');
+      document.documentElement.lang = 'ko';
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[path]}>
+          <TestAppRouter authPort={authenticatedAuthPort} />
+        </MemoryRouter>,
+      );
+      await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+      unmount();
+      window.localStorage.removeItem('carelog.language');
+    },
+  );
+
   it('renders English and unsupported public locale boundaries', () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/en/features']}>
@@ -140,8 +195,13 @@ describe('application router', () => {
       </MemoryRouter>,
     );
     expect(
-      screen.getByRole('heading', { name: 'A verifiable customer management foundation' }),
+      screen.getByRole('heading', { name: 'Keep customer relationships moving' }),
     ).toBeVisible();
+    expect(
+      screen
+        .getAllByRole('link', { name: 'Open app' })
+        .some((link) => link.getAttribute('href') === '/app'),
+    ).toBe(true);
     unmount();
     render(
       <MemoryRouter initialEntries={['/fr']}>

@@ -6,7 +6,13 @@ import { I18nProvider, useTranslation } from '@/i18n/I18nContext';
 
 const LocaleSetterContext = createContext<((locale: Locale) => void) | null>(null);
 
-export function AppLocaleProvider({ children }: { children: ReactNode }) {
+export function AppLocaleProvider({
+  children,
+  syncDocumentLang = true,
+}: {
+  children: ReactNode;
+  syncDocumentLang?: boolean;
+}) {
   const [locale, setLocaleState] = useState(resolveInitialAppLocale);
   const setLocale = (next: Locale) => {
     if (!isSupportedLocale(next)) return;
@@ -16,7 +22,9 @@ export function AppLocaleProvider({ children }: { children: ReactNode }) {
 
   return (
     <LocaleSetterContext.Provider value={setLocale}>
-      <I18nProvider locale={locale}>{children}</I18nProvider>
+      <I18nProvider locale={locale} syncDocumentLang={syncDocumentLang}>
+        {children}
+      </I18nProvider>
     </LocaleSetterContext.Provider>
   );
 }

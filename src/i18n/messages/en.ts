@@ -18,14 +18,37 @@ export const en: Messages = {
   },
   public: {
     home: {
-      eyebrow: 'Customer Relationship Foundation',
+      eyebrow: 'Customer relationship management',
       title: 'Customer context and follow-ups, in one place',
-      description: 'Start with localized public pages and a mobile-first application shell.',
+      description:
+        'Keep customer details, contact records, and follow-ups together so you can prepare for the next conversation.',
+      example: 'Illustrative example',
+      exampleCustomer: 'Customer record',
+      exampleNote: 'Recent conversation',
+      exampleNoteText: 'Discussed the customer’s needs',
+      exampleNext: 'Next follow-up',
+      exampleAction: 'Send a proposal after the meeting',
+      sectionTitle: 'A clearer view of every relationship',
+      sectionDescription:
+        'Move from the last conversation to the next step with the context you need close at hand.',
     },
     features: {
-      title: 'A verifiable customer management foundation',
-      description: 'Common boundaries are ready to extend into real customer workflows.',
-      items: ['Localized routes', 'App shell', 'Reusable components', 'Verification foundation'],
+      title: 'Keep customer relationships moving',
+      description: 'Bring the details of your customer work together in Carelog.',
+      items: [
+        'Manage customer details',
+        'Record conversations and meetings',
+        'Keep track of follow-ups',
+        'See your schedule and customer context',
+      ],
+      details: [
+        'Keep the information you need to recognize and understand each customer.',
+        'Add notes about conversations and meetings to the customer timeline.',
+        'Review the next steps you have planned for your customers.',
+        'See planned events alongside the customer information that gives them context.',
+      ],
+      closingTitle: 'Ready to bring your customer work together?',
+      closingDescription: 'Open Carelog to start working with your customer records.',
     },
   },
   app: {

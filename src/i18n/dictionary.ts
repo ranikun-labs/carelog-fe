@@ -19,11 +19,26 @@ export interface Messages {
     ariaLabel: string;
   };
   public: {
-    home: { eyebrow: string; title: string; description: string };
+    home: {
+      eyebrow: string;
+      title: string;
+      description: string;
+      example: string;
+      exampleCustomer: string;
+      exampleNote: string;
+      exampleNoteText: string;
+      exampleNext: string;
+      exampleAction: string;
+      sectionTitle: string;
+      sectionDescription: string;
+    };
     features: {
       title: string;
       description: string;
       items: readonly [string, string, string, string];
+      details: readonly [string, string, string, string];
+      closingTitle: string;
+      closingDescription: string;
     };
   };
   app: {
