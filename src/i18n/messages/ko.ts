@@ -133,7 +133,7 @@ export const ko: Messages = {
       title: '세션을 확인하는 중입니다',
       description: '안전한 진입 화면을 준비하고 있습니다.',
       errorTitle: '세션을 확인하지 못했습니다',
-      errorDescription: '고객과 일정 데이터는 변경되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+      errorDescription: '다시 시도하거나 홈으로 돌아가 주세요.',
       retry: '다시 시도',
     },
     recovery: {

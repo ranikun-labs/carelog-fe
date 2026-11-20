@@ -95,6 +95,74 @@ async function signInFromLoginPage() {
 }
 
 describe('application router', () => {
+  it.each(['/en', '/en/features'])(
+    'uses the public language when opening the app from %s without an explicit choice',
+    async (path) => {
+      window.localStorage.removeItem('carelog.language');
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[path]}>
+          <TestAppRouter authPort={createInMemoryAuthPort({ bootstrap: 'anonymous' })} />
+        </MemoryRouter>,
+      );
+      fireEvent.click(screen.getByRole('link', { name: /Open app/ }));
+      expect(
+        await screen.findByRole('heading', { name: 'Keep customer context close to the work' }),
+      ).toBeVisible();
+      expect(document.documentElement.lang).toBe('en');
+      expect(window.localStorage.getItem('carelog.language')).toBeNull();
+      expect(window.sessionStorage.getItem('carelog.publicLanguage')).toBe('en');
+      unmount();
+      window.localStorage.removeItem('carelog.language');
+      window.sessionStorage.removeItem('carelog.publicLanguage');
+    },
+  );
+
+  it('preserves an explicitly selected app language when opening from public features', async () => {
+    window.localStorage.setItem('carelog.language', 'ko');
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/en/features']}>
+        <TestAppRouter authPort={createInMemoryAuthPort({ bootstrap: 'anonymous' })} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('link', { name: /Open app/ }));
+    expect(
+      await screen.findByRole('heading', { name: '고객 맥락을 업무 가까이에 두세요' }),
+    ).toBeVisible();
+    expect(window.localStorage.getItem('carelog.language')).toBe('ko');
+    unmount();
+    window.localStorage.removeItem('carelog.language');
+  });
+
+  it('honors an app language selected in another tab after the public page loaded', async () => {
+    window.localStorage.removeItem('carelog.language');
+    window.sessionStorage.removeItem('carelog.publicLanguage');
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/en/features']}>
+        <TestAppRouter authPort={createInMemoryAuthPort({ bootstrap: 'anonymous' })} />
+      </MemoryRouter>,
+    );
+    window.localStorage.setItem('carelog.language', 'ko');
+    fireEvent.click(screen.getByRole('link', { name: /Open app/ }));
+    expect(
+      await screen.findByRole('heading', { name: '고객 맥락을 업무 가까이에 두세요' }),
+    ).toBeVisible();
+    unmount();
+    window.localStorage.removeItem('carelog.language');
+  });
+
+  it('does not change the current tab language for a modified app link activation', () => {
+    window.localStorage.removeItem('carelog.language');
+    window.sessionStorage.removeItem('carelog.publicLanguage');
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/en/features']}>
+        <TestAppRouter authPort={createInMemoryAuthPort({ bootstrap: 'anonymous' })} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('link', { name: /Open app/ }), { ctrlKey: true });
+    expect(window.sessionStorage.getItem('carelog.publicLanguage')).toBeNull();
+    unmount();
+  });
+
   it.each(['/app/schedule', '/auth/login'])(
     'offers retry and public home when session bootstrap fails at %s',
     async (path) => {
@@ -106,6 +174,8 @@ describe('application router', () => {
       );
 
       expect(await screen.findByRole('alert')).toBeVisible();
+      expect(screen.getByText('Carelog')).toBeVisible();
+      expect(screen.getByText('다시 시도하거나 홈으로 돌아가 주세요.')).toBeVisible();
       const attempts = authPort.bootstrapAttemptCount;
       fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
       await waitFor(() => expect(authPort.bootstrapAttemptCount).toBe(attempts + 1));
@@ -115,6 +185,22 @@ describe('application router', () => {
       expect(authPort.bootstrapAttemptCount).toBe(attempts + 1);
     },
   );
+
+  it('shows branded recovery guidance in English on a bootstrap error', async () => {
+    window.localStorage.setItem('carelog.language', 'en');
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/auth/login']}>
+        <TestAppRouter authPort={createInMemoryAuthPort({ bootstrap: 'error' })} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(screen.getByText('Carelog')).toBeVisible();
+    expect(screen.getByText('Please try again, or return to the home page.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/en');
+    unmount();
+    window.localStorage.removeItem('carelog.language');
+  });
 
   it('renders the schedule at the app entry and schedule path', async () => {
     const { unmount } = render(

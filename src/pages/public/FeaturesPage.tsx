@@ -12,11 +12,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { buildAppHomePath } from '@/constants/routes';
 import { getMessages } from '@/i18n/dictionary';
 import { useTranslation } from '@/i18n/I18nContext';
+import { useAppLocale } from '@/i18n/AppLocaleProvider';
+import { isCurrentTabActivation } from '@/pages/public/publicAppNavigation';
 
 const icons = [UsersRound, MessageSquareText, ClipboardList, CalendarDays];
 
 export function FeaturesPage() {
   const { locale, t } = useTranslation();
+  const { adoptPublicLocale } = useAppLocale();
   const { items, details } = getMessages(locale).public.features;
   return (
     <main className="mx-auto max-w-5xl px-5 py-16 sm:py-24">
@@ -51,6 +54,9 @@ export function FeaturesPage() {
         <Link
           className={buttonVariants({ className: 'mt-6 sm:mt-0', size: 'lg' })}
           to={buildAppHomePath()}
+          onClick={(event) => {
+            if (isCurrentTabActivation(event)) adoptPublicLocale(locale);
+          }}
         >
           {t('common.openApp')} <ArrowRight aria-hidden="true" />
         </Link>

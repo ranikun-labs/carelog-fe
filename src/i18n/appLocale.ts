@@ -1,6 +1,24 @@
 import { DEFAULT_LOCALE, isSupportedLocale, type Locale } from '@/constants/routes';
 
 export const APP_LOCALE_STORAGE_KEY = 'carelog.language';
+export const PUBLIC_LOCALE_SESSION_KEY = 'carelog.publicLanguage';
+
+export function readPublicSessionLocale(): Locale | null {
+  try {
+    const stored = window.sessionStorage.getItem(PUBLIC_LOCALE_SESSION_KEY);
+    return stored && isSupportedLocale(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writePublicSessionLocale(locale: Locale): void {
+  try {
+    window.sessionStorage.setItem(PUBLIC_LOCALE_SESSION_KEY, locale);
+  } catch {
+    // The active React state still changes when storage is unavailable.
+  }
+}
 
 export function normalizeBrowserLocale(candidates: readonly string[]): Locale | undefined {
   for (const candidate of candidates) {
@@ -30,7 +48,7 @@ export function writeStoredAppLocale(locale: Locale): void {
 
 export function resolveInitialAppLocale(): Locale {
   if (typeof window === 'undefined') return DEFAULT_LOCALE;
-  const stored = readStoredAppLocale();
+  const stored = readStoredAppLocale() ?? readPublicSessionLocale();
   if (stored) return stored;
   const browser = normalizeBrowserLocale(
     navigator.languages.length > 0 ? navigator.languages : [navigator.language],

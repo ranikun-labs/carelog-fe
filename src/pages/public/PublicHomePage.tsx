@@ -5,9 +5,12 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { buildAppHomePath, buildPublicFeaturesPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
+import { useAppLocale } from '@/i18n/AppLocaleProvider';
+import { isCurrentTabActivation } from '@/pages/public/publicAppNavigation';
 
 export function PublicHomePage() {
   const { locale, t } = useTranslation();
+  const { adoptPublicLocale } = useAppLocale();
   return (
     <main>
       <section className="mx-auto grid max-w-5xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-2 lg:gap-16">
@@ -22,7 +25,13 @@ export function PublicHomePage() {
             {t('public.home.description')}
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link className={buttonVariants({ size: 'lg' })} to={buildAppHomePath()}>
+            <Link
+              className={buttonVariants({ size: 'lg' })}
+              to={buildAppHomePath()}
+              onClick={(event) => {
+                if (isCurrentTabActivation(event)) adoptPublicLocale(locale);
+              }}
+            >
               {t('common.openApp')} <ArrowRight aria-hidden="true" />
             </Link>
             <Link

@@ -140,7 +140,7 @@ export const en: Messages = {
       title: 'Checking your session',
       description: 'Carelog is preparing a safe entry point.',
       errorTitle: 'We could not check your session',
-      errorDescription: 'Your product data is unchanged. Try again when the service is available.',
+      errorDescription: 'Please try again, or return to the home page.',
       retry: 'Try again',
     },
     recovery: {
