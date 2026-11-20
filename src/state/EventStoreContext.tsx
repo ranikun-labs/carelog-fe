@@ -42,6 +42,8 @@ export interface EventStoreValue {
   remoteReadsEnabled: boolean;
   scheduleLoadState: EventLoadState;
   detailLoadState: EventLoadState;
+  detailCustomerId: string | null;
+  detailError: unknown | null;
   mutationPending: boolean;
   error: unknown | null;
   errorCode: ReturnType<typeof classifyCarelogError> | null;
@@ -86,6 +88,8 @@ export function EventStoreProvider({
     !isExplicitPort || initialEvents !== undefined ? 'ready' : 'loading',
   );
   const [detailLoadState, setDetailLoadState] = useState<EventLoadState>('idle');
+  const [detailCustomerId, setDetailCustomerId] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<unknown | null>(null);
   const [mutationPending, setMutationPending] = useState(false);
   const [error, setError] = useState<unknown | null>(null);
   const [errorCode, setErrorCode] = useState<ReturnType<typeof classifyCarelogError> | null>(null);
@@ -197,7 +201,9 @@ export function EventStoreProvider({
       requireSessionOwner();
       const readGeneration = ++detailReadGenerationRef.current;
       const mutationEpoch = mutationEpochRef.current;
+      setDetailCustomerId(customerId);
       setDetailLoadState('loading');
+      setDetailError(null);
       if (resetErrorOnStart) {
         setError(null);
         setErrorCode(null);
@@ -235,6 +241,7 @@ export function EventStoreProvider({
           return readLatestCustomerDetail(customerId, now, false);
         }
         recordError(nextError);
+        setDetailError(nextError);
         setDetailLoadState('error');
         throw nextError;
       }
@@ -368,6 +375,8 @@ export function EventStoreProvider({
       remoteReadsEnabled,
       scheduleLoadState,
       detailLoadState,
+      detailCustomerId,
+      detailError,
       mutationPending,
       error,
       errorCode,
@@ -389,6 +398,8 @@ export function EventStoreProvider({
       clearHighlight,
       createEvent,
       detailLoadState,
+      detailCustomerId,
+      detailError,
       editEvent,
       error,
       errorCode,
