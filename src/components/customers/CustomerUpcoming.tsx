@@ -40,7 +40,7 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
             className="bg-subtle border-border-default hover:bg-accent-primary-bg/60 block rounded-lg border p-4 transition-colors"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <h3 className="text-text-primary min-w-0 flex-1 truncate text-base font-semibold">
+              <h3 className="text-text-primary min-w-0 flex-1 text-lg font-semibold break-words">
                 {getEventTitle(primaryEvent) ?? t('schedule.untitled')}
               </h3>
               <Badge tone="planned">{t('schedule.meta.planned')}</Badge>
@@ -75,7 +75,7 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
                         aria-label={t('schedule.openEvent', { title })}
                         className="text-accent-primary-deep hover:bg-subtle flex min-h-11 items-center justify-between gap-3 rounded-md px-2 text-sm font-semibold underline-offset-2 hover:underline"
                       >
-                        <span className="min-w-0 truncate">{title}</span>
+                        <span className="min-w-0 break-words">{title}</span>
                         <time dateTime={event.scheduledAt} className="shrink-0 font-normal">
                           {formatAgendaDateTime(event.scheduledAt, locale)}
                         </time>

@@ -174,6 +174,9 @@ export interface Messages {
       askAssistant: string;
       upcomingTitle: string;
       noUpcoming: string;
+      staleEvents: string;
+      partialEvents: string;
+      eventsLoaded: string;
       additionalUpcoming: string;
       memoTitle: string;
     };

@@ -5,6 +5,7 @@ import { CustomerContextSection } from '@/components/customers/CustomerContextSe
 import { CustomerMemo } from '@/components/customers/CustomerMemo';
 import { CustomerTimeline } from '@/components/customers/CustomerTimeline';
 import { CustomerUpcoming } from '@/components/customers/CustomerUpcoming';
+import { getUpcomingCustomerEvents } from '@/components/customers/customerDetailModel';
 import { PageHeader } from '@/components/common/PageHeader';
 import {
   AdaptiveSurface,
@@ -56,11 +57,45 @@ export function CustomerDetailPage({
   const loadCustomer = customerStore.loadCustomer;
   const loadCustomerDetail = eventStore?.loadCustomerDetail;
   const remoteReadsEnabled = eventStore?.remoteReadsEnabled ?? false;
-  const [isCreating, setIsCreating] = useState(false);
+  const [creatingCustomerId, setCreatingCustomerId] = useState<string | null>(null);
+  const [retriedCustomerId, setRetriedCustomerId] = useState<string | null>(null);
+  const isCreating = creatingCustomerId === customerId;
+  const currentViewRef = useRef({ customerId, generation: 0 });
+  const mountedRef = useRef(true);
   const addEventTriggerRef = useRef<HTMLButtonElement>(null);
+  const loadingStatusRef = useRef<HTMLParagraphElement>(null);
+  const retryFocusRef = useRef(false);
   const scrollSurfaceRef = useRef<HTMLDivElement>(null);
   const customer = customerStore.getCustomer(customerId);
   const queryNowRef = useRef(now);
+
+  useLayoutEffect(() => {
+    retryFocusRef.current = false;
+    currentViewRef.current = {
+      customerId,
+      generation: currentViewRef.current.generation + 1,
+    };
+  }, [customerId]);
+
+  useEffect(() => {
+    if (eventStore?.detailCustomerId !== customerId || !retryFocusRef.current) return;
+    const destination =
+      loadingStatusRef.current ??
+      scrollSurfaceRef.current?.querySelector<HTMLElement>(
+        '[role="alert"], [data-customer-upcoming] h2',
+      );
+    if (!destination) return;
+    retryFocusRef.current = false;
+    destination.tabIndex = -1;
+    destination.focus();
+  }, [customerId, eventStore?.detailCustomerId, eventStore?.detailLoadState]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!customerStore.remoteReadsEnabled || customer || customerId === '') return;
@@ -114,10 +149,26 @@ export function CustomerDetailPage({
   }
   const currentCustomer = customer;
   const snapshot = eventStore?.getCustomerSnapshot(currentCustomer.id);
+  const remoteDetail = remoteReadsEnabled && events === undefined;
+  const detailMatchesCustomer = eventStore?.detailCustomerId === currentCustomer.id;
+  const detailLoading =
+    remoteDetail &&
+    (!detailMatchesCustomer ||
+      eventStore?.detailLoadState === 'idle' ||
+      eventStore?.detailLoadState === 'loading');
+  const detailFailed =
+    remoteDetail && detailMatchesCustomer && eventStore?.detailLoadState === 'error';
+  const knownEvents =
+    detailFailed && !snapshot
+      ? (eventStore?.events ?? []).filter((event) => event.customerId === currentCustomer.id)
+      : [];
+  const hasDetailData = !remoteDetail || snapshot !== undefined;
   const sourceEvents =
     events ??
     (eventStore?.remoteReadsEnabled
-      ? [...(snapshot?.upcoming ?? []), ...(snapshot?.history ?? [])]
+      ? snapshot
+        ? [...snapshot.upcoming, ...snapshot.history]
+        : knownEvents
       : (eventStore?.events ?? []));
   const customerEvents = [
     ...new Map(
@@ -154,6 +205,7 @@ export function CustomerDetailPage({
 
   async function handleCreate(values: EventFormSubmitValues) {
     if (!createEvent) return;
+    const viewGeneration = currentViewRef.current.generation;
 
     const input: EventCreationInput =
       values.status === 'PLANNED'
@@ -176,19 +228,25 @@ export function CustomerDetailPage({
     try {
       createdEvent = await createEvent(input);
     } catch (error) {
-      eventCreateActivation?.clearCreateReturnProvenance();
+      if (mountedRef.current && currentViewRef.current.generation === viewGeneration) {
+        eventCreateActivation?.clearCreateReturnProvenance();
+      }
       throw error;
     }
+    if (!mountedRef.current || currentViewRef.current.generation !== viewGeneration) return;
     if (createdEvent) {
       eventCreateActivation?.armCreateReturn({
         kind: 'customer-detail',
         customerId: currentCustomer.id,
         eventId: createdEvent.id,
       });
+      if (remoteDetail && !snapshot) {
+        void loadCustomerDetail?.(currentCustomer.id, queryNowRef.current).catch(() => undefined);
+      }
     } else {
       eventCreateActivation?.clearCreateReturnProvenance();
     }
-    setIsCreating(false);
+    setCreatingCustomerId(null);
   }
 
   return (
@@ -216,7 +274,7 @@ export function CustomerDetailPage({
         ref={scrollSurfaceRef}
         data-scroll-surface
         data-root-scroll-surface="customers-detail"
-        className="flex-1 overflow-y-auto p-6"
+        className="flex-1 overflow-y-auto p-4 md:p-6"
       >
         <AdaptiveSurfaceContent policy="readable">
           <section data-customer-identity aria-label={t('customers.detail.title')}>
@@ -225,6 +283,52 @@ export function CustomerDetailPage({
             ) : null}
             <CustomerContextSection context={currentCustomer.context} />
           </section>
+
+          {detailLoading || (remoteDetail && retriedCustomerId === currentCustomer.id) ? (
+            <p
+              ref={loadingStatusRef}
+              role="status"
+              tabIndex={-1}
+              className="text-text-secondary mt-6 text-sm"
+            >
+              {detailLoading
+                ? t('schedule.loadingLabel')
+                : detailFailed
+                  ? t('schedule.errorTitle')
+                  : t('customers.detail.eventsLoaded')}
+            </p>
+          ) : null}
+          {detailFailed ? (
+            <div className="mt-6 space-y-3">
+              <p role="alert" className="text-warning text-sm font-semibold">
+                {eventStore?.detailError
+                  ? t(getCarelogMessageKey(eventStore.detailError))
+                  : t('schedule.errorDescription')}
+              </p>
+              {snapshot ? (
+                <p className="text-text-secondary text-sm">{t('customers.detail.staleEvents')}</p>
+              ) : null}
+              {!snapshot && knownEvents.length > 0 ? (
+                <p className="text-text-secondary text-sm">{t('customers.detail.partialEvents')}</p>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  retryFocusRef.current = true;
+                  setRetriedCustomerId(currentCustomer.id);
+                  void loadCustomerDetail?.(currentCustomer.id, queryNowRef.current).catch(
+                    () => undefined,
+                  );
+                }}
+              >
+                {t('schedule.retry')}
+              </Button>
+            </div>
+          ) : null}
+          {hasDetailData || getUpcomingCustomerEvents(knownEvents, now).length > 0 ? (
+            <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
+          ) : null}
 
           <div className="mt-6 flex flex-wrap gap-2">
             <Button
@@ -235,7 +339,7 @@ export function CustomerDetailPage({
               data-add-event
               onClick={() => {
                 eventCreateActivation?.beginCreateSession();
-                setIsCreating(true);
+                setCreatingCustomerId(currentCustomer.id);
               }}
             >
               {t('customers.detail.addEvent')}
@@ -259,28 +363,16 @@ export function CustomerDetailPage({
               onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
               onCancel={() => {
                 eventCreateActivation?.clearCreateReturnProvenance();
-                setIsCreating(false);
+                setCreatingCustomerId(null);
                 addEventTriggerRef.current?.focus();
               }}
             />
           ) : null}
 
-          {eventStore?.remoteReadsEnabled &&
-          events === undefined &&
-          eventStore.detailLoadState === 'loading' ? (
-            <p role="status" className="text-text-secondary mt-4 text-sm">
-              {t('schedule.loadingLabel')}
-            </p>
-          ) : null}
-          {eventStore?.remoteReadsEnabled && events === undefined && eventStore.error ? (
-            <p role="alert" className="text-warning mt-4 text-sm font-semibold">
-              {t(getCarelogMessageKey(eventStore.error))}
-            </p>
-          ) : null}
-
-          <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
           <CustomerMemo memo={explicitMemo} />
-          <CustomerTimeline events={customerEvents} onOpenEvent={openEvent} />
+          {hasDetailData ? (
+            <CustomerTimeline events={customerEvents} onOpenEvent={openEvent} />
+          ) : null}
         </AdaptiveSurfaceContent>
       </div>
     </AdaptiveSurface>

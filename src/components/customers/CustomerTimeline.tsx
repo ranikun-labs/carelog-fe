@@ -38,7 +38,7 @@ export function CustomerTimeline({ events, onOpenEvent }: CustomerTimelineProps)
         <EmptyState title={t('timeline.title')} description={t('timeline.empty')} />
       ) : (
         <>
-          <ol className="mt-3 space-y-2">
+          <ol className="border-border-subtle mt-3 border-t">
             {visibleEvents.map((event) => {
               const title = getEventTitle(event) ?? t('schedule.untitled');
               const coordinate = getAgendaCoordinate(event);
@@ -59,10 +59,10 @@ export function CustomerTimeline({ events, onOpenEvent }: CustomerTimelineProps)
                       onOpenEvent(event);
                     }}
                     aria-label={t('schedule.openEvent', { title })}
-                    className="border-border-subtle hover:bg-subtle block rounded-md border p-3 transition-colors"
+                    className="border-border-subtle hover:bg-subtle block border-b px-1 py-4 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-text-primary min-w-0 flex-1 truncate font-medium">
+                      <p className="text-text-primary min-w-0 flex-1 font-medium break-words">
                         {title}
                       </p>
                       {isCancelled ? (
