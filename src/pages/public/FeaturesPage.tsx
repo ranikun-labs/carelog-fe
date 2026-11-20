@@ -13,6 +13,7 @@ import { buildAppHomePath } from '@/constants/routes';
 import { getMessages } from '@/i18n/dictionary';
 import { useTranslation } from '@/i18n/I18nContext';
 import { useAppLocale } from '@/i18n/AppLocaleProvider';
+import { isCurrentTabActivation } from '@/pages/public/publicAppNavigation';
 
 const icons = [UsersRound, MessageSquareText, ClipboardList, CalendarDays];
 
@@ -53,7 +54,9 @@ export function FeaturesPage() {
         <Link
           className={buttonVariants({ className: 'mt-6 sm:mt-0', size: 'lg' })}
           to={buildAppHomePath()}
-          onClick={() => adoptPublicLocale(locale)}
+          onClick={(event) => {
+            if (isCurrentTabActivation(event)) adoptPublicLocale(locale);
+          }}
         >
           {t('common.openApp')} <ArrowRight aria-hidden="true" />
         </Link>

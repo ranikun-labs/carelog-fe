@@ -30,6 +30,12 @@ export function AppLocaleProvider({
     writeStoredAppLocale(next);
   };
   const adoptPublicLocale = (next: Locale) => {
+    const stored = readStoredAppLocale();
+    if (stored) {
+      explicitlySelected.current = true;
+      setLocaleState(stored);
+      return;
+    }
     if (!explicitlySelected.current && isSupportedLocale(next)) {
       setLocaleState(next);
       writePublicSessionLocale(next);

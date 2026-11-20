@@ -7,10 +7,24 @@ import { buildPublicHomePath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import type { MessageKey } from '@/i18n/dictionary';
 
-function AuthSurfaceFrame({ children }: { children: ReactNode }) {
+function AuthSurfaceFrame({
+  children,
+  showBrand = false,
+}: {
+  children: ReactNode;
+  showBrand?: boolean;
+}) {
+  const { t } = useTranslation();
   return (
     <div data-auth-surface className="bg-page min-h-dvh w-full">
-      <main className="mx-auto flex min-h-dvh w-full max-w-[560px] items-center px-5 py-10 sm:px-8">
+      {showBrand ? (
+        <header className="mx-auto w-full max-w-[720px] px-5 py-5 sm:px-8">
+          <span className="text-text-primary font-semibold">{t('common.appName')}</span>
+        </header>
+      ) : null}
+      <main
+        className={`mx-auto flex w-full max-w-[560px] items-center px-5 py-10 sm:px-8 ${showBrand ? 'min-h-[calc(100dvh-64px)]' : 'min-h-dvh'}`}
+      >
         <div className="w-full">{children}</div>
       </main>
     </div>
@@ -106,7 +120,7 @@ export function AuthRecoveryBanner() {
 export function AuthBootstrapErrorScreen({ onRetry }: { onRetry: () => void }) {
   const { locale, t } = useTranslation();
   return (
-    <AuthSurfaceFrame>
+    <AuthSurfaceFrame showBrand>
       <AuthStatusContent
         title={t('auth.bootstrap.errorTitle')}
         description={t('auth.bootstrap.errorDescription')}

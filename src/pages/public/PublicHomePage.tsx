@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { buildAppHomePath, buildPublicFeaturesPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import { useAppLocale } from '@/i18n/AppLocaleProvider';
+import { isCurrentTabActivation } from '@/pages/public/publicAppNavigation';
 
 export function PublicHomePage() {
   const { locale, t } = useTranslation();
@@ -27,7 +28,9 @@ export function PublicHomePage() {
             <Link
               className={buttonVariants({ size: 'lg' })}
               to={buildAppHomePath()}
-              onClick={() => adoptPublicLocale(locale)}
+              onClick={(event) => {
+                if (isCurrentTabActivation(event)) adoptPublicLocale(locale);
+              }}
             >
               {t('common.openApp')} <ArrowRight aria-hidden="true" />
             </Link>
