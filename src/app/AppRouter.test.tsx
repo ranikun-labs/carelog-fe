@@ -95,6 +95,44 @@ async function signInFromLoginPage() {
 }
 
 describe('application router', () => {
+  it.each(['/en', '/en/features'])(
+    'uses the public language when opening the app from %s without an explicit choice',
+    async (path) => {
+      window.localStorage.removeItem('carelog.language');
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[path]}>
+          <TestAppRouter authPort={createInMemoryAuthPort({ bootstrap: 'anonymous' })} />
+        </MemoryRouter>,
+      );
+      fireEvent.click(screen.getByRole('link', { name: /Open app/ }));
+      expect(
+        await screen.findByRole('heading', { name: 'Keep customer context close to the work' }),
+      ).toBeVisible();
+      expect(document.documentElement.lang).toBe('en');
+      expect(window.localStorage.getItem('carelog.language')).toBeNull();
+      expect(window.sessionStorage.getItem('carelog.publicLanguage')).toBe('en');
+      unmount();
+      window.localStorage.removeItem('carelog.language');
+      window.sessionStorage.removeItem('carelog.publicLanguage');
+    },
+  );
+
+  it('preserves an explicitly selected app language when opening from public features', async () => {
+    window.localStorage.setItem('carelog.language', 'ko');
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/en/features']}>
+        <TestAppRouter authPort={createInMemoryAuthPort({ bootstrap: 'anonymous' })} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('link', { name: /Open app/ }));
+    expect(
+      await screen.findByRole('heading', { name: '고객 맥락을 업무 가까이에 두세요' }),
+    ).toBeVisible();
+    expect(window.localStorage.getItem('carelog.language')).toBe('ko');
+    unmount();
+    window.localStorage.removeItem('carelog.language');
+  });
+
   it.each(['/app/schedule', '/auth/login'])(
     'offers retry and public home when session bootstrap fails at %s',
     async (path) => {

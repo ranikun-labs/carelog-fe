@@ -1,10 +1,18 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 
 import { isSupportedLocale, type Locale } from '@/constants/routes';
-import { resolveInitialAppLocale, writeStoredAppLocale } from '@/i18n/appLocale';
+import {
+  readStoredAppLocale,
+  resolveInitialAppLocale,
+  writePublicSessionLocale,
+  writeStoredAppLocale,
+} from '@/i18n/appLocale';
 import { I18nProvider, useTranslation } from '@/i18n/I18nContext';
 
-const LocaleSetterContext = createContext<((locale: Locale) => void) | null>(null);
+const LocaleSetterContext = createContext<{
+  setLocale: (locale: Locale) => void;
+  adoptPublicLocale: (locale: Locale) => void;
+} | null>(null);
 
 export function AppLocaleProvider({
   children,
@@ -14,14 +22,22 @@ export function AppLocaleProvider({
   syncDocumentLang?: boolean;
 }) {
   const [locale, setLocaleState] = useState(resolveInitialAppLocale);
+  const explicitlySelected = useRef(readStoredAppLocale() !== null);
   const setLocale = (next: Locale) => {
     if (!isSupportedLocale(next)) return;
+    explicitlySelected.current = true;
     setLocaleState(next);
     writeStoredAppLocale(next);
   };
+  const adoptPublicLocale = (next: Locale) => {
+    if (!explicitlySelected.current && isSupportedLocale(next)) {
+      setLocaleState(next);
+      writePublicSessionLocale(next);
+    }
+  };
 
   return (
-    <LocaleSetterContext.Provider value={setLocale}>
+    <LocaleSetterContext.Provider value={{ setLocale, adoptPublicLocale }}>
       <I18nProvider locale={locale} syncDocumentLang={syncDocumentLang}>
         {children}
       </I18nProvider>
@@ -31,7 +47,7 @@ export function AppLocaleProvider({
 
 export function useAppLocale() {
   const { locale } = useTranslation();
-  const setLocale = useContext(LocaleSetterContext);
-  if (!setLocale) throw new Error('useAppLocale must be used within AppLocaleProvider.');
-  return { locale, setLocale };
+  const setters = useContext(LocaleSetterContext);
+  if (!setters) throw new Error('useAppLocale must be used within AppLocaleProvider.');
+  return { locale, ...setters };
 }
