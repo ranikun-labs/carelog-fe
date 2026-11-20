@@ -4,11 +4,14 @@ test('public routes and locale switch', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL('/ko');
   await expect(page.locator('h1')).toHaveCount(1);
-  await page.getByRole('link', { name: '기능 보기' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: '기능', exact: true }).click();
   await expect(page).toHaveURL('/ko/features');
   await page.getByRole('link', { name: '언어 변경' }).click();
-  await expect(page).toHaveURL('/en');
+  await expect(page).toHaveURL('/en/features');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await page.getByRole('link', { name: 'Change language' }).click();
+  await expect(page).toHaveURL('/ko/features');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
 });
 
 test('app home, customers, and navigation', async ({ page }) => {
