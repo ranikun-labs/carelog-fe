@@ -23,6 +23,7 @@ export interface EventFormInitialValues {
   note?: string;
   scheduledAt?: string;
   occurredAt?: string;
+  status?: 'PLANNED' | 'OCCURRED';
 }
 
 interface EventFormProps {
@@ -34,6 +35,8 @@ interface EventFormProps {
   fixedCreateStatus?: 'PLANNED';
   onDraftChange?: (draft: EventFormDraft) => void;
   onSubmit: (values: EventFormSubmitValues) => void | Promise<void>;
+  externalSubmitting?: boolean;
+  externalError?: string | null;
   onValidationFailure?: () => void;
   onCancel: () => void;
 }
@@ -48,11 +51,15 @@ export function EventForm({
   onDraftChange,
   onSubmit,
   onValidationFailure,
+  externalSubmitting = false,
+  externalError,
   onCancel,
 }: EventFormProps) {
   const { t } = useTranslation();
   const initialStatus =
-    event?.status === 'OCCURRED' ? 'OCCURRED' : (fixedCreateStatus ?? 'PLANNED');
+    event?.status === 'OCCURRED'
+      ? 'OCCURRED'
+      : (fixedCreateStatus ?? initialValues?.status ?? 'PLANNED');
   const [status, setStatus] = useState<'PLANNED' | 'OCCURRED'>(initialStatus);
   const [descriptor, setDescriptor] = useState(
     event?.descriptor ?? initialValues?.descriptor ?? '',
@@ -61,7 +68,9 @@ export function EventForm({
   const [scheduledAt, setScheduledAt] = useState(
     event?.status === 'PLANNED'
       ? toDateTimeLocalValue(event.scheduledAt)
-      : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
+      : initialValues?.status !== undefined
+        ? toDateTimeLocalValue(initialValues.scheduledAt ?? '')
+        : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
           toDateTimeLocalValue(now.toISOString()),
   );
   const [occurredAt, setOccurredAt] = useState(
@@ -71,18 +80,30 @@ export function EventForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitFailed, setSubmitFailed] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
   const submitLockRef = useRef(false);
   const isEdit = mode === 'edit';
   const isOccurredEdit = event?.status === 'OCCURRED';
   const isFixedCreateStatus = !isEdit && fixedCreateStatus !== undefined;
 
   useEffect(() => {
-    onDraftChange?.({ descriptor, note, scheduledAt });
-  }, [descriptor, note, onDraftChange, scheduledAt]);
+    onDraftChange?.({ descriptor, note, scheduledAt, status, occurredAt });
+  }, [descriptor, note, onDraftChange, scheduledAt, status, occurredAt]);
+
+  useEffect(() => {
+    if (
+      (submitFailed || externalError) &&
+      (document.activeElement === document.body || document.activeElement === submitRef.current)
+    ) {
+      errorRef.current?.focus();
+    }
+  }, [submitFailed, externalError]);
 
   function submit(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
-    if (submitLockRef.current) return;
+    if (submitLockRef.current || externalSubmitting) return;
     const time = status === 'PLANNED' ? scheduledAt : occurredAt;
     if (!time) {
       onValidationFailure?.();
@@ -93,6 +114,7 @@ export function EventForm({
     }
 
     setError(null);
+    setSubmitFailed(false);
     submitLockRef.current = true;
     setIsSubmitting(true);
     void Promise.resolve()
@@ -108,6 +130,7 @@ export function EventForm({
       )
       .catch((submitError: unknown) => {
         setError(t(getCarelogMessageKey(submitError)));
+        setSubmitFailed(true);
         submitLockRef.current = false;
         setIsSubmitting(false);
       });
@@ -117,7 +140,7 @@ export function EventForm({
     <form
       data-event-form
       data-event-form-mode={mode}
-      aria-busy={isSubmitting}
+      aria-busy={isSubmitting || externalSubmitting}
       onSubmit={submit}
       onInvalidCapture={() => onValidationFailure?.()}
       className="border-border-default bg-surface mt-4 min-w-0 rounded-lg border p-4 sm:p-6"
@@ -136,7 +159,7 @@ export function EventForm({
           variant="ghost"
           size="sm"
           onClick={onCancel}
-          disabled={isSubmitting}
+          disabled={isSubmitting || externalSubmitting}
           data-event-form-cancel
         >
           {t('eventForm.cancel')}
@@ -246,9 +269,16 @@ export function EventForm({
         </label>
       </div>
 
-      {error ? (
-        <p role="alert" className="text-warning mt-3 text-sm font-semibold">
-          {error}
+      {error || externalError ? (
+        <p
+          ref={errorRef}
+          role="alert"
+          tabIndex={-1}
+          className="text-warning mt-3 text-sm font-semibold"
+        >
+          {submitFailed || externalError
+            ? `${t('eventForm.saveFailed')} ${error ?? externalError}`
+            : error}
         </p>
       ) : null}
 
@@ -257,12 +287,19 @@ export function EventForm({
         data-event-form-actions
       >
         <Button
+          ref={submitRef}
           type="submit"
           className="w-full sm:w-auto"
           data-event-form-submit
-          disabled={isSubmitting}
+          disabled={isSubmitting || externalSubmitting}
         >
-          {isEdit ? t('eventForm.save') : t('eventForm.create')}
+          {isSubmitting || externalSubmitting
+            ? t('eventForm.saving')
+            : submitFailed || externalError
+              ? t('eventForm.retrySave')
+              : isEdit
+                ? t('eventForm.save')
+                : t('eventForm.create')}
         </Button>
       </div>
     </form>

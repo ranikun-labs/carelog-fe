@@ -50,15 +50,20 @@ describe('CustomerUpcoming', () => {
       },
     ]);
 
-    const primary = screen.getByRole('link', { name: '일정 상세 열기: nearest planned' });
+    const primary = screen.getByRole('link', { name: /일정 상세 열기: nearest planned/ });
     expect(primary).toHaveAttribute('href', '/app/events/future-nearest');
     expect(primary).toHaveTextContent('nearest planned');
+    expect(primary).toHaveAccessibleName(
+      expect.stringContaining(primary.querySelector('time')!.textContent!),
+    );
+    expect(primary).toHaveAccessibleName(expect.stringContaining('예정'));
     expect(primary).not.toHaveTextContent('latest occurred');
     expect(primary).not.toHaveTextContent('overdue planned');
     expect(screen.getByText('이후 예정 1건')).toBeVisible();
-    expect(screen.getByRole('link', { name: '일정 상세 열기: later planned' })).toHaveAttribute(
-      'href',
-      '/app/events/future-later',
+    const later = screen.getByRole('link', { name: /일정 상세 열기: later planned/ });
+    expect(later).toHaveAttribute('href', '/app/events/future-later');
+    expect(later).toHaveAccessibleName(
+      expect.stringContaining(later.querySelector('time')!.textContent!),
     );
   });
 

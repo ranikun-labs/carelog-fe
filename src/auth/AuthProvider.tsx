@@ -29,6 +29,7 @@ import { createUnavailableAuthPort } from '@/auth/unavailableAuthPort';
 export interface AuthOperationError {
   failure: AuthFailure;
   retry?: () => void | Promise<void>;
+  token?: symbol;
 }
 
 export interface AuthContextValue {
@@ -42,9 +43,10 @@ export interface AuthContextValue {
   signup: (input: AuthSignupFixture) => Promise<AuthCommandResult>;
   logout: () => Promise<void>;
   retryBootstrap: () => void;
-  reportFailure: (failure: AuthFailure, retry?: () => void | Promise<void>) => void;
+  reportFailure: (failure: AuthFailure, retry?: () => void | Promise<void>) => symbol | undefined;
   retryOperation: () => Promise<void>;
   clearOperationError: () => void;
+  clearOperationErrorIf: (token: symbol) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -321,7 +323,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
   }, [invalidateSessionWork, port, setCurrentOperationError]);
 
   const reportFailure = useCallback(
-    (failure: AuthFailure, retry?: () => void | Promise<void>): void => {
+    (failure: AuthFailure, retry?: () => void | Promise<void>): symbol | undefined => {
       if (sessionRevision !== sessionRevisionRef.current || logoutPromiseRef.current) return;
       const current = authStateRef.current;
       if (failure.kind === AUTH_ERROR_KIND.UNAUTHORIZED) {
@@ -330,7 +332,9 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
         return;
       }
       if (current.status !== AUTH_STATE.AUTHENTICATED) return;
-      setCurrentOperationError({ failure, retry });
+      const token = Symbol();
+      setCurrentOperationError({ failure, retry, token });
+      return token;
     },
     [recoverSession, sessionRevision, setCurrentOperationError],
   );
@@ -354,6 +358,15 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
   const clearOperationError = useCallback(() => {
     setCurrentOperationError(null);
   }, [setCurrentOperationError]);
+
+  const clearOperationErrorIf = useCallback(
+    (token: symbol) => {
+      if (isSessionCurrent(sessionRevision) && operationErrorRef.current?.token === token) {
+        setCurrentOperationError(null);
+      }
+    },
+    [isSessionCurrent, sessionRevision, setCurrentOperationError],
+  );
 
   useLayoutEffect(() => {
     if (import.meta.env.MODE !== 'test' || typeof window === 'undefined') return undefined;
@@ -398,6 +411,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
       reportFailure,
       retryOperation,
       clearOperationError,
+      clearOperationErrorIf,
     }),
     [
       authState,
@@ -405,6 +419,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
       isSessionCurrent,
       sessionRevision,
       clearOperationError,
+      clearOperationErrorIf,
       login,
       logout,
       operationError,
