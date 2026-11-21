@@ -29,7 +29,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [registered, setRegistered] = useState(false);
-  const attempt = useRef<{ payload: string; key: string } | null>(null);
+  const attempts = useRef(new Map<string, string>());
   const [secretConfirmation, setSecretConfirmation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [errorField, setErrorField] = useState<ErrorField | null>(null);
@@ -72,9 +72,11 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
       // Keep the submitted values in memory only so an unchanged retry uses the same key.
       const payload = JSON.stringify([normalizedAccount, email.trim(), name.trim(), secret]);
       try {
-        if (attempt.current?.payload !== payload)
-          attempt.current = { payload, key: crypto.randomUUID() };
-        idempotencyKey = attempt.current.key;
+        idempotencyKey = attempts.current.get(payload);
+        if (!idempotencyKey) {
+          idempotencyKey = crypto.randomUUID();
+          attempts.current.set(payload, idempotencyKey);
+        }
       } catch {
         setError(t('auth.form.signupFailure'));
         setErrorField('form');
@@ -95,7 +97,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
       : await login({ account: normalizedAccount, secret });
     setIsSubmitting(false);
     if (isSignup && result.ok) {
-      attempt.current = null;
+      attempts.current.clear();
       setSecret('');
       setSecretConfirmation('');
       setRegistered(true);

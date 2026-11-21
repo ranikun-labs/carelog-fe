@@ -148,6 +148,10 @@ it('reuses the attempt key for an unchanged retry after an uncertain failure', a
   fireEvent.click(screen.getByRole('button', { name: '회원가입' }));
   await waitFor(() => expect(signup).toHaveBeenCalledTimes(3));
   expect(signup.mock.calls[2][0].idempotencyKey).not.toBe(signup.mock.calls[0][0].idempotencyKey);
+  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '테스트' } });
+  fireEvent.click(screen.getByRole('button', { name: '회원가입' }));
+  await waitFor(() => expect(signup).toHaveBeenCalledTimes(4));
+  expect(signup.mock.calls[3][0].idempotencyKey).toBe(signup.mock.calls[0][0].idempotencyKey);
 });
 
 it('hides signup entry and blocks direct registration when capability is disabled', async () => {
