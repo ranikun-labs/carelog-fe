@@ -233,7 +233,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
                       type="button"
                       className={cn(
                         buttonVariants({ variant: isSelected ? 'primary' : 'outline' }),
-                        'min-h-11 w-full justify-start text-left',
+                        'min-h-12 w-full justify-start rounded-lg text-left',
                       )}
                       aria-pressed={isSelected}
                       data-customer-selector-option

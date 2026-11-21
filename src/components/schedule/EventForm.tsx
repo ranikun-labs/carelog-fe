@@ -143,11 +143,11 @@ export function EventForm({
       aria-busy={isSubmitting || externalSubmitting}
       onSubmit={submit}
       onInvalidCapture={() => onValidationFailure?.()}
-      className="border-border-default bg-surface mt-4 min-w-0 rounded-lg border p-4 sm:p-6"
+      className="border-border-subtle bg-surface mt-4 min-w-0 rounded-xl border p-5 sm:p-7"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-text-primary text-base font-semibold">
+          <h2 className="text-text-primary text-lg font-bold tracking-tight">
             {isEdit ? t('eventForm.editTitle') : t('eventForm.createTitle')}
           </h2>
           <p className="text-text-secondary mt-1 text-sm">
@@ -206,8 +206,8 @@ export function EventForm({
         </fieldset>
       ) : null}
 
-      <div className="mt-5 grid gap-5">
-        <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-descriptor">
+      <div className="mt-6 grid gap-6">
+        <label className="grid gap-2 text-sm font-semibold" htmlFor="event-descriptor">
           {t('eventForm.descriptor')}
           <input
             id="event-descriptor"
@@ -215,13 +215,13 @@ export function EventForm({
             data-event-field="descriptor"
             value={descriptor}
             onChange={(inputEvent) => setDescriptor(inputEvent.target.value)}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             placeholder={t('eventForm.descriptorPlaceholder')}
           />
         </label>
 
         {status === 'PLANNED' ? (
-          <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-scheduled-at">
+          <label className="grid gap-2 text-sm font-semibold" htmlFor="event-scheduled-at">
             {t('eventForm.scheduledTime')}
             <input
               id="event-scheduled-at"
@@ -231,11 +231,11 @@ export function EventForm({
               value={scheduledAt}
               onChange={(inputEvent) => setScheduledAt(inputEvent.target.value)}
               required
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             />
           </label>
         ) : (
-          <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-occurred-at">
+          <label className="grid gap-2 text-sm font-semibold" htmlFor="event-occurred-at">
             {t('eventForm.occurredTime')}
             <input
               id="event-occurred-at"
@@ -245,7 +245,7 @@ export function EventForm({
               value={occurredAt}
               onChange={(inputEvent) => setOccurredAt(inputEvent.target.value)}
               required
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             />
           </label>
         )}
@@ -254,7 +254,7 @@ export function EventForm({
           <p className="text-text-tertiary text-xs">{t('eventForm.originalScheduledPreserved')}</p>
         ) : null}
 
-        <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-note">
+        <label className="grid gap-2 text-sm font-semibold" htmlFor="event-note">
           {t('eventForm.note')}
           <textarea
             id="event-note"
@@ -263,7 +263,7 @@ export function EventForm({
             value={note}
             onChange={(inputEvent) => setNote(inputEvent.target.value)}
             rows={3}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary w-full min-w-0 rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-24 w-full min-w-0 rounded-lg border px-3 py-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             placeholder={t('eventForm.notePlaceholder')}
           />
         </label>
@@ -289,7 +289,7 @@ export function EventForm({
         <Button
           ref={submitRef}
           type="submit"
-          className="w-full sm:w-auto"
+          className="min-h-12 w-full sm:w-auto sm:min-w-36"
           data-event-form-submit
           disabled={isSubmitting || externalSubmitting}
         >

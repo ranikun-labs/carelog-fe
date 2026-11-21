@@ -362,9 +362,10 @@ export function CustomerDetailPage({
             <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
           ) : null}
 
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-3">
             <Button
               ref={addEventTriggerRef}
+              className="min-h-12"
               type="button"
               variant="outline"
               disabled={!createEvent || eventStore?.mutationPending}
@@ -389,6 +390,7 @@ export function CustomerDetailPage({
             <Button
               type="button"
               variant="secondary"
+              className="min-h-12"
               data-assistant-entry="customer"
               onClick={openAssistant}
             >
