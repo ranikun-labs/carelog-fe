@@ -641,7 +641,7 @@ describe('application router', () => {
 
     await waitFor(() => expect(screen.getByLabelText('계정')).toHaveValue(''));
     expect(screen.getByRole('heading', { name: 'Carelog 로그인' })).toBeVisible();
-    expect(screen.getByRole('link', { name: '회원가입' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: '회원가입' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '일정' })).not.toBeInTheDocument();
     expect(list).toHaveBeenCalledTimes(1);
   });

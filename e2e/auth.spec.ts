@@ -21,17 +21,25 @@ test('login reaches Schedule when the canonical Customer store has records', asy
   await expect(page.getByRole('heading', { name: '일정', exact: true })).toBeVisible();
 });
 
-test('signup reaches the Customers empty flow when the canonical store is empty', async ({
-  page,
-}) => {
+test('signup completes before a separate login to the Customers empty flow', async ({ page }) => {
   await useAuthAdapterScenario(page, { bootstrap: 'anonymous' });
   await useEmptyApplicationSeed(page);
   await page.goto('/auth/signup');
   await page.getByLabel('계정').fill('fixture-account');
+  await page.getByLabel('이메일').fill('synthetic@example.test');
+  await page.getByLabel('이름').fill('테스트');
   await page.getByLabel('비밀번호', { exact: true }).fill('fixture-secret');
   await page.getByLabel('비밀번호 확인').fill('fixture-secret');
   await page.getByRole('button', { name: '회원가입', exact: true }).click();
 
+  await expect(page.getByRole('status')).toContainText('회원가입이 완료되었습니다');
+  await expect(page.locator('[data-app-shell]')).toHaveCount(0);
+  await page.getByRole('link', { name: '로그인', exact: true }).click();
+  await expect(page.getByLabel('계정')).toHaveValue('');
+  await expect(page.getByLabel('비밀번호', { exact: true })).toHaveValue('');
+  await page.getByLabel('계정').fill('fixture-account');
+  await page.getByLabel('비밀번호', { exact: true }).fill('fixture-secret');
+  await page.getByRole('button', { name: '로그인', exact: true }).click();
   await expect(page).toHaveURL('/app/customers');
   await expect(page.getByText('아직 고객이 없습니다')).toBeVisible();
 });

@@ -444,6 +444,81 @@ describe('Carelog Production AuthPort', () => {
     expect(runtime.sessionStore.getRefreshToken()).toBeUndefined();
   });
 
+  it('only sends the proposed registration contract when explicitly enabled and never creates a session', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(201, {}));
+    const runtime = createCarelogAuthRuntime({
+      apiBaseUrl: 'https://gateway.example.test',
+      fetchImpl,
+      signupEnabled: true,
+    });
+    const input = {
+      account: 'therapist',
+      secret: 'password',
+      email: 'synthetic@example.test',
+      name: 'Synthetic',
+      idempotencyKey: 'attempt-1',
+    };
+    await expect(runtime.authPort.signup(input)).resolves.toEqual({ ok: true });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://gateway.example.test/api/v1/auth/carelog/registration',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'omit',
+        redirect: 'error',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'attempt-1',
+        },
+        body: JSON.stringify({
+          userId: 'therapist',
+          email: 'synthetic@example.test',
+          password: 'password',
+          name: 'Synthetic',
+        }),
+      }),
+    );
+    expect(runtime.sessionStore.getAccessToken()).toBeUndefined();
+    expect(runtime.sessionStore.getRefreshToken()).toBeUndefined();
+  });
+
+  it.each([
+    'http://remote.example.test',
+    'javascript:alert(1)',
+    'https://user:pass@example.test',
+    'https://example.test/?x=1',
+  ])('does not send registration to unsafe base %s', async (apiBaseUrl) => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const runtime = createCarelogAuthRuntime({ apiBaseUrl, fetchImpl, signupEnabled: true });
+    expect(runtime.authPort.signupAvailable).toBe(false);
+    await runtime.authPort.signup({
+      account: 'user',
+      secret: 'secret',
+      email: 'a@example.test',
+      name: 'A',
+      idempotencyKey: 'attempt',
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('permits explicitly enabled local loopback registration', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(201, {}));
+    const runtime = createCarelogAuthRuntime({
+      apiBaseUrl: 'http://127.0.0.1:8080',
+      fetchImpl,
+      signupEnabled: true,
+    });
+    expect(runtime.authPort.signupAvailable).toBe(true);
+    await runtime.authPort.signup({
+      account: 'user',
+      secret: 'secret',
+      email: 'a@example.test',
+      name: 'A',
+      idempotencyKey: 'attempt',
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it('does not invent a production signup endpoint', async () => {
     const fetchImpl = vi.fn<typeof fetch>();
     const runtime = runtimeWith(fetchImpl);

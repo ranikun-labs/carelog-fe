@@ -33,6 +33,7 @@ export interface AuthOperationError {
 
 export interface AuthContextValue {
   authState: AuthState;
+  signupAvailable: boolean;
   /** Changes at account/session boundaries, but not during token recovery. */
   sessionRevision: number;
   isSessionCurrent: (sessionRevision: number) => boolean;
@@ -268,25 +269,16 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
 
   const signup = useCallback(
     async (input: AuthSignupFixture): Promise<AuthCommandResult> => {
-      const operationEpoch = invalidateSessionWork();
+      invalidateSessionWork();
       if (mountedRef.current) dispatch({ type: 'logout-anonymous' });
       try {
         const result = await port.signup(input);
-        if (
-          isSuccessful(result) &&
-          mountedRef.current &&
-          operationEpoch === sessionEpochRef.current
-        ) {
-          recoveryAttemptRef.current = 0;
-          setCurrentOperationError(null);
-          dispatch({ type: 'signup-authenticated' });
-        }
         return result;
       } catch (error) {
         return { ok: false, failure: normalizeFailure(error) };
       }
     },
-    [invalidateSessionWork, port, setCurrentOperationError],
+    [invalidateSessionWork, port],
   );
 
   const logout = useCallback((): Promise<void> => {
@@ -387,6 +379,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
   const value = useMemo<AuthContextValue>(
     () => ({
       authState,
+      signupAvailable: port.signupAvailable === true,
       sessionRevision,
       isSessionCurrent,
       failClosedSession,
@@ -401,6 +394,7 @@ export function AuthProvider({ children, authPort }: { children: ReactNode; auth
     }),
     [
       authState,
+      port,
       failClosedSession,
       isSessionCurrent,
       sessionRevision,

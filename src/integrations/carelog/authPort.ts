@@ -5,6 +5,7 @@ import {
   type AuthCredentialFixture,
   type AuthFailure,
   type AuthPort,
+  type AuthSignupFixture,
 } from '@/auth/authTypes';
 import {
   CarelogConfigurationError,
@@ -81,6 +82,7 @@ export interface CarelogAuthRuntimeOptions {
   apiBaseUrl: string;
   fetchImpl?: typeof fetch;
   sessionStore?: CarelogAuthSessionStore;
+  signupEnabled?: boolean;
 }
 
 /**
@@ -91,6 +93,7 @@ export function createCarelogAuthRuntime({
   apiBaseUrl,
   fetchImpl,
   sessionStore = createCarelogAuthSessionStore(),
+  signupEnabled = false,
 }: CarelogAuthRuntimeOptions): CarelogAuthRuntime {
   let client: CarelogHttpClient | undefined;
   let clientError: unknown;
@@ -110,6 +113,26 @@ export function createCarelogAuthRuntime({
   } catch (error) {
     clientError = error;
   }
+
+  // Never send credentials to an insecure remote origin or malformed base URL.
+  let registrationBaseUrl: string | undefined;
+  try {
+    const url = new URL(apiBaseUrl);
+    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    if (
+      client &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      (url.protocol === 'https:' || (url.protocol === 'http:' && loopback))
+    ) {
+      registrationBaseUrl = url.toString().replace(/\/$/, '');
+    }
+  } catch {
+    // Invalid configuration stays unavailable.
+  }
+  const registrationAvailable = signupEnabled && registrationBaseUrl !== undefined;
 
   const requireClient = (): CarelogHttpClient => {
     if (client) return client;
@@ -165,6 +188,7 @@ export function createCarelogAuthRuntime({
   };
 
   const authPort: AuthPort = {
+    signupAvailable: registrationAvailable,
     async bootstrapSession(): Promise<AuthBootstrapResult> {
       if (!client) return { status: 'error', failure: failureFor(clientError) };
       if (!sessionStore.getRefreshToken()) return { status: 'anonymous' };
@@ -215,9 +239,47 @@ export function createCarelogAuthRuntime({
 
     cancelPendingLogin,
 
-    async signup(): Promise<AuthCommandResult> {
-      // The inspected Carelog AuthController has no public signup endpoint.
-      return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
+    async signup(input: AuthSignupFixture): Promise<AuthCommandResult> {
+      // DEV-only candidate; the server contract has not yet been released.
+      if (
+        !registrationAvailable ||
+        !registrationBaseUrl ||
+        !input.email ||
+        !input.name ||
+        !input.idempotencyKey
+      ) {
+        return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
+      }
+      try {
+        const result = await (fetchImpl ?? globalThis.fetch)(
+          `${registrationBaseUrl}/api/v1/auth/carelog/registration`,
+          {
+            method: 'POST',
+            credentials: 'omit',
+            redirect: 'error',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              'Idempotency-Key': input.idempotencyKey,
+            },
+            body: JSON.stringify({
+              userId: input.account,
+              email: input.email,
+              password: input.secret,
+              name: input.name,
+            }),
+          },
+        );
+        if (result.status === 201) return { ok: true };
+        return {
+          ok: false,
+          failure: {
+            kind: result.status >= 500 ? AUTH_ERROR_KIND.SERVER : AUTH_ERROR_KIND.UNKNOWN,
+          },
+        };
+      } catch {
+        return { ok: false, failure: { kind: AUTH_ERROR_KIND.NETWORK } };
+      }
     },
 
     async logout(): Promise<void> {
