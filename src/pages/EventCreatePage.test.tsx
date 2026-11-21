@@ -166,8 +166,11 @@ describe('EventCreatePage', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeVisible());
     expect(screen.getByRole('heading', { name: '일정 추가', level: 2 })).toBeVisible();
     expect(port.create).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toHaveFocus();
+    expect(screen.getByRole('alert')).toHaveTextContent('저장하지 못했어요.');
+    expect(screen.getByLabelText('제목')).toHaveValue('실패 후 재시도');
 
-    fireEvent.click(screen.getByRole('button', { name: '일정 추가' }));
+    fireEvent.click(screen.getByRole('button', { name: '다시 저장' }));
     await waitFor(() => expect(screen.getByRole('heading', { name: '일정' })).toBeVisible());
     expect(port.create).toHaveBeenCalledTimes(2);
     expect(screen.getByRole('button', { name: '일정 상세 열기: 실패 후 재시도' })).toBeVisible();

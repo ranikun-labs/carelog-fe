@@ -66,7 +66,7 @@ describe('CustomerDetailPage', () => {
     expect(screen.getByRole('heading', { name: '다음 일정' })).toBeVisible();
     expect(screen.queryByText('다음 일정 없음')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: '일정 상세 열기: 계약 갱신 여부 재확인' }),
+      screen.getByRole('link', { name: /일정 상세 열기: 계약 갱신 여부 재확인/ }),
     ).toHaveAttribute('href', '/app/events/followup-tenant-1');
     expect(screen.queryByRole('heading', { name: '메모' })).not.toBeInTheDocument();
   });

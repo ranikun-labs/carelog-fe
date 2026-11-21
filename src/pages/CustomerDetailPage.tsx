@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { CustomerContextSection } from '@/components/customers/CustomerContextSection';
@@ -26,6 +26,7 @@ import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
+import { useOptionalEventCreateDraft, type EventFormDraft } from '@/state/EventCreateDraftContext';
 import { useOptionalEventCreateActivation } from '@/state/EventCreateActivationContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 import type { EventCreationInput } from '@/state/eventStore';
@@ -52,6 +53,7 @@ export function CustomerDetailPage({
   const navigate = useNavigate();
   const adaptiveHost = useOptionalAdaptiveHost();
   const eventCreateActivation = useOptionalEventCreateActivation();
+  const inlineDraft = useOptionalEventCreateDraft();
   const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
   const loadCustomer = customerStore.loadCustomer;
@@ -59,7 +61,18 @@ export function CustomerDetailPage({
   const remoteReadsEnabled = eventStore?.remoteReadsEnabled ?? false;
   const [creatingCustomerId, setCreatingCustomerId] = useState<string | null>(null);
   const [retriedCustomerId, setRetriedCustomerId] = useState<string | null>(null);
-  const isCreating = creatingCustomerId === customerId;
+  const isCreating = inlineDraft
+    ? inlineDraft.customerDraft?.customerId === customerId
+    : creatingCustomerId === customerId;
+  const setCustomerDraft = inlineDraft?.setCustomerDraft;
+  const updateInlineDraft = useCallback(
+    (draft: EventFormDraft) => {
+      setCustomerDraft?.((current) =>
+        current?.customerId === customerId ? { ...current, ...draft } : current,
+      );
+    },
+    [customerId, setCustomerDraft],
+  );
   const currentViewRef = useRef({ customerId, generation: 0 });
   const mountedRef = useRef(true);
   const addEventTriggerRef = useRef<HTMLButtonElement>(null);
@@ -206,6 +219,12 @@ export function CustomerDetailPage({
   async function handleCreate(values: EventFormSubmitValues) {
     if (!createEvent) return;
     const viewGeneration = currentViewRef.current.generation;
+    const sessionId = inlineDraft?.customerDraft?.sessionId;
+    setCustomerDraft?.((current) =>
+      current && current.sessionId === sessionId
+        ? { ...current, pending: true, error: null }
+        : current,
+    );
 
     const input: EventCreationInput =
       values.status === 'PLANNED'
@@ -228,11 +247,17 @@ export function CustomerDetailPage({
     try {
       createdEvent = await createEvent(input);
     } catch (error) {
+      setCustomerDraft?.((current) =>
+        current && current.sessionId === sessionId
+          ? { ...current, pending: false, error: t(getCarelogMessageKey(error)) }
+          : current,
+      );
       if (mountedRef.current && currentViewRef.current.generation === viewGeneration) {
         eventCreateActivation?.clearCreateReturnProvenance();
       }
       throw error;
     }
+    setCustomerDraft?.((current) => (current && current.sessionId === sessionId ? null : current));
     if (!mountedRef.current || currentViewRef.current.generation !== viewGeneration) return;
     if (createdEvent) {
       eventCreateActivation?.armCreateReturn({
@@ -326,7 +351,8 @@ export function CustomerDetailPage({
               </Button>
             </div>
           ) : null}
-          {hasDetailData || getUpcomingCustomerEvents(knownEvents, now).length > 0 ? (
+          {(!detailFailed && hasDetailData) ||
+          getUpcomingCustomerEvents(customerEvents, now).length > 0 ? (
             <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
           ) : null}
 
@@ -338,7 +364,17 @@ export function CustomerDetailPage({
               disabled={!createEvent || eventStore?.mutationPending}
               data-add-event
               onClick={() => {
+                if (isCreating) return;
                 eventCreateActivation?.beginCreateSession();
+                setCustomerDraft?.({
+                  customerId: currentCustomer.id,
+                  descriptor: '',
+                  note: '',
+                  scheduledAt: '',
+                  sessionId: crypto.randomUUID(),
+                  pending: false,
+                  error: null,
+                });
                 setCreatingCustomerId(currentCustomer.id);
               }}
             >
@@ -359,10 +395,15 @@ export function CustomerDetailPage({
               mode="create"
               customerName={currentCustomer.displayName}
               now={now}
+              initialValues={inlineDraft?.customerDraft ?? undefined}
+              onDraftChange={setCustomerDraft ? updateInlineDraft : undefined}
+              externalSubmitting={inlineDraft?.customerDraft?.pending}
+              externalError={inlineDraft?.customerDraft?.error}
               onSubmit={handleCreate}
               onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
               onCancel={() => {
                 eventCreateActivation?.clearCreateReturnProvenance();
+                setCustomerDraft?.(null);
                 setCreatingCustomerId(null);
                 addEventTriggerRef.current?.focus();
               }}

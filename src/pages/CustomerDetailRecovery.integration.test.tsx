@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
@@ -5,7 +6,8 @@ import { CUSTOMER_FIXTURE_RECORDS, landlordTenantScenario } from '@/fixtures/sce
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
-import { EventStoreProvider } from '@/state/EventStoreContext';
+import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
+import { EventStoreProvider, useEventStore } from '@/state/EventStoreContext';
 
 it('shows a confirmed new event as partial when the first read and refresh fail', async () => {
   const customer = landlordTenantScenario.customer;
@@ -48,7 +50,7 @@ it('shows a confirmed new event as partial when the first read and refresh fail'
   expect(
     await screen.findByText('전체 일정을 불러오지 못해 확인된 일정만 표시합니다.'),
   ).toBeVisible();
-  expect(screen.getByRole('link', { name: '일정 상세 열기: 생성된 연락' })).toBeVisible();
+  expect(screen.getByRole('link', { name: /일정 상세 열기: 생성된 연락/ })).toBeVisible();
   expect(document.querySelector('[data-customer-history]')).toBeNull();
 });
 
@@ -197,3 +199,105 @@ it.each([false, true])(
     else expect(screen.getByRole('status')).toHaveFocus();
   },
 );
+
+it.each([false, true])(
+  'preserves known events without claiming a failed refresh is empty (has event: %s)',
+  async (hasEvent) => {
+    const customer = landlordTenantScenario.customer;
+    const now = new Date('2026-08-11T12:00:00+09:00');
+    const event = {
+      id: 'known',
+      customerId: customer.id,
+      status: 'PLANNED' as const,
+      scheduledAt: '2026-08-20T10:00:00+09:00',
+      descriptor: '기존 일정',
+    };
+    const port = {
+      list: vi
+        .fn()
+        .mockResolvedValueOnce(hasEvent ? [event] : [])
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new Error('Read unavailable'))
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([]),
+      get: vi.fn(),
+      create: vi.fn(),
+      edit: vi.fn(),
+      occur: vi.fn(),
+      cancel: vi.fn(),
+    };
+    function Refresh() {
+      const store = useEventStore();
+      return (
+        <button
+          onClick={() => void store.loadCustomerDetail(customer.id, now).catch(() => undefined)}
+        >
+          refresh
+        </button>
+      );
+    }
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <CustomerStoreProvider initialCustomers={CUSTOMER_FIXTURE_RECORDS}>
+            <EventStoreProvider port={port}>
+              <Refresh />
+              <CustomerDetailPage customerId={customer.id} now={now} />
+            </EventStoreProvider>
+          </CustomerStoreProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    if (hasEvent) await screen.findByRole('link', { name: /일정 상세 열기: 기존 일정/ });
+    else await screen.findByText('다음 일정 없음');
+    fireEvent.click(screen.getByRole('button', { name: 'refresh' }));
+    await screen.findByRole('alert');
+    expect(screen.queryByText('다음 일정 없음')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-customer-history]')).toBeInTheDocument();
+    if (hasEvent)
+      expect(screen.getByRole('link', { name: /일정 상세 열기: 기존 일정/ })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByText('다음 일정 없음')).toBeVisible();
+  },
+);
+
+it('preserves an inline customer event draft across a responsive remount', async () => {
+  const customer = landlordTenantScenario.customer;
+  function RemountableDetail() {
+    const [version, setVersion] = useState(0);
+    return (
+      <>
+        <button onClick={() => setVersion((value) => value + 1)}>rotate</button>
+        <CustomerDetailPage
+          key={version}
+          customerId={customer.id}
+          now={new Date('2026-08-11T12:00:00+09:00')}
+        />
+      </>
+    );
+  }
+  render(
+    <MemoryRouter>
+      <I18nProvider locale="ko">
+        <CustomerStoreProvider initialCustomers={CUSTOMER_FIXTURE_RECORDS}>
+          <EventStoreProvider initialEvents={[]}>
+            <EventCreateDraftProvider>
+              <RemountableDetail />
+            </EventCreateDraftProvider>
+          </EventStoreProvider>
+        </CustomerStoreProvider>
+      </I18nProvider>
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '일정 추가' }));
+  fireEvent.change(screen.getByLabelText('제목'), { target: { value: '회전 전 제목' } });
+  fireEvent.change(screen.getByLabelText('예정 시각'), { target: { value: '2026-08-20T10:00' } });
+  fireEvent.change(screen.getByLabelText('메모'), { target: { value: '회전 전 메모' } });
+  fireEvent.click(screen.getByRole('button', { name: 'rotate' }));
+  expect(screen.getByLabelText('제목')).toHaveValue('회전 전 제목');
+  expect(screen.getByLabelText('예정 시각')).toHaveValue('2026-08-20T10:00');
+  expect(screen.getByLabelText('메모')).toHaveValue('회전 전 메모');
+  fireEvent.change(screen.getByLabelText('예정 시각'), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'rotate' }));
+  expect(screen.getByLabelText('예정 시각')).toHaveValue('');
+});

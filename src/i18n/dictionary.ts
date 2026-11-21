@@ -275,6 +275,9 @@ export interface Messages {
     originalScheduledPreserved: string;
     note: string;
     notePlaceholder: string;
+    saveFailed: string;
+    retrySave: string;
+    saving: string;
     scheduledRequired: string;
     occurredRequired: string;
     cancel: string;

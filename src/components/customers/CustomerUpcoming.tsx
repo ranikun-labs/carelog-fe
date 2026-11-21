@@ -33,9 +33,9 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
               clickEvent.preventDefault();
               onOpenEvent(primaryEvent);
             }}
-            aria-label={t('schedule.openEvent', {
+            aria-label={`${t('schedule.openEvent', {
               title: getEventTitle(primaryEvent) ?? t('schedule.untitled'),
-            })}
+            })}, ${formatAgendaDateTime(primaryEvent.scheduledAt, locale)}, ${t('schedule.meta.planned')}`}
             data-upcoming-primary
             className="bg-subtle border-border-default hover:bg-accent-primary-bg/60 block rounded-lg border p-4 transition-colors"
           >
@@ -72,7 +72,7 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
                           clickEvent.preventDefault();
                           onOpenEvent(event);
                         }}
-                        aria-label={t('schedule.openEvent', { title })}
+                        aria-label={`${t('schedule.openEvent', { title })}, ${formatAgendaDateTime(event.scheduledAt, locale)}`}
                         className="text-accent-primary-deep hover:bg-subtle flex min-h-11 items-center justify-between gap-3 rounded-md px-2 text-sm font-semibold underline-offset-2 hover:underline"
                       >
                         <span className="min-w-0 break-words">{title}</span>
