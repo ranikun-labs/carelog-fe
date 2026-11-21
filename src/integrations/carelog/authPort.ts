@@ -267,7 +267,6 @@ export function createCarelogAuthRuntime({
               email: input.email,
               password: input.secret,
               name: input.name,
-              managerType: 'PHYSICAL_THERAPIST',
             }),
           },
         );

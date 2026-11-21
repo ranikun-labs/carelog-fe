@@ -475,7 +475,6 @@ describe('Carelog Production AuthPort', () => {
           email: 'synthetic@example.test',
           password: 'password',
           name: 'Synthetic',
-          managerType: 'PHYSICAL_THERAPIST',
         }),
       }),
     );
