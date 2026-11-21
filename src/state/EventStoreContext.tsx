@@ -69,11 +69,13 @@ export function EventStoreProvider({
   onFailure,
   remoteReadsEnabled: remoteReadsEnabledOverride,
   assertSessionOwner,
+  onDetailRecovery,
 }: {
   children: ReactNode;
   initialEvents?: readonly CustomerEvent[];
   port?: CustomerEventPort;
-  onFailure?: (error: unknown) => void;
+  onFailure?: (error: unknown) => symbol | void;
+  onDetailRecovery?: (token: symbol) => void;
   remoteReadsEnabled?: boolean;
   assertSessionOwner?: () => void;
 }) {
@@ -97,6 +99,9 @@ export function EventStoreProvider({
   const mountedRef = useRef(true);
   const scheduleReadGenerationRef = useRef(0);
   const detailReadGenerationRef = useRef(0);
+  const detailFailureTokenRef = useRef<{ customerId: string; token: symbol } | undefined>(
+    undefined,
+  );
   const eventReadGenerationRef = useRef(0);
   const mutationEpochRef = useRef(0);
 
@@ -128,7 +133,7 @@ export function EventStoreProvider({
     (nextError: unknown) => {
       setError(nextError);
       setErrorCode(classifyCarelogError(nextError));
-      onFailure?.(nextError);
+      return onFailure?.(nextError);
     },
     [onFailure],
   );
@@ -226,6 +231,10 @@ export function EventStoreProvider({
         if (mutationEpoch !== mutationEpochRef.current) {
           return readLatestCustomerDetail(customerId, now, false);
         }
+        if (detailFailureTokenRef.current?.customerId === customerId) {
+          onDetailRecovery?.(detailFailureTokenRef.current.token);
+          detailFailureTokenRef.current = undefined;
+        }
         setSnapshots((current) => ({ ...current, [customerId]: { upcoming, history } }));
         for (const event of [...upcoming, ...history]) dispatch({ type: 'upsert', event });
         setDetailLoadState('ready');
@@ -240,13 +249,14 @@ export function EventStoreProvider({
         if (mutationEpoch !== mutationEpochRef.current) {
           return readLatestCustomerDetail(customerId, now, false);
         }
-        recordError(nextError);
+        const token = recordError(nextError);
+        detailFailureTokenRef.current = token ? { customerId, token } : undefined;
         setDetailError(nextError);
         setDetailLoadState('error');
         throw nextError;
       }
     },
-    [isSessionOwner, port, recordError, requireSessionOwner],
+    [isSessionOwner, onDetailRecovery, port, recordError, requireSessionOwner],
   );
 
   const loadEvent = useCallback(

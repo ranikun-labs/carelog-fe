@@ -1,6 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
+import { AuthProvider, useAuth } from '@/auth/AuthProvider';
+import { AUTH_ERROR_KIND } from '@/auth/authTypes';
+import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
 
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { I18nProvider } from '@/i18n/I18nContext';
@@ -34,6 +37,59 @@ const previous: CustomerEvent = {
   occurredAt: '2027-01-04T10:00:00Z',
   descriptor: '기존 기록',
 };
+
+it.each(['same customer', 'newer unrelated failure', 'different customer'] as const)(
+  'clears only the recovered detail failure: %s',
+  async (scenario) => {
+    const port = portWith(
+      vi.fn().mockRejectedValueOnce(new Error('detail failed')).mockResolvedValue([]),
+    );
+    let store!: EventStoreValue;
+    let auth!: ReturnType<typeof useAuth>;
+    function Bridge() {
+      auth = useAuth();
+      return (
+        <EventStoreProvider
+          port={port}
+          onFailure={() => auth.reportFailure({ kind: AUTH_ERROR_KIND.SERVER })}
+          onDetailRecovery={auth.clearOperationErrorIf}
+        >
+          <Observe />
+        </EventStoreProvider>
+      );
+    }
+    function Observe() {
+      store = useEventStore();
+      return null;
+    }
+    render(
+      <AuthProvider authPort={createInMemoryAuthPort({ bootstrap: 'authenticated' })}>
+        <Bridge />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(auth.authState.status).toBe('AUTHENTICATED'));
+    await act(async () => {
+      await expect(store.loadCustomerDetail(customer.id, now)).rejects.toThrow('detail failed');
+    });
+    expect(auth.operationError?.failure.kind).toBe(AUTH_ERROR_KIND.SERVER);
+    if (scenario === 'newer unrelated failure') {
+      act(() => {
+        auth.reportFailure({ kind: AUTH_ERROR_KIND.NETWORK });
+      });
+    }
+    await act(async () => {
+      await store.loadCustomerDetail(
+        scenario === 'different customer' ? 'another-customer' : customer.id,
+        now,
+      );
+    });
+    if (scenario === 'same customer') expect(auth.operationError).toBeNull();
+    else
+      expect(auth.operationError?.failure.kind).toBe(
+        scenario === 'newer unrelated failure' ? AUTH_ERROR_KIND.NETWORK : AUTH_ERROR_KIND.SERVER,
+      );
+  },
+);
 function portWith(list: CustomerEventPort['list']): CustomerEventPort {
   return {
     list,

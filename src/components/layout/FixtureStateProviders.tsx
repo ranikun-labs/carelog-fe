@@ -26,7 +26,7 @@ export function FixtureStateProviders({
   const onFailure = useMemo(
     () => (error: unknown) => {
       const failure = toAuthFailure(error);
-      if (failure) auth?.reportFailure(failure);
+      return failure ? auth?.reportFailure(failure) : undefined;
     },
     [auth],
   );
@@ -42,6 +42,7 @@ export function FixtureStateProviders({
         initialEvents={initialEvents ?? SCHEDULE_FIXTURE.events}
         port={ports.customerEventPort}
         onFailure={onFailure}
+        onDetailRecovery={auth?.clearOperationErrorIf}
       >
         <CustomerFormDraftProvider key={location.pathname}>
           <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
