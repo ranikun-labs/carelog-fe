@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 
+import { useAuth } from '@/auth/AuthProvider';
 import { buttonVariants } from '@/components/ui/button';
 import { buildAuthLoginPath, buildAuthSignupPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
@@ -7,6 +8,7 @@ import { cn } from '@/lib/utils';
 
 export function AuthEntryPage() {
   const { t } = useTranslation();
+  const { signupAvailable } = useAuth();
   return (
     <section data-auth-entry className="grid gap-8">
       <div className="grid gap-3">
@@ -22,12 +24,14 @@ export function AuthEntryPage() {
         <Link className={cn(buttonVariants({ size: 'lg' }), 'w-full')} to={buildAuthLoginPath()}>
           {t('auth.entry.login')}
         </Link>
-        <Link
-          className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}
-          to={buildAuthSignupPath()}
-        >
-          {t('auth.entry.signup')}
-        </Link>
+        {signupAvailable ? (
+          <Link
+            className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}
+            to={buildAuthSignupPath()}
+          >
+            {t('auth.entry.signup')}
+          </Link>
+        ) : null}
       </div>
     </section>
   );

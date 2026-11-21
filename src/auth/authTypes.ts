@@ -35,7 +35,11 @@ export interface AuthCredentialFixture {
   secret: string;
 }
 
-export type AuthSignupFixture = AuthCredentialFixture;
+export interface AuthSignupFixture extends AuthCredentialFixture {
+  email?: string;
+  name?: string;
+  idempotencyKey?: string;
+}
 
 export type AuthBootstrapResult =
   | { status: 'authenticated' }
@@ -46,6 +50,8 @@ export type AuthBootstrapResult =
 export type AuthCommandResult = { ok: true } | { ok: false; failure: AuthFailure };
 
 export interface AuthPort {
+  /** Explicit capability; omitted means registration is unavailable. */
+  readonly signupAvailable?: boolean;
   bootstrapSession: () => Promise<AuthBootstrapResult>;
   login: (input: AuthCredentialFixture) => Promise<AuthCommandResult>;
   cancelPendingLogin?: () => void;

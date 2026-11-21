@@ -120,6 +120,13 @@ export const en: Messages = {
       loginDescription: 'Use the account details for this workspace.',
       signupTitle: 'Create your Carelog account',
       signupDescription: 'Set up the account details used to enter this workspace.',
+      email: 'Email',
+      name: 'Name',
+      signupFieldsRequired: 'Enter your email and name.',
+      signupFailure:
+        'We could not confirm registration. Retry with the same details or try logging in.',
+      signupUnavailable: 'Registration is currently unavailable.',
+      signupComplete: 'Registration is complete. Please log in.',
       account: 'Account',
       secret: 'Passphrase',
       secretConfirmation: 'Confirm passphrase',

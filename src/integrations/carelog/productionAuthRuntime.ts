@@ -6,6 +6,10 @@ let productionRuntime: CarelogAuthRuntime | undefined;
 export function getProductionCarelogAuthRuntime(): CarelogAuthRuntime {
   productionRuntime ??= createCarelogAuthRuntime({
     apiBaseUrl: readCarelogApiBaseUrl() ?? '',
+    signupEnabled:
+      import.meta.env.DEV &&
+      import.meta.env.MODE === 'development' &&
+      import.meta.env.VITE_CARELOG_SIGNUP_ENABLED === 'true',
   });
   return productionRuntime;
 }

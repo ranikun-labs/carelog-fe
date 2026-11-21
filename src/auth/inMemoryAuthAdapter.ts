@@ -66,6 +66,7 @@ export function createInMemoryAuthPort(options: InMemoryAuthAdapterOptions = {})
   let logoutAttemptCount = 0;
 
   const port: InMemoryAuthPort = {
+    signupAvailable: true,
     get bootstrapAttemptCount() {
       return bootstrapAttemptCount;
     },
@@ -96,9 +97,7 @@ export function createInMemoryAuthPort(options: InMemoryAuthAdapterOptions = {})
       return result;
     },
     async signup(): Promise<AuthCommandResult> {
-      const result = commandResult(signupOutcome);
-      if (result.ok) authenticated = true;
-      return result;
+      return commandResult(signupOutcome);
     },
     async logout(): Promise<void> {
       logoutAttemptCount += 1;

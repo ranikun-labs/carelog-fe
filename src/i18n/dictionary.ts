@@ -105,6 +105,12 @@ export interface Messages {
       loginDescription: string;
       signupTitle: string;
       signupDescription: string;
+      email: string;
+      name: string;
+      signupFieldsRequired: string;
+      signupComplete: string;
+      signupUnavailable: string;
+      signupFailure: string;
       account: string;
       secret: string;
       secretConfirmation: string;

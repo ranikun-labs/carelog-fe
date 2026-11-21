@@ -126,11 +126,11 @@ function AppRoutes() {
         />
         <Route
           path={toRelativeUnder(AUTH_BASE, AUTH_ROUTE_PATHS.login)}
-          element={<AuthFormPage mode="login" />}
+          element={<AuthFormPage key="login" mode="login" />}
         />
         <Route
           path={toRelativeUnder(AUTH_BASE, AUTH_ROUTE_PATHS.signup)}
-          element={<AuthFormPage mode="signup" />}
+          element={<AuthFormPage key="signup" mode="signup" />}
         />
         <Route path="*" element={<AuthEntryPage />} />
       </Route>

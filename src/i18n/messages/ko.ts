@@ -113,6 +113,13 @@ export const ko: Messages = {
       loginDescription: '이 워크스페이스에 사용할 계정 정보를 입력해 주세요.',
       signupTitle: 'Carelog 회원가입',
       signupDescription: '이 워크스페이스에 들어갈 계정 정보를 설정해 주세요.',
+      email: '이메일',
+      name: '이름',
+      signupFieldsRequired: '이메일과 이름을 입력해 주세요.',
+      signupFailure:
+        '가입 결과를 확인하지 못했습니다. 같은 내용을 유지하고 다시 시도하거나 로그인해 보세요.',
+      signupUnavailable: '현재 회원가입을 사용할 수 없습니다.',
+      signupComplete: '회원가입이 완료되었습니다. 로그인해 주세요.',
       account: '계정',
       secret: '비밀번호',
       secretConfirmation: '비밀번호 확인',
