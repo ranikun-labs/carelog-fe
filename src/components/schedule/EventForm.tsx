@@ -215,7 +215,7 @@ export function EventForm({
             data-event-field="descriptor"
             value={descriptor}
             onChange={(inputEvent) => setDescriptor(inputEvent.target.value)}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
             placeholder={t('eventForm.descriptorPlaceholder')}
           />
         </label>
@@ -231,7 +231,7 @@ export function EventForm({
               value={scheduledAt}
               onChange={(inputEvent) => setScheduledAt(inputEvent.target.value)}
               required
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
             />
           </label>
         ) : (
@@ -245,7 +245,7 @@ export function EventForm({
               value={occurredAt}
               onChange={(inputEvent) => setOccurredAt(inputEvent.target.value)}
               required
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
             />
           </label>
         )}
@@ -263,7 +263,7 @@ export function EventForm({
             value={note}
             onChange={(inputEvent) => setNote(inputEvent.target.value)}
             rows={3}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-24 w-full min-w-0 rounded-lg border px-3 py-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-24 w-full min-w-0 rounded-lg border px-3 py-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
             placeholder={t('eventForm.notePlaceholder')}
           />
         </label>
