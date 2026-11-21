@@ -65,6 +65,7 @@ export function CustomerDetailPage({
     ? inlineDraft.customerDraft?.customerId === customerId
     : creatingCustomerId === customerId;
   const setCustomerDraft = inlineDraft?.setCustomerDraft;
+  const registerCustomerView = inlineDraft?.registerCustomerView;
   const updateInlineDraft = useCallback(
     (draft: EventFormDraft) => {
       setCustomerDraft?.((current) =>
@@ -89,6 +90,8 @@ export function CustomerDetailPage({
       generation: currentViewRef.current.generation + 1,
     };
   }, [customerId]);
+
+  useLayoutEffect(() => registerCustomerView?.(customerId), [customerId, registerCustomerView]);
 
   useEffect(() => {
     if (eventStore?.detailCustomerId !== customerId || !retryFocusRef.current) return;
@@ -257,21 +260,24 @@ export function CustomerDetailPage({
       }
       throw error;
     }
+    const sameView = mountedRef.current && currentViewRef.current.generation === viewGeneration;
+    const sameRemountedDraft =
+      inlineDraft?.isCurrentCustomerDraft(currentCustomer.id, sessionId) ?? false;
     setCustomerDraft?.((current) => (current && current.sessionId === sessionId ? null : current));
-    if (!mountedRef.current || currentViewRef.current.generation !== viewGeneration) return;
+    if (!sameView && !sameRemountedDraft) return;
     if (createdEvent) {
       eventCreateActivation?.armCreateReturn({
         kind: 'customer-detail',
         customerId: currentCustomer.id,
         eventId: createdEvent.id,
       });
-      if (remoteDetail && !snapshot) {
+      if (sameView && remoteDetail && !snapshot) {
         void loadCustomerDetail?.(currentCustomer.id, queryNowRef.current).catch(() => undefined);
       }
     } else {
       eventCreateActivation?.clearCreateReturnProvenance();
     }
-    setCreatingCustomerId(null);
+    if (sameView) setCreatingCustomerId(null);
   }
 
   return (

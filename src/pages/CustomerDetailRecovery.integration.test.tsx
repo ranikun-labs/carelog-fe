@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
 import { CUSTOMER_FIXTURE_RECORDS, landlordTenantScenario } from '@/fixtures/scenarios';
@@ -7,6 +7,10 @@ import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
+import {
+  EventCreateActivationProvider,
+  useEventCreateActivation,
+} from '@/state/EventCreateActivationContext';
 import { EventStoreProvider, useEventStore } from '@/state/EventStoreContext';
 
 it('shows a confirmed new event as partial when the first read and refresh fail', async () => {
@@ -301,3 +305,83 @@ it('preserves an inline customer event draft across a responsive remount', async
   fireEvent.click(screen.getByRole('button', { name: 'rotate' }));
   expect(screen.getByLabelText('예정 시각')).toHaveValue('');
 });
+
+it.each(['rotate', 'change customer and return'] as const)(
+  'scopes a pending create across %s',
+  async (scenario) => {
+    const customer = landlordTenantScenario.customer;
+    let resolveCreate!: (event: import('@/domain/customerEvent').CustomerEvent) => void;
+    const createEvent = vi.fn(
+      () =>
+        new Promise<import('@/domain/customerEvent').CustomerEvent>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    let activation!: ReturnType<typeof useEventCreateActivation>;
+    function Detail() {
+      const [version, setVersion] = useState(0);
+      const [selectedCustomer, setSelectedCustomer] = useState(customer.id);
+      activation = useEventCreateActivation();
+      return (
+        <>
+          <button onClick={() => setVersion((v) => v + 1)}>rotate</button>
+          <button
+            onClick={() =>
+              setSelectedCustomer((id) => (id === customer.id ? 'another-customer' : customer.id))
+            }
+          >
+            change customer
+          </button>
+          <CustomerDetailPage
+            key={version}
+            customerId={selectedCustomer}
+            onCreateEvent={createEvent}
+            now={new Date('2026-08-11T12:00:00+09:00')}
+          />
+        </>
+      );
+    }
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <CustomerStoreProvider initialCustomers={CUSTOMER_FIXTURE_RECORDS}>
+            <EventCreateActivationProvider>
+              <EventCreateDraftProvider>
+                <Detail />
+              </EventCreateDraftProvider>
+            </EventCreateActivationProvider>
+          </CustomerStoreProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '일정 추가' }));
+    fireEvent.change(screen.getByLabelText('제목'), { target: { value: '회전 저장' } });
+    fireEvent.change(screen.getByLabelText('예정 시각'), { target: { value: '2026-08-20T10:00' } });
+    activation.recordCreateActivation({ kind: 'programmatic' });
+    fireEvent.click(document.querySelector<HTMLButtonElement>('[data-event-form-submit]')!);
+    await waitFor(() => expect(createEvent).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('button', { name: 'rotate' }));
+    if (scenario === 'change customer and return') {
+      fireEvent.click(screen.getByRole('button', { name: 'change customer' }));
+      fireEvent.click(screen.getByRole('button', { name: 'change customer' }));
+    }
+    await act(async () => {
+      resolveCreate({
+        id: 'created',
+        customerId: customer.id,
+        status: 'PLANNED',
+        scheduledAt: '2026-08-20T10:00:00+09:00',
+        descriptor: '회전 저장',
+      });
+    });
+    if (scenario === 'rotate') {
+      expect(activation.getPendingCreateReturn()?.target).toEqual({
+        kind: 'customer-detail',
+        customerId: customer.id,
+        eventId: 'created',
+      });
+    } else {
+      expect(activation.getPendingCreateReturn()).toBeNull();
+    }
+  },
+);
