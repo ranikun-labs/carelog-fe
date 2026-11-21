@@ -30,8 +30,11 @@ export function CustomerTimeline({ events, onOpenEvent }: CustomerTimelineProps)
   const visibleEvents = ordered.slice(0, visibleCount);
 
   return (
-    <section className="mt-6" data-customer-history aria-labelledby="customer-history-title">
-      <h2 id="customer-history-title" className="text-lg font-semibold">
+    <section className="mt-8" data-customer-history aria-labelledby="customer-history-title">
+      <h2
+        id="customer-history-title"
+        className="text-text-primary text-lg font-bold tracking-tight"
+      >
         {t('timeline.title')}
       </h2>
       {ordered.length === 0 ? (
@@ -59,7 +62,7 @@ export function CustomerTimeline({ events, onOpenEvent }: CustomerTimelineProps)
                       onOpenEvent(event);
                     }}
                     aria-label={t('schedule.openEvent', { title })}
-                    className="border-border-subtle hover:bg-subtle block border-b px-1 py-4 transition-colors"
+                    className="border-border-subtle hover:bg-subtle block border-b px-2 py-4 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-text-primary min-w-0 flex-1 font-medium break-words">

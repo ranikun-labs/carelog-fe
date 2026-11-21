@@ -27,7 +27,10 @@ function renderDetail() {
     <MemoryRouter>
       <I18nProvider locale="ko">
         <CustomerStoreProvider initialCustomers={CUSTOMER_FIXTURE_RECORDS}>
-          <CustomerDetailPage customerId={landlordTenantScenario.customer.id} />
+          <CustomerDetailPage
+            customerId={landlordTenantScenario.customer.id}
+            now={new Date('2026-08-10T12:00:00+09:00')}
+          />
         </CustomerStoreProvider>
       </I18nProvider>
     </MemoryRouter>,

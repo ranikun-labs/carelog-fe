@@ -19,8 +19,11 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
   const [primaryEvent, ...additionalEvents] = upcomingEvents;
 
   return (
-    <section className="mt-6" data-customer-upcoming aria-labelledby="customer-upcoming-title">
-      <h2 id="customer-upcoming-title" className="text-lg font-semibold">
+    <section className="mt-8" data-customer-upcoming aria-labelledby="customer-upcoming-title">
+      <h2
+        id="customer-upcoming-title"
+        className="text-text-primary text-lg font-bold tracking-tight"
+      >
         {t('customers.detail.upcomingTitle')}
       </h2>
 
@@ -33,14 +36,14 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
               clickEvent.preventDefault();
               onOpenEvent(primaryEvent);
             }}
-            aria-label={t('schedule.openEvent', {
+            aria-label={`${t('schedule.openEvent', {
               title: getEventTitle(primaryEvent) ?? t('schedule.untitled'),
-            })}
+            })}, ${formatAgendaDateTime(primaryEvent.scheduledAt, locale)}, ${t('schedule.meta.planned')}`}
             data-upcoming-primary
-            className="bg-subtle border-border-default hover:bg-accent-primary-bg/60 block rounded-lg border p-4 transition-colors"
+            className="border-accent-primary/20 bg-accent-primary-bg/40 hover:bg-accent-primary-bg/60 block rounded-xl border p-5 transition-colors"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <h3 className="text-text-primary min-w-0 flex-1 text-lg font-semibold break-words">
+              <h3 className="text-text-primary min-w-0 flex-1 text-lg font-bold break-words">
                 {getEventTitle(primaryEvent) ?? t('schedule.untitled')}
               </h3>
               <Badge tone="planned">{t('schedule.meta.planned')}</Badge>
@@ -72,7 +75,7 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
                           clickEvent.preventDefault();
                           onOpenEvent(event);
                         }}
-                        aria-label={t('schedule.openEvent', { title })}
+                        aria-label={`${t('schedule.openEvent', { title })}, ${formatAgendaDateTime(event.scheduledAt, locale)}`}
                         className="text-accent-primary-deep hover:bg-subtle flex min-h-11 items-center justify-between gap-3 rounded-md px-2 text-sm font-semibold underline-offset-2 hover:underline"
                       >
                         <span className="min-w-0 break-words">{title}</span>
@@ -90,7 +93,7 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
       ) : (
         <div
           data-customer-upcoming-empty
-          className="bg-subtle border-border-default mt-3 rounded-lg border p-4"
+          className="bg-subtle border-border-subtle mt-3 rounded-xl border p-5"
         >
           <p className="text-text-secondary text-sm">{t('customers.detail.noUpcoming')}</p>
         </div>

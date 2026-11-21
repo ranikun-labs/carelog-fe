@@ -38,6 +38,7 @@ export function ProductionStateProviders({ children }: ProductStateProviderProps
       key={scopeKey}
       remoteReadsEnabled={remoteReadsEnabled}
       reportFailure={reportFailure}
+      clearOperationErrorIf={auth?.clearOperationErrorIf}
       sessionRevision={auth?.sessionRevision}
       isSessionCurrent={auth?.isSessionCurrent}
       failClosedSession={auth?.failClosedSession}
@@ -51,12 +52,14 @@ function SessionStateProviders({
   children,
   remoteReadsEnabled,
   reportFailure,
+  clearOperationErrorIf,
   sessionRevision,
   isSessionCurrent,
   failClosedSession,
 }: ProductStateProviderProps & {
   remoteReadsEnabled: boolean;
   reportFailure?: AuthContextValue['reportFailure'];
+  clearOperationErrorIf?: AuthContextValue['clearOperationErrorIf'];
   sessionRevision?: number;
   isSessionCurrent?: AuthContextValue['isSessionCurrent'];
   failClosedSession?: AuthContextValue['failClosedSession'];
@@ -83,7 +86,7 @@ function SessionStateProviders({
   const onFailure = useMemo(
     () => (error: unknown) => {
       const failure = toAuthFailure(error);
-      if (failure) reportFailure?.(failure);
+      return failure ? reportFailure?.(failure) : undefined;
     },
     [reportFailure],
   );
@@ -98,6 +101,7 @@ function SessionStateProviders({
       <EventStoreProvider
         port={ports.customerEventPort}
         onFailure={onFailure}
+        onDetailRecovery={clearOperationErrorIf}
         remoteReadsEnabled={remoteReadsEnabled}
         assertSessionOwner={assertSessionOwner}
       >

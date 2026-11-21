@@ -178,6 +178,15 @@ async function seedA() {
       customerMemo: 'Synthetic memo A',
     });
     eventDraft.updateDraft({ customerId: customerA.id, note: 'Synthetic note A' });
+    eventDraft.setCustomerDraft({
+      customerId: customerA.id,
+      sessionId: 'synthetic-session',
+      pending: false,
+      error: null,
+      descriptor: 'Synthetic event draft',
+      note: 'Synthetic note A',
+      scheduledAt: '2026-10-14T10:00',
+    });
     activation.recordCreateActivation({ kind: 'programmatic' });
     activation.armCreateReturn({
       kind: 'customer-detail',
@@ -194,6 +203,7 @@ function expectEmpty() {
   expect(customerDraft.getDraft('create')).toBeUndefined();
   expect(eventDraft.draft.customerId).toBeNull();
   expect(eventDraft.draft.note).toBe('');
+  expect(eventDraft.customerDraft).toBeNull();
   expect(activation.getPendingCreateReturn()).toBeNull();
   expect(document.body.textContent).not.toContain('Synthetic A');
 }
@@ -349,6 +359,7 @@ it('keeps same-session caches through successful auth recovery and clears them o
   expect(customers.customers).toEqual([customerA]);
   expect(customers.getCustomer).toBe(storeA.getCustomer);
   expect(eventDraft.draft.note).toBe('Synthetic note A');
+  expect(eventDraft.customerDraft?.descriptor).toBe('Synthetic event draft');
   await act(async () => {
     auth.reportFailure({ kind: AUTH_ERROR_KIND.UNAUTHORIZED });
   });

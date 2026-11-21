@@ -11,9 +11,11 @@ export function CustomerContextSection({ context }: CustomerContextSectionProps)
   if (!context) return null;
 
   return (
-    <section className="mt-6">
-      <h2 className="text-lg font-semibold">{t('customers.detail.contextTitle')}</h2>
-      <p className="text-text-secondary mt-1">{context.summary}</p>
+    <section className="mt-4">
+      <h2 className="text-text-primary text-base font-bold">
+        {t('customers.detail.contextTitle')}
+      </h2>
+      <p className="text-text-secondary mt-2 leading-relaxed break-words">{context.summary}</p>
       <p className="text-text-tertiary mt-1 text-sm">
         {t('customers.detail.contextUpdatedAt')}:{' '}
         <time dateTime={context.updatedAt}>{formatDate(context.updatedAt)}</time>

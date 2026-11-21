@@ -23,6 +23,7 @@ export interface EventFormInitialValues {
   note?: string;
   scheduledAt?: string;
   occurredAt?: string;
+  status?: 'PLANNED' | 'OCCURRED';
 }
 
 interface EventFormProps {
@@ -34,6 +35,8 @@ interface EventFormProps {
   fixedCreateStatus?: 'PLANNED';
   onDraftChange?: (draft: EventFormDraft) => void;
   onSubmit: (values: EventFormSubmitValues) => void | Promise<void>;
+  externalSubmitting?: boolean;
+  externalError?: string | null;
   onValidationFailure?: () => void;
   onCancel: () => void;
 }
@@ -48,11 +51,15 @@ export function EventForm({
   onDraftChange,
   onSubmit,
   onValidationFailure,
+  externalSubmitting = false,
+  externalError,
   onCancel,
 }: EventFormProps) {
   const { t } = useTranslation();
   const initialStatus =
-    event?.status === 'OCCURRED' ? 'OCCURRED' : (fixedCreateStatus ?? 'PLANNED');
+    event?.status === 'OCCURRED'
+      ? 'OCCURRED'
+      : (fixedCreateStatus ?? initialValues?.status ?? 'PLANNED');
   const [status, setStatus] = useState<'PLANNED' | 'OCCURRED'>(initialStatus);
   const [descriptor, setDescriptor] = useState(
     event?.descriptor ?? initialValues?.descriptor ?? '',
@@ -61,7 +68,9 @@ export function EventForm({
   const [scheduledAt, setScheduledAt] = useState(
     event?.status === 'PLANNED'
       ? toDateTimeLocalValue(event.scheduledAt)
-      : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
+      : initialValues?.status !== undefined
+        ? toDateTimeLocalValue(initialValues.scheduledAt ?? '')
+        : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
           toDateTimeLocalValue(now.toISOString()),
   );
   const [occurredAt, setOccurredAt] = useState(
@@ -71,18 +80,30 @@ export function EventForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitFailed, setSubmitFailed] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
   const submitLockRef = useRef(false);
   const isEdit = mode === 'edit';
   const isOccurredEdit = event?.status === 'OCCURRED';
   const isFixedCreateStatus = !isEdit && fixedCreateStatus !== undefined;
 
   useEffect(() => {
-    onDraftChange?.({ descriptor, note, scheduledAt });
-  }, [descriptor, note, onDraftChange, scheduledAt]);
+    onDraftChange?.({ descriptor, note, scheduledAt, status, occurredAt });
+  }, [descriptor, note, onDraftChange, scheduledAt, status, occurredAt]);
+
+  useEffect(() => {
+    if (
+      (submitFailed || externalError) &&
+      (document.activeElement === document.body || document.activeElement === submitRef.current)
+    ) {
+      errorRef.current?.focus();
+    }
+  }, [submitFailed, externalError]);
 
   function submit(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
-    if (submitLockRef.current) return;
+    if (submitLockRef.current || externalSubmitting) return;
     const time = status === 'PLANNED' ? scheduledAt : occurredAt;
     if (!time) {
       onValidationFailure?.();
@@ -93,6 +114,7 @@ export function EventForm({
     }
 
     setError(null);
+    setSubmitFailed(false);
     submitLockRef.current = true;
     setIsSubmitting(true);
     void Promise.resolve()
@@ -108,6 +130,7 @@ export function EventForm({
       )
       .catch((submitError: unknown) => {
         setError(t(getCarelogMessageKey(submitError)));
+        setSubmitFailed(true);
         submitLockRef.current = false;
         setIsSubmitting(false);
       });
@@ -117,14 +140,14 @@ export function EventForm({
     <form
       data-event-form
       data-event-form-mode={mode}
-      aria-busy={isSubmitting}
+      aria-busy={isSubmitting || externalSubmitting}
       onSubmit={submit}
       onInvalidCapture={() => onValidationFailure?.()}
-      className="border-border-default bg-surface mt-4 min-w-0 rounded-lg border p-4 sm:p-6"
+      className="border-border-subtle bg-surface mt-4 min-w-0 rounded-xl border p-5 sm:p-7"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-text-primary text-base font-semibold">
+          <h2 className="text-text-primary text-lg font-bold tracking-tight">
             {isEdit ? t('eventForm.editTitle') : t('eventForm.createTitle')}
           </h2>
           <p className="text-text-secondary mt-1 text-sm">
@@ -136,7 +159,7 @@ export function EventForm({
           variant="ghost"
           size="sm"
           onClick={onCancel}
-          disabled={isSubmitting}
+          disabled={isSubmitting || externalSubmitting}
           data-event-form-cancel
         >
           {t('eventForm.cancel')}
@@ -183,8 +206,8 @@ export function EventForm({
         </fieldset>
       ) : null}
 
-      <div className="mt-5 grid gap-5">
-        <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-descriptor">
+      <div className="mt-6 grid gap-6">
+        <label className="grid gap-2 text-sm font-semibold" htmlFor="event-descriptor">
           {t('eventForm.descriptor')}
           <input
             id="event-descriptor"
@@ -192,13 +215,13 @@ export function EventForm({
             data-event-field="descriptor"
             value={descriptor}
             onChange={(inputEvent) => setDescriptor(inputEvent.target.value)}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
             placeholder={t('eventForm.descriptorPlaceholder')}
           />
         </label>
 
         {status === 'PLANNED' ? (
-          <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-scheduled-at">
+          <label className="grid gap-2 text-sm font-semibold" htmlFor="event-scheduled-at">
             {t('eventForm.scheduledTime')}
             <input
               id="event-scheduled-at"
@@ -208,11 +231,11 @@ export function EventForm({
               value={scheduledAt}
               onChange={(inputEvent) => setScheduledAt(inputEvent.target.value)}
               required
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
             />
           </label>
         ) : (
-          <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-occurred-at">
+          <label className="grid gap-2 text-sm font-semibold" htmlFor="event-occurred-at">
             {t('eventForm.occurredTime')}
             <input
               id="event-occurred-at"
@@ -222,7 +245,7 @@ export function EventForm({
               value={occurredAt}
               onChange={(inputEvent) => setOccurredAt(inputEvent.target.value)}
               required
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-[50px] w-full min-w-0 rounded-lg border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
             />
           </label>
         )}
@@ -231,7 +254,7 @@ export function EventForm({
           <p className="text-text-tertiary text-xs">{t('eventForm.originalScheduledPreserved')}</p>
         ) : null}
 
-        <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-note">
+        <label className="grid gap-2 text-sm font-semibold" htmlFor="event-note">
           {t('eventForm.note')}
           <textarea
             id="event-note"
@@ -240,15 +263,22 @@ export function EventForm({
             value={note}
             onChange={(inputEvent) => setNote(inputEvent.target.value)}
             rows={3}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary w-full min-w-0 rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-24 w-full min-w-0 rounded-lg border px-3 py-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
             placeholder={t('eventForm.notePlaceholder')}
           />
         </label>
       </div>
 
-      {error ? (
-        <p role="alert" className="text-warning mt-3 text-sm font-semibold">
-          {error}
+      {error || externalError ? (
+        <p
+          ref={errorRef}
+          role="alert"
+          tabIndex={-1}
+          className="text-warning mt-3 text-sm font-semibold"
+        >
+          {submitFailed || externalError
+            ? `${t('eventForm.saveFailed')} ${error ?? externalError}`
+            : error}
         </p>
       ) : null}
 
@@ -257,12 +287,19 @@ export function EventForm({
         data-event-form-actions
       >
         <Button
+          ref={submitRef}
           type="submit"
-          className="w-full sm:w-auto"
+          className="min-h-12 w-full sm:w-auto sm:min-w-36"
           data-event-form-submit
-          disabled={isSubmitting}
+          disabled={isSubmitting || externalSubmitting}
         >
-          {isEdit ? t('eventForm.save') : t('eventForm.create')}
+          {isSubmitting || externalSubmitting
+            ? t('eventForm.saving')
+            : submitFailed || externalError
+              ? t('eventForm.retrySave')
+              : isEdit
+                ? t('eventForm.save')
+                : t('eventForm.create')}
         </Button>
       </div>
     </form>
