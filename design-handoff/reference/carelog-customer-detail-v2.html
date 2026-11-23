@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carelog · 고객 상세 시안</title>
+<style>
+  :root{color-scheme:light;--page:oklch(97% .004 90);--surface:#fff;--subtle:oklch(96% .006 90);--text:oklch(22% .01 260);--muted:oklch(40% .012 260);--border:oklch(90% .006 90);--action:oklch(45% .10 235);--warning:#7d361a;--radius:14px}
+  *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--text);font:14px/1.55 'Noto Sans KR',system-ui,sans-serif}
+  button,input,select{font:inherit}button,select{cursor:pointer}button{min-height:44px;border:1px solid var(--border);border-radius:9px;background:var(--surface);padding:8px 12px;color:var(--action);font-weight:650}
+  :focus-visible{outline:2px solid var(--action);outline-offset:3px}.primary{color:#fff;background:var(--action);border-color:var(--action)}
+  .wrap{width:min(100% - 24px,480px);margin:auto;padding:18px 0 36px}.tools{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px;color:var(--muted)}select{max-width:100%;min-height:44px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 8px}
+  main{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden}
+  header{border-bottom:1px solid var(--border);padding:14px 16px}h1,h2,p{margin:0}h1{font-size:22px}h2{font-size:16px}.context{color:var(--muted);margin-top:4px}
+  .body{padding:16px;display:grid;gap:20px}.card{background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:grid;gap:10px}
+  .row{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}.date{font-weight:700}.meta{color:var(--muted)}.alert{color:var(--warning)}.history{margin-top:8px}
+  form{display:grid;gap:10px}label{font-weight:600}input{font-size:16px;min-width:0;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px}
+  [hidden]{display:none!important}#notice{min-height:1.4em;font-weight:600;color:var(--action)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tools"><strong>Carelog · 고객 상세 시안</strong><label for="scenario">미리보기 상태</label><select id="scenario"><option value="normal">일정 있음</option><option value="empty">일정 없음</option><option value="error">첫 조회 실패</option><option value="stale">재조회 실패</option></select></div>
+  <main>
+    <header><h1>김민수</h1><p class="context">다음 방문 조율 중</p></header>
+    <div class="body">
+      <section class="card" aria-labelledby="schedule-heading">
+        <div class="row"><h2 id="schedule-heading">다음 일정</h2><button type="button" id="add" class="primary" aria-controls="editor" aria-expanded="false">후속 일정 추가</button></div>
+        <div id="appointment" aria-live="polite"><p class="date"><time id="when">8월 10일 (월) · 오후 2시</time></p><p id="subject" class="meta">다음 방문 예정</p></div>
+        <p id="empty" aria-live="polite" hidden>예정된 일정이 없어요.</p>
+        <div id="failure" class="row" hidden><p id="failure-text" class="alert" role="status"></p><button id="retry" type="button">다시 시도</button></div>
+      </section>
+      <section class="card" id="editor" aria-labelledby="editor-title" hidden>
+        <h2 id="editor-title">김민수 후속 일정</h2>
+        <form id="schedule-form">
+          <label for="schedule-subject">일정 내용</label><input id="schedule-subject" required placeholder="예) 다음 방문 일정을 확인해요">
+          <label for="schedule-time">날짜와 시간</label><input id="schedule-time" type="datetime-local" required>
+          <div class="row"><button type="button" id="cancel">취소</button><button type="submit" class="primary">일정 저장</button></div>
+        </form>
+      </section>
+      <p id="notice" role="status" hidden></p>
+      <section aria-labelledby="history-heading"><h2 id="history-heading">지난 기록</h2><div class="history"><!-- Claude Design source: Carelog Final Visual Reference.dc.html -->
+<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid oklch(95% 0.006 90);">
+                <span style="font-size:11px;font-weight:600;color:oklch(48% 0.012 260);background:oklch(95% 0.006 90);padding:3px 7px;border-radius:6px;">연락</span>
+                <div>
+                  <div style="font-size:14px;font-weight:500;">다음 방문 일정 확인</div>
+                  <div style="font-size:12px;color:oklch(53% 0.01 260);">8월 3일</div>
+                </div>
+              </div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid oklch(95% 0.006 90);">
+                <span style="font-size:11px;font-weight:600;color:oklch(48% 0.012 260);background:oklch(95% 0.006 90);padding:3px 7px;border-radius:6px;">방문</span>
+                <div>
+                  <div style="font-size:14px;font-weight:500;">일반 방문 기록</div>
+                  <div style="font-size:12px;color:oklch(53% 0.01 260);">7월 27일</div>
+                </div>
+              </div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid oklch(95% 0.006 90);">
+                <span style="font-size:11px;font-weight:600;color:oklch(48% 0.012 260);background:oklch(95% 0.006 90);padding:3px 7px;border-radius:6px;">방문</span>
+                <div>
+                  <div style="font-size:14px;font-weight:500;">첫 방문</div>
+                  <div style="font-size:12px;color:oklch(53% 0.01 260);">7월 20일</div>
+                </div>
+              </div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid oklch(95% 0.006 90);opacity:0.55;">
+                <span style="font-size:11px;font-weight:600;color:oklch(48% 0.012 260);background:oklch(95% 0.006 90);padding:3px 7px;border-radius:6px;">취소됨</span>
+                <div>
+                  <div style="font-size:14px;font-weight:500;text-decoration:line-through;">방문 예정 취소</div>
+                  <div style="font-size:12px;color:oklch(53% 0.01 260);">7월 15일</div>
+                </div>
+              </div></div></section>
+      <section aria-labelledby="context-heading"><h2 id="context-heading">고객 맥락</h2><p class="meta">지난 방문에서 다음 일정을 확인하기로 했어요.</p></section>
+    </div>
+  </main>
+</div>
+<script>
+  const el = id => document.getElementById(id);
+  function setScenario(state) {
+    el('scenario').value = state;
+    el('appointment').hidden = state !== 'normal' && state !== 'stale';
+    el('empty').hidden = state !== 'empty';
+    el('failure').hidden = state !== 'error' && state !== 'stale';
+    el('failure-text').textContent = state === 'stale' ? '최신 일정을 확인하지 못했어요. 이전 일정을 표시하고 있어요.' : '일정을 불러오지 못했어요.';
+  }
+  function closeEditor() {
+    el('editor').hidden = true;
+    el('add').setAttribute('aria-expanded', 'false');
+    el('add').focus();
+  }
+  el('scenario').addEventListener('change', event => { el('notice').hidden = true; setScenario(event.target.value); });
+  el('retry').addEventListener('click', () => {
+    setScenario('normal');
+    el('notice').textContent = '일정을 다시 불러왔어요.';
+    el('notice').hidden = false;
+    el('add').focus();
+  });
+  el('add').addEventListener('click', () => {
+    el('notice').hidden = true;
+    el('editor').hidden = false;
+    el('add').setAttribute('aria-expanded', 'true');
+    el('schedule-subject').focus();
+  });
+  el('cancel').addEventListener('click', closeEditor);
+  el('schedule-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const date = new Date(el('schedule-time').value);
+    const formatter = new Intl.DateTimeFormat('ko-KR', {month:'long',day:'numeric',weekday:'short',hour:'numeric',minute:'2-digit'});
+    el('when').textContent = formatter.format(date);
+    el('subject').textContent = el('schedule-subject').value;
+    el('notice').textContent = '일정을 저장했어요. 이 시안에만 반영됩니다.';
+    el('notice').hidden = false;
+    setScenario('normal');
+    event.target.reset();
+    closeEditor();
+  });
+</script>
+</body>
+</html>
