@@ -101,4 +101,36 @@ describe('CustomerDetailPage', () => {
       container.querySelector('[data-customer-detail-page] [class*="border-border-"]'),
     ).toBeNull();
   });
+
+  it('orders context, next event Key Block, memo, then timeline, with no Strong button', () => {
+    renderAt(landlordTenantScenario.customer.id, { memo: '짧은 메모' });
+
+    const order = [
+      '[data-customer-identity]',
+      '[data-customer-upcoming]',
+      '[data-customer-memo]',
+      '[data-customer-history]',
+    ].map((selector) => document.querySelector(selector)!);
+    for (let index = 0; index < order.length - 1; index += 1) {
+      expect(
+        order[index]!.compareDocumentPosition(order[index + 1]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    expect(document.querySelector('[data-customer-detail-page] [class*="bg-primary"]')).toBeNull();
+  });
+
+  it('puts the add-event Subtle action inside the next-event Key Block and the AI entry in the header', () => {
+    renderAt(landlordTenantScenario.customer.id);
+
+    const keyBlock = document.querySelector('[data-upcoming-key]')!;
+    const add = screen.getByRole('button', { name: '일정 추가' });
+    expect(keyBlock).toContainElement(add);
+    expect(add).toHaveClass('bg-brand-subtle');
+    expect(keyBlock.querySelectorAll('time.type-key-value')).toHaveLength(1);
+
+    const ai = document.querySelector<HTMLElement>('[data-assistant-entry="customer"]')!;
+    expect(document.querySelector('[data-customer-identity]')).toContainElement(ai);
+    expect(keyBlock).not.toContainElement(ai);
+    expect(ai).toHaveClass('bg-control', 'min-h-11');
+  });
 });

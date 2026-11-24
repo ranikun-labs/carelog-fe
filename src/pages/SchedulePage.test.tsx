@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router';
 
 import type { CustomerEvent } from '@/domain/customerEvent';
@@ -133,6 +134,90 @@ describe('SchedulePage', () => {
         Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
       }
     }
+  });
+
+  describe('scroll spy initial-anchor guard', () => {
+    // 첫 앵커 직후 글꼴·레이아웃이 자리 잡으며 scroll 이벤트가 한 번 더 나는 상황을 흉내 낸다.
+    // 이 이벤트가 맨 아래 보정으로 마지막 날짜를 선택하면 오늘이 풀려 "오늘로 돌아가기"가 잘못 뜬다.
+    const ANCHOR_TOP = 640;
+    let originalScrollIntoView: typeof HTMLElement.prototype.scrollIntoView | undefined;
+    let performanceNow: ReturnType<typeof vi.spyOn>;
+    let clock = 10_000;
+
+    beforeEach(() => {
+      clock = 10_000;
+      performanceNow = vi.spyOn(performance, 'now').mockImplementation(() => clock);
+      originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+        configurable: true,
+        value: function (this: HTMLElement) {
+          const surface = this.closest<HTMLElement>('[data-scroll-surface]');
+          if (surface) surface.scrollTop = ANCHOR_TOP;
+        },
+      });
+    });
+
+    afterEach(() => {
+      performanceNow.mockRestore();
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+      }
+    });
+
+    function renderAnchored() {
+      renderPage();
+      const surface = document.querySelector<HTMLElement>('[data-scroll-surface]')!;
+      // 스크롤 한계에 닿은 상태: scrollTop + clientHeight >= scrollHeight - 1 → 맨 아래 보정이 작동하는 조건.
+      Object.defineProperty(surface, 'clientHeight', { configurable: true, value: 400 });
+      Object.defineProperty(surface, 'scrollHeight', { configurable: true, value: 1040 });
+      return surface;
+    }
+
+    const selectedDateKey = () =>
+      document
+        .querySelector<HTMLElement>('[data-week-strip] button[aria-current="date"]')
+        ?.getAttribute('data-date-key');
+
+    it('ignores the settling scroll event right after the first anchor', () => {
+      const surface = renderAnchored();
+      expect(selectedDateKey()).toBe('2026-08-11');
+
+      // 첫 scroll 이벤트는 앵커 자체가 낸 것이라 기존 로직이 소비한다.
+      fireEvent.scroll(surface);
+      // 곧바로 한 번 더, 앵커 위치에서 2px 어긋난 채로 온다(레이아웃 안착).
+      clock += 200;
+      surface.scrollTop = ANCHOR_TOP + 2;
+      fireEvent.scroll(surface);
+
+      expect(selectedDateKey()).toBe('2026-08-11');
+    });
+
+    it('still follows the user once the scroll moves beyond the anchor tolerance', () => {
+      const surface = renderAnchored();
+      fireEvent.scroll(surface);
+
+      clock += 200;
+      surface.scrollTop = ANCHOR_TOP + 5;
+      fireEvent.scroll(surface);
+
+      expect(selectedDateKey()).toBe('2026-08-12');
+    });
+
+    it('stops ignoring scroll events after the one-second settling window', () => {
+      const surface = renderAnchored();
+      fireEvent.scroll(surface);
+
+      clock += 1000;
+      surface.scrollTop = ANCHOR_TOP + 2;
+      fireEvent.scroll(surface);
+
+      expect(selectedDateKey()).toBe('2026-08-12');
+    });
   });
 
   it('separates empty and error states while keeping the navigation baseline', () => {
