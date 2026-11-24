@@ -19,6 +19,7 @@ import {
 import { OverdueCue } from '@/components/schedule/OverdueCue';
 import { WeekStrip } from '@/components/schedule/WeekStrip';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
 import {
   buildAppCustomerCreatePath,
   buildAppCustomersPath,
@@ -101,6 +102,7 @@ export function SchedulePage({
   const scrollSurfaceRef = useRef<HTMLElement>(null);
   const didInitialAnchor = useRef(false);
   const didSkipInitialScroll = useRef(false);
+  const initialAnchor = useRef<{ top: number; at: number } | null>(null);
   const pendingAgendaTargetId = useRef<string | null>(initialAgendaTargetId);
   const shouldScrollToSelection = useRef(!(initialScrollTop > 0 && !initialAgendaTargetId));
   const explicitlySelectedDateKey = useRef<string | null>(null);
@@ -168,10 +170,14 @@ export function SchedulePage({
         );
     if (!element || typeof element.scrollIntoView !== 'function') return;
 
+    const isInitialAnchor = !didInitialAnchor.current;
     element.scrollIntoView({
       behavior: targetEventId && didInitialAnchor.current ? 'smooth' : 'auto',
       block: targetEventId || !didInitialAnchor.current ? 'center' : 'start',
     });
+    if (isInitialAnchor) {
+      initialAnchor.current = { top: scrollSurface.scrollTop, at: performance.now() };
+    }
     pendingAgendaTargetId.current = null;
     didInitialAnchor.current = true;
     shouldScrollToSelection.current = false;
@@ -191,6 +197,17 @@ export function SchedulePage({
     const updateActiveDate = () => {
       if (didInitialAnchor.current && !didSkipInitialScroll.current) {
         didSkipInitialScroll.current = true;
+        return;
+      }
+
+      // 첫 앵커 직후 글꼴·레이아웃이 자리 잡으며 스크롤 한계가 몇 px 바뀌면 브라우저가 scroll 이벤트를 한 번 더 낸다.
+      // 사용자가 움직인 게 아니므로 무시한다 — 안 그러면 맨 아래 보정으로 마지막 날짜가 선택돼 오늘이 풀린다.
+      const anchor = initialAnchor.current;
+      if (
+        anchor &&
+        performance.now() - anchor.at < 1000 &&
+        Math.abs(scrollSurface.scrollTop - anchor.top) <= 4
+      ) {
         return;
       }
 
@@ -311,20 +328,21 @@ export function SchedulePage({
       data-schedule-page
       data-scroll-surface
       data-root-scroll-surface="schedule"
-      className="bg-surface h-full min-h-full overflow-y-auto"
+      className="h-full min-h-full overflow-y-auto"
     >
-      <AdaptiveSurfaceContent policy="scan">
-        <header className="flex items-start justify-between gap-4 px-4 pt-6 pb-4">
+      {/* scan 폭 720: 1024~1179 가로·1280 세로에서 행이 944px 이상으로 늘어나 한눈에 읽기 어려운 문제를 막는다. */}
+      <AdaptiveSurfaceContent policy="scan" className="max-w-[45rem] xl:max-w-[45rem]">
+        <header className="flex items-start justify-between gap-4 px-4 pt-8 pb-3 md:px-6 md:pt-10">
           <div className="min-w-0">
-            <p className="text-accent-primary text-xs font-semibold tracking-wide">
-              {t('schedule.eyebrow')}
+            <h1 className="type-page-title text-foreground break-keep">{t('schedule.title')}</h1>
+            <p className="type-supporting text-text-secondary mt-1 break-keep">
+              {t('schedule.description')}
             </p>
-            <h1 className="text-text-primary mt-1 text-2xl font-bold">{t('schedule.title')}</h1>
-            <p className="text-text-secondary mt-1 text-sm">{t('schedule.description')}</p>
           </div>
+          {/* 훑어보러 오는 화면이라 "+ 일정"은 Subtle(Strong 0). 고객 0명 빈 상태 CTA만 Strong 1. */}
           <Button
             type="button"
-            variant="primary"
+            variant="subtle"
             size="sm"
             className="shrink-0"
             aria-label={t('schedule.addEvent')}
@@ -345,7 +363,8 @@ export function SchedulePage({
         {effectiveLoadState === 'loading' ? (
           <AgendaSkeleton />
         ) : effectiveLoadState === 'error' ? (
-          <EmptyState
+          <ErrorState
+            className="mx-4 mt-4 md:mx-6"
             title={t('schedule.errorTitle')}
             description={
               eventStore?.error
@@ -355,7 +374,7 @@ export function SchedulePage({
             action={
               <button
                 type="button"
-                className={cn(buttonVariants({ variant: 'text' }), 'mt-2')}
+                className={buttonVariants({ variant: 'subtle' })}
                 onClick={retrySchedule}
               >
                 {t('schedule.retry')}
@@ -363,51 +382,55 @@ export function SchedulePage({
             }
           />
         ) : hasNoCustomers ? (
-          <EmptyState
-            title={t('schedule.emptyCustomersTitle')}
-            description={t('schedule.emptyCustomersDescription')}
-            action={
-              <Link
-                to={buildAppCustomerCreatePath()}
-                className={cn(buttonVariants({ variant: 'primary' }), 'mt-2')}
-                aria-label={t('schedule.emptyCustomersFirstAction')}
-                data-schedule-first-customer-cta
-              >
-                {t('schedule.emptyCustomersFirstAction')}
-              </Link>
-            }
-          />
+          <div className="bg-inset rounded-card mx-4 mt-4 md:mx-6">
+            <EmptyState
+              title={t('schedule.emptyCustomersTitle')}
+              description={t('schedule.emptyCustomersDescription')}
+              action={
+                <Link
+                  to={buildAppCustomerCreatePath()}
+                  className={cn(buttonVariants({ variant: 'strong' }), 'mt-2')}
+                  aria-label={t('schedule.emptyCustomersFirstAction')}
+                  data-schedule-first-customer-cta
+                >
+                  {t('schedule.emptyCustomersFirstAction')}
+                </Link>
+              }
+            />
+          </div>
         ) : sourceEvents.length === 0 ? (
-          <EmptyState
-            title={t('schedule.emptyTitle')}
-            description={t('schedule.emptyDescription')}
-            action={
-              <Link
-                to={buildAppCustomersPath()}
-                className={cn(buttonVariants({ variant: 'secondary' }), 'mt-2')}
-                aria-label={t('schedule.emptyCustomersAction')}
-              >
-                {t('schedule.emptyCustomersAction')}
-              </Link>
-            }
-          />
+          <div className="bg-inset rounded-card mx-4 mt-4 md:mx-6">
+            <EmptyState
+              title={t('schedule.emptyTitle')}
+              description={t('schedule.emptyDescription')}
+              action={
+                <Link
+                  to={buildAppCustomersPath()}
+                  className={cn(buttonVariants({ variant: 'subtle' }), 'mt-2')}
+                  aria-label={t('schedule.emptyCustomersAction')}
+                >
+                  {t('schedule.emptyCustomersAction')}
+                </Link>
+              }
+            />
+          </div>
         ) : (
           <>
             <OverdueCue count={overdueEvents.length} onSelect={jumpToLatestOverdue} />
 
             {!todayVisible ? (
-              <div className="px-4 pt-4">
+              <div className="px-4 pt-2 md:px-6">
                 <button
                   type="button"
                   onClick={() => selectDate(todayDateKey)}
-                  className="text-accent-primary-deep focus-visible:outline-accent-primary min-h-11 text-sm font-semibold underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className={buttonVariants({ variant: 'text', size: 'sm' })}
                 >
                   {t('schedule.todayReturn')}
                 </button>
               </div>
             ) : null}
 
-            <div data-agenda className="mt-4 pb-6">
+            <div data-agenda className="mt-4 flex flex-col gap-6 px-4 pb-8 md:px-6">
               {sections.map((section) => (
                 <DateSection
                   key={section.dateKey}

@@ -225,7 +225,6 @@ export const en: Messages = {
     description: 'A placeholder for checking upcoming follow-up work.',
   },
   schedule: {
-    eyebrow: 'Time axis',
     title: 'Schedule',
     description: 'Review planned and recorded events in chronological order.',
     weekStripLabel: 'Week schedule',

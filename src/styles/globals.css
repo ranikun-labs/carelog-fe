@@ -399,7 +399,7 @@
     background-color: var(--accent-primary-bg);
   }
   100% {
-    background-color: var(--bg-surface);
+    background-color: var(--inset);
   }
 }
 

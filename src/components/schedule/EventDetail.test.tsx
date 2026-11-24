@@ -189,4 +189,94 @@ describe('EventDetail', () => {
     expect(getTimeTexts()[0]).toContain('8월 12일');
     expect(screen.queryByText('실제')).not.toBeInTheDocument();
   });
+
+  describe('action emphasis and Key Block', () => {
+    function renderWithActions(event: CustomerEvent) {
+      return render(
+        <MemoryRouter>
+          <I18nProvider locale="ko">
+            <EventDetail
+              event={event}
+              customerName="박세입"
+              customerPath="/app/customers/customer-1"
+              now={now}
+              onOccurEvent={vi.fn()}
+              onCancelEvent={vi.fn()}
+              onEdit={vi.fn()}
+              onOpenAssistant={vi.fn()}
+            />
+          </I18nProvider>
+        </MemoryRouter>,
+      );
+    }
+
+    const strongButtons = () =>
+      screen.queryAllByRole('button').filter((button) => button.className.includes('bg-primary'));
+
+    it('uses the only Strong on the overdue record action and moves it into the confirmation panel', () => {
+      renderWithActions({
+        id: 'overdue',
+        customerId: 'customer-1',
+        status: 'PLANNED',
+        scheduledAt: '2026-08-11T09:00:00+09:00',
+        descriptor: '지난 상담',
+      });
+      expect(strongButtons().map((button) => button.textContent)).toEqual(['기록 완료']);
+
+      fireEvent.click(screen.getByRole('button', { name: '기록 완료' }));
+      // 패널이 열리면 Strong은 "확인" 하나뿐이고, 첫 입력(실제 시각)이 포커스를 받는다.
+      expect(strongButtons().map((button) => button.textContent)).toEqual(['확인']);
+      expect(screen.getByLabelText('실제')).toHaveFocus();
+    });
+
+    it('keeps Strong at zero for upcoming, recorded and cancelled events', () => {
+      const { unmount } = renderWithActions({
+        id: 'upcoming',
+        customerId: 'customer-1',
+        status: 'PLANNED',
+        scheduledAt: '2026-08-15T10:00:00+09:00',
+        descriptor: '예정 상담',
+      });
+      expect(strongButtons()).toHaveLength(0);
+      unmount();
+
+      const { unmount: unmountRecorded } = renderWithActions({
+        id: 'recorded',
+        customerId: 'customer-1',
+        status: 'OCCURRED',
+        occurredAt: '2026-08-11T10:00:00+09:00',
+        descriptor: '기록된 상담',
+      });
+      expect(strongButtons()).toHaveLength(0);
+      unmountRecorded();
+
+      renderWithActions({
+        id: 'cancelled',
+        customerId: 'customer-1',
+        status: 'CANCELLED',
+        scheduledAt: '2026-08-12T09:00:00+09:00',
+        descriptor: '취소된 일정',
+      });
+      expect(strongButtons()).toHaveLength(0);
+    });
+
+    it('has one key-value time, no bordered card, and keeps both times when they differ', () => {
+      renderDetail({
+        id: 'different',
+        customerId: 'customer-1',
+        status: 'OCCURRED',
+        scheduledAt: '2026-08-11T10:00:00+09:00',
+        occurredAt: '2026-08-11T10:30:00+09:00',
+      });
+      const article = document.querySelector('[data-event-detail]') as HTMLElement;
+      expect(article.querySelectorAll('.type-key-value')).toHaveLength(1);
+      // Key는 실제(기록) 시각이다 — 시간대와 무관하게 dateTime으로 확인한다.
+      expect(article.querySelector('.type-key-value time')).toHaveAttribute(
+        'datetime',
+        '2026-08-11T10:30:00+09:00',
+      );
+      expect(article.innerHTML).not.toMatch(/\bborder\b/);
+      expect(getTimeTexts()).toHaveLength(2);
+    });
+  });
 });
