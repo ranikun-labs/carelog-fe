@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Notice } from '@/components/ui/notice';
+import { TextField } from '@/components/ui/text-field';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import {
@@ -49,6 +51,7 @@ export function CustomerForm({
   const [displayName, setDisplayName] = useState(initialFormValues.displayName);
   const [customerMemo, setCustomerMemo] = useState(initialFormValues.customerMemo);
   const [error, setError] = useState<string | null>(null);
+  const [nameRequiredError, setNameRequiredError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const initializationRef = useRef({ draftKey, initialSignature });
@@ -66,6 +69,7 @@ export function CustomerForm({
     setDisplayName(nextValues.displayName);
     setCustomerMemo(nextValues.customerMemo);
     setError(null);
+    setNameRequiredError(false);
     setIsSubmitting(false);
     submitLockRef.current = false;
   }, [draftKey, draftStore, initialSignature, initialValues]);
@@ -84,12 +88,13 @@ export function CustomerForm({
 
     const normalizedDisplayName = displayName.trim();
     if (!normalizedDisplayName) {
-      setError(t('customers.form.displayNameRequired'));
+      setNameRequiredError(true);
       return;
     }
 
     submitLockRef.current = true;
     setError(null);
+    setNameRequiredError(false);
     setIsSubmitting(true);
     let result: boolean | void | Promise<boolean | void>;
     try {
@@ -137,57 +142,54 @@ export function CustomerForm({
       data-customer-form-key={draftKey}
       aria-busy={isSubmitting}
       onSubmit={submit}
-      className="border-border-default bg-surface rounded-lg border p-4"
+      onInvalidCapture={() => setNameRequiredError(true)}
+      className="bg-card rounded-card p-4"
     >
       <div className="grid gap-4">
-        <label className="grid gap-1.5 text-sm font-semibold" htmlFor="customer-display-name">
-          {t('customers.form.displayName')}
-          <input
-            id="customer-display-name"
-            name="displayName"
-            data-customer-field="displayName"
-            value={displayName}
-            onChange={(inputEvent) => {
-              const nextDisplayName = inputEvent.target.value;
-              setDisplayName(nextDisplayName);
-              persistDraft({ displayName: nextDisplayName, customerMemo });
-            }}
-            placeholder={t('customers.form.displayNamePlaceholder')}
-            aria-invalid={error ? true : undefined}
-            required
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
-          />
-        </label>
+        <TextField
+          id="customer-display-name"
+          name="displayName"
+          data-customer-field="displayName"
+          label={t('customers.form.displayName')}
+          value={displayName}
+          onChange={(inputEvent) => {
+            const nextDisplayName = inputEvent.target.value;
+            setDisplayName(nextDisplayName);
+            if (nextDisplayName.trim()) setNameRequiredError(false);
+            persistDraft({ displayName: nextDisplayName, customerMemo });
+          }}
+          placeholder={t('customers.form.displayNamePlaceholder')}
+          error={nameRequiredError ? t('customers.form.displayNameRequired') : undefined}
+          required
+        />
 
-        <label className="grid gap-1.5 text-sm font-semibold" htmlFor="customer-memo">
-          {t('customers.form.memo')}
-          <textarea
-            id="customer-memo"
-            name="customerMemo"
-            data-customer-field="customerMemo"
-            value={customerMemo}
-            onChange={(inputEvent) => {
-              const nextCustomerMemo = inputEvent.target.value;
-              setCustomerMemo(nextCustomerMemo);
-              persistDraft({ displayName, customerMemo: nextCustomerMemo });
-            }}
-            rows={4}
-            placeholder={t('customers.form.memoPlaceholder')}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
-          />
-        </label>
+        <TextField
+          multiline
+          id="customer-memo"
+          name="customerMemo"
+          data-customer-field="customerMemo"
+          label={t('customers.form.memo')}
+          value={customerMemo}
+          onChange={(inputEvent) => {
+            const nextCustomerMemo = inputEvent.target.value;
+            setCustomerMemo(nextCustomerMemo);
+            persistDraft({ displayName, customerMemo: nextCustomerMemo });
+          }}
+          rows={4}
+          placeholder={t('customers.form.memoPlaceholder')}
+        />
       </div>
 
       {error ? (
-        <p role="alert" className="text-warning mt-3 text-sm font-semibold">
+        <Notice tone="danger" className="mt-4" data-customer-form-error>
           {error}
-        </p>
+        </Notice>
       ) : null}
 
       <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button
           type="button"
-          variant="ghost"
+          variant="text-neutral"
           onClick={cancel}
           disabled={isSubmitting}
           data-customer-form-cancel

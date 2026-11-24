@@ -93,8 +93,8 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
   );
 
   const onDraftChange = useCallback(
-    (values: EventFormDraft) => {
-      updateDraft(values);
+    ({ descriptor, note, scheduledAt }: EventFormDraft) => {
+      updateDraft({ descriptor, note, scheduledAt });
     },
     [updateDraft],
   );
@@ -176,7 +176,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
       <div
         data-scroll-surface
         data-root-scroll-surface="event-create"
-        className="flex-1 overflow-y-auto p-4 md:p-6"
+        className="flex-1 scroll-pb-28 overflow-y-auto p-4 md:p-6"
       >
         <AdaptiveSurfaceContent policy="readable">
           {selectedCustomer ? (

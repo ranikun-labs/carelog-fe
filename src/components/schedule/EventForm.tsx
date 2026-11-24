@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Notice } from '@/components/ui/notice';
+import { TextField } from '@/components/ui/text-field';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
@@ -19,6 +21,7 @@ export interface EventFormSubmitValues {
 }
 
 export interface EventFormInitialValues {
+  status?: 'PLANNED' | 'OCCURRED';
   descriptor?: string;
   note?: string;
   scheduledAt?: string;
@@ -52,7 +55,9 @@ export function EventForm({
 }: EventFormProps) {
   const { t } = useTranslation();
   const initialStatus =
-    event?.status === 'OCCURRED' ? 'OCCURRED' : (fixedCreateStatus ?? 'PLANNED');
+    event?.status === 'OCCURRED'
+      ? 'OCCURRED'
+      : (fixedCreateStatus ?? initialValues?.status ?? 'PLANNED');
   const [status, setStatus] = useState<'PLANNED' | 'OCCURRED'>(initialStatus);
   const [descriptor, setDescriptor] = useState(
     event?.descriptor ?? initialValues?.descriptor ?? '',
@@ -70,6 +75,7 @@ export function EventForm({
       : toDateTimeLocalValue(initialValues?.occurredAt ?? now.toISOString()),
   );
   const [error, setError] = useState<string | null>(null);
+  const [timeRequiredError, setTimeRequiredError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const isEdit = mode === 'edit';
@@ -77,8 +83,8 @@ export function EventForm({
   const isFixedCreateStatus = !isEdit && fixedCreateStatus !== undefined;
 
   useEffect(() => {
-    onDraftChange?.({ descriptor, note, scheduledAt });
-  }, [descriptor, note, onDraftChange, scheduledAt]);
+    onDraftChange?.({ descriptor, note, scheduledAt, status, occurredAt });
+  }, [descriptor, note, occurredAt, onDraftChange, scheduledAt, status]);
 
   function submit(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -86,13 +92,12 @@ export function EventForm({
     const time = status === 'PLANNED' ? scheduledAt : occurredAt;
     if (!time) {
       onValidationFailure?.();
-      setError(
-        status === 'PLANNED' ? t('eventForm.scheduledRequired') : t('eventForm.occurredRequired'),
-      );
+      setTimeRequiredError(true);
       return;
     }
 
     setError(null);
+    setTimeRequiredError(false);
     submitLockRef.current = true;
     setIsSubmitting(true);
     void Promise.resolve()
@@ -113,27 +118,38 @@ export function EventForm({
       });
   }
 
+  const timeLabel =
+    status === 'PLANNED' ? t('eventForm.scheduledTime') : t('eventForm.occurredTime');
+  const timeError = timeRequiredError
+    ? status === 'PLANNED'
+      ? t('eventForm.scheduledRequired')
+      : t('eventForm.occurredRequired')
+    : undefined;
+
   return (
     <form
       data-event-form
       data-event-form-mode={mode}
       aria-busy={isSubmitting}
       onSubmit={submit}
-      onInvalidCapture={() => onValidationFailure?.()}
-      className="border-border-default bg-surface mt-4 min-w-0 rounded-lg border p-4 sm:p-6"
+      onInvalidCapture={() => {
+        setTimeRequiredError(true);
+        onValidationFailure?.();
+      }}
+      className="bg-card rounded-card mt-4 min-w-0 p-4 sm:p-6"
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-text-primary text-base font-semibold">
+        <div className="min-w-0">
+          <h2 className="type-section-title text-foreground">
             {isEdit ? t('eventForm.editTitle') : t('eventForm.createTitle')}
           </h2>
-          <p className="text-text-secondary mt-1 text-sm">
+          <p className="type-supporting text-text-secondary mt-1 wrap-anywhere break-keep">
             {t('eventForm.customer', { customer: customerName })}
           </p>
         </div>
         <Button
           type="button"
-          variant="ghost"
+          variant="text-neutral"
           size="sm"
           onClick={onCancel}
           disabled={isSubmitting}
@@ -144,112 +160,95 @@ export function EventForm({
       </div>
 
       {!isEdit && !isFixedCreateStatus ? (
-        <fieldset className="mt-4">
-          <legend className="text-text-primary text-sm font-semibold">
-            {t('eventForm.kindLabel')}
-          </legend>
+        <fieldset className="mt-4 min-w-0">
+          <legend className="type-content-title text-foreground">{t('eventForm.kindLabel')}</legend>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <label
-              className={cn(
-                'border-border-default flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm',
-                status === 'PLANNED' && 'border-accent-primary bg-accent-primary-bg',
-              )}
-            >
-              <input
-                type="radio"
-                name="event-kind"
-                value="PLANNED"
-                checked={status === 'PLANNED'}
-                onChange={() => setStatus('PLANNED')}
-              />
-              <span>{t('eventForm.planned')}</span>
-            </label>
-            <label
-              className={cn(
-                'border-border-default flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm',
-                status === 'OCCURRED' && 'border-accent-primary bg-accent-primary-bg',
-              )}
-            >
-              <input
-                type="radio"
-                name="event-kind"
-                value="OCCURRED"
-                checked={status === 'OCCURRED'}
-                onChange={() => setStatus('OCCURRED')}
-              />
-              <span>{t('eventForm.immediateOccurred')}</span>
-            </label>
+            {(
+              [
+                ['PLANNED', t('eventForm.planned')],
+                ['OCCURRED', t('eventForm.immediateOccurred')],
+              ] as const
+            ).map(([value, label]) => (
+              <label
+                key={value}
+                className={cn(
+                  'rounded-control type-body flex min-h-11 cursor-pointer items-center gap-2 px-3 font-semibold',
+                  'has-[:disabled]:cursor-default has-[:disabled]:opacity-50',
+                  status === value
+                    ? 'bg-brand-subtle text-brand-deep'
+                    : 'bg-control text-foreground',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="event-kind"
+                  value={value}
+                  checked={status === value}
+                  disabled={isSubmitting}
+                  onChange={() => {
+                    setStatus(value);
+                    setTimeRequiredError(false);
+                  }}
+                  className="accent-primary size-5 shrink-0"
+                />
+                <span className="min-w-0 wrap-anywhere break-keep">{label}</span>
+              </label>
+            ))}
           </div>
         </fieldset>
       ) : null}
 
       <div className="mt-5 grid gap-5">
-        <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-descriptor">
-          {t('eventForm.descriptor')}
-          <input
-            id="event-descriptor"
-            name="descriptor"
-            data-event-field="descriptor"
-            value={descriptor}
-            onChange={(inputEvent) => setDescriptor(inputEvent.target.value)}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
-            placeholder={t('eventForm.descriptorPlaceholder')}
-          />
-        </label>
+        <TextField
+          id="event-descriptor"
+          name="descriptor"
+          data-event-field="descriptor"
+          label={t('eventForm.descriptor')}
+          value={descriptor}
+          onChange={(inputEvent) => setDescriptor(inputEvent.target.value)}
+          placeholder={t('eventForm.descriptorPlaceholder')}
+        />
 
-        {status === 'PLANNED' ? (
-          <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-scheduled-at">
-            {t('eventForm.scheduledTime')}
-            <input
-              id="event-scheduled-at"
-              name="scheduledAt"
-              data-event-field="scheduledAt"
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(inputEvent) => setScheduledAt(inputEvent.target.value)}
-              required
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
-            />
-          </label>
-        ) : (
-          <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-occurred-at">
-            {t('eventForm.occurredTime')}
-            <input
-              id="event-occurred-at"
-              name="occurredAt"
-              data-event-field="occurredAt"
-              type="datetime-local"
-              value={occurredAt}
-              onChange={(inputEvent) => setOccurredAt(inputEvent.target.value)}
-              required
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
-            />
-          </label>
-        )}
+        <TextField
+          key={status}
+          id={status === 'PLANNED' ? 'event-scheduled-at' : 'event-occurred-at'}
+          name={status === 'PLANNED' ? 'scheduledAt' : 'occurredAt'}
+          data-event-field={status === 'PLANNED' ? 'scheduledAt' : 'occurredAt'}
+          type="datetime-local"
+          label={timeLabel}
+          value={status === 'PLANNED' ? scheduledAt : occurredAt}
+          onChange={(inputEvent) => {
+            const next = inputEvent.target.value;
+            if (status === 'PLANNED') setScheduledAt(next);
+            else setOccurredAt(next);
+            if (next) setTimeRequiredError(false);
+          }}
+          required
+          hint={
+            isOccurredEdit && event?.scheduledAt
+              ? t('eventForm.originalScheduledPreserved')
+              : undefined
+          }
+          error={timeError}
+        />
 
-        {isOccurredEdit && event?.scheduledAt ? (
-          <p className="text-text-tertiary text-xs">{t('eventForm.originalScheduledPreserved')}</p>
-        ) : null}
-
-        <label className="grid gap-1.5 text-sm font-semibold" htmlFor="event-note">
-          {t('eventForm.note')}
-          <textarea
-            id="event-note"
-            name="note"
-            data-event-field="note"
-            value={note}
-            onChange={(inputEvent) => setNote(inputEvent.target.value)}
-            rows={3}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary w-full min-w-0 rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
-            placeholder={t('eventForm.notePlaceholder')}
-          />
-        </label>
+        <TextField
+          multiline
+          id="event-note"
+          name="note"
+          data-event-field="note"
+          label={t('eventForm.note')}
+          value={note}
+          onChange={(inputEvent) => setNote(inputEvent.target.value)}
+          rows={3}
+          placeholder={t('eventForm.notePlaceholder')}
+        />
       </div>
 
       {error ? (
-        <p role="alert" className="text-warning mt-3 text-sm font-semibold">
+        <Notice tone="danger" className="mt-4" data-event-form-error>
           {error}
-        </p>
+        </Notice>
       ) : null}
 
       <div

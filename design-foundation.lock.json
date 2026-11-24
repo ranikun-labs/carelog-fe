@@ -38,6 +38,27 @@
       "upstreamSha256": "d6cd01b5b8ef474b81aa9a26c2230d924fe1f9211c6f3515ff5dc6391c777c5f"
     },
     {
+      "path": "src/components/ui/text-field.tsx",
+      "upstreamPath": "src/components/ui/text-field.tsx",
+      "mode": "verbatim",
+      "sourceSha": "1c7b0149481dd066b4c3da94fe697f2c383e4c19",
+      "upstreamSha256": "1d2eb59d3281141505e7cc17219c976468998aa9fedb3aa7ccaf7fe7d73ef417"
+    },
+    {
+      "path": "src/components/ui/field-message.tsx",
+      "upstreamPath": "src/components/ui/field-message.tsx",
+      "mode": "verbatim",
+      "sourceSha": "1c7b0149481dd066b4c3da94fe697f2c383e4c19",
+      "upstreamSha256": "d166b3bf02990de00863012006227116ad859451c1890e0adcc392cc9289b99d"
+    },
+    {
+      "path": "src/components/ui/notice.tsx",
+      "upstreamPath": "src/components/ui/notice.tsx",
+      "mode": "verbatim",
+      "sourceSha": "1c7b0149481dd066b4c3da94fe697f2c383e4c19",
+      "upstreamSha256": "3b3a808dcfd769a1907bed338c73dd1421b00a0f8a3cba3e5b2ab7104b49e57b"
+    },
+    {
       "path": "src/components/ui/button.tsx",
       "upstreamPath": "src/components/ui/button.tsx",
       "mode": "derived",

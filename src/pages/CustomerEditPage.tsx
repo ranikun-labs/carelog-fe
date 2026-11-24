@@ -66,7 +66,7 @@ export function CustomerEditPage() {
         backLabel={t('customers.back')}
         onBack={() => navigate(buildAppCustomerDetailPath(currentCustomer.id))}
       />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 scroll-pb-28 overflow-y-auto p-6">
         <CustomerForm
           mode="edit"
           draftKey={`edit:${currentCustomer.id}`}

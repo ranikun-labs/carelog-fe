@@ -191,4 +191,44 @@ describe('CustomerForm', () => {
     expect(screen.getByLabelText('고객 이름')).toHaveValue('');
     expect(screen.getByLabelText('고객 메모')).toHaveValue('');
   });
+
+  it('connects the label, error and invalid state of the name field (F1 Field contract)', () => {
+    renderForm();
+    const name = screen.getByLabelText('고객 이름');
+    expect(name).not.toHaveAttribute('aria-invalid', 'true');
+
+    submitForm();
+
+    const alert = screen.getByRole('alert');
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    expect(name.getAttribute('aria-describedby')?.split(' ')).toContain(alert.id);
+    // 메모 필드는 오류와 연결되지 않는다.
+    expect(screen.getByLabelText('고객 메모')).not.toHaveAttribute('aria-invalid', 'true');
+
+    fireEvent.change(name, { target: { value: '고객' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(name).not.toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('keeps the typed values and shows a Notice (not a field error) when saving fails', async () => {
+    const onSubmit = vi
+      .fn<(values: CustomerFormValues) => Promise<boolean>>()
+      .mockRejectedValueOnce(new CarelogHttpError(401));
+    renderForm('create', onSubmit);
+    const name = screen.getByLabelText('고객 이름');
+    const memo = screen.getByLabelText('고객 메모');
+    fireEvent.change(name, { target: { value: '입력 보존' } });
+    fireEvent.change(memo, { target: { value: '메모 보존' } });
+    submitForm();
+
+    const notice = await screen.findByRole('alert');
+    expect(notice).toHaveAttribute('data-slot', 'notice');
+    expect(name).toHaveValue('입력 보존');
+    expect(memo).toHaveValue('메모 보존');
+    expect(name).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: '고객 추가' }).closest('form')).toHaveAttribute(
+      'aria-busy',
+      'false',
+    );
+  });
 });

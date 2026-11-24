@@ -5,6 +5,9 @@ export interface EventFormDraft {
   descriptor: string;
   note: string;
   scheduledAt: string;
+  /** 고객 상세 인라인 폼처럼 기록 방식을 고를 수 있는 곳에서만 채워진다(회전·창 크기 변경 시 보존용). */
+  status?: 'PLANNED' | 'OCCURRED';
+  occurredAt?: string;
 }
 
 export interface EventCreateDraft extends EventFormDraft {

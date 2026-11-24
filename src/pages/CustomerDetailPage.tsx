@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { CustomerContextSection } from '@/components/customers/CustomerContextSection';
@@ -26,6 +26,8 @@ import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
+import { useOptionalCustomerFormDraft } from '@/state/CustomerFormDraftContext';
+import type { EventFormDraft } from '@/state/EventCreateDraftContext';
 import { useOptionalEventCreateActivation } from '@/state/EventCreateActivationContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
 import type { EventCreationInput } from '@/state/eventStore';
@@ -59,7 +61,14 @@ export function CustomerDetailPage({
   const remoteReadsEnabled = eventStore?.remoteReadsEnabled ?? false;
   const [creatingCustomerId, setCreatingCustomerId] = useState<string | null>(null);
   const [retriedCustomerId, setRetriedCustomerId] = useState<string | null>(null);
-  const isCreating = creatingCustomerId === customerId;
+  // 인라인 일정 폼의 열림·입력값은 draft에도 둔다. 회전으로 1단↔2단이 바뀌어 화면이 다시 마운트돼도 이어 쓴다.
+  const draftStore = useOptionalCustomerFormDraft();
+  const inlineEventDraft = draftStore?.getInlineEventDraft(customerId);
+  const isCreating = creatingCustomerId === customerId || inlineEventDraft !== undefined;
+  const handleInlineDraftChange = useCallback(
+    (draft: EventFormDraft) => draftStore?.setInlineEventDraft(customerId, draft),
+    [customerId, draftStore],
+  );
   const currentViewRef = useRef({ customerId, generation: 0 });
   const mountedRef = useRef(true);
   const addEventTriggerRef = useRef<HTMLButtonElement>(null);
@@ -260,6 +269,7 @@ export function CustomerDetailPage({
     } else {
       eventCreateActivation?.clearCreateReturnProvenance();
     }
+    draftStore?.clearInlineEventDraft(currentCustomer.id);
     setCreatingCustomerId(null);
   }
 
@@ -371,10 +381,13 @@ export function CustomerDetailPage({
               mode="create"
               customerName={currentCustomer.displayName}
               now={now}
+              initialValues={inlineEventDraft}
+              onDraftChange={handleInlineDraftChange}
               onSubmit={handleCreate}
               onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
               onCancel={() => {
                 eventCreateActivation?.clearCreateReturnProvenance();
+                draftStore?.clearInlineEventDraft(currentCustomer.id);
                 setCreatingCustomerId(null);
                 addEventTriggerRef.current?.focus();
               }}
