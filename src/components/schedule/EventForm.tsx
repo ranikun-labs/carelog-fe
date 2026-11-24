@@ -93,6 +93,14 @@ export function EventForm({
     if (!time) {
       onValidationFailure?.();
       setTimeRequiredError(true);
+      // noValidate라 브라우저가 첫 오류 입력으로 포커스를 옮겨 주지 않는다. 같은 동작을 직접 이어 준다.
+      formEvent.currentTarget
+        .querySelector<HTMLInputElement>(
+          status === 'PLANNED'
+            ? '[data-event-field="scheduledAt"]'
+            : '[data-event-field="occurredAt"]',
+        )
+        ?.focus();
       return;
     }
 
@@ -131,11 +139,8 @@ export function EventForm({
       data-event-form
       data-event-form-mode={mode}
       aria-busy={isSubmitting}
+      noValidate
       onSubmit={submit}
-      onInvalidCapture={() => {
-        setTimeRequiredError(true);
-        onValidationFailure?.();
-      }}
       className="bg-card rounded-card mt-4 min-w-0 p-4 sm:p-6"
     >
       <div className="flex items-start justify-between gap-3">

@@ -47,6 +47,26 @@ describe('EventForm Field contract (F1)', () => {
     expect(time).not.toHaveAttribute('aria-invalid', 'true');
   });
 
+  it('validates in the app only: noValidate keeps the browser bubble away, same error, focus on the field', () => {
+    const onValidationFailure = vi.fn();
+    const onSubmit = renderForm(vi.fn(), { onValidationFailure });
+    const form = document.querySelector('[data-event-form]') as HTMLFormElement;
+    const time = screen.getByLabelText('예정 시각');
+
+    // 브라우저 기본 검증 말풍선을 끄되, 필수 표시(required)는 입력에 그대로 남는다.
+    expect(form.noValidate).toBe(true);
+    expect(time).toBeRequired();
+
+    fireEvent.change(time, { target: { value: '' } });
+    fireEvent.submit(form);
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(onValidationFailure).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('예정 시각');
+    expect(time).toHaveAttribute('aria-invalid', 'true');
+    expect(time).toHaveFocus();
+  });
+
   it('keeps the typed input and shows a danger Notice when saving fails', async () => {
     const onSubmit = vi.fn().mockRejectedValueOnce(new CarelogHttpError(401));
     renderForm(onSubmit);

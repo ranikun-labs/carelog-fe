@@ -238,7 +238,7 @@ export function AssistantSurface({
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder={t('assistant.questionPlaceholder')}
                 disabled={!adapter || isLoading}
-                className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
               />
             </label>
             <Button
@@ -330,7 +330,7 @@ export function AssistantSurface({
                       onChange={(event) => setMemoDraft(event.target.value)}
                       placeholder={t('assistant.memoPlaceholder')}
                       rows={6}
-                      className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+                      className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
                     />
                   </label>
                   {saveFailed ? (

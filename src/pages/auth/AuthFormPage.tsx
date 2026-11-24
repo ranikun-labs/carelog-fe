@@ -109,7 +109,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             required
             aria-invalid={errorField === 'account' ? true : undefined}
             aria-describedby={errorField === 'account' ? errorId : undefined}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </div>
         <div className="grid gap-2">
@@ -126,7 +126,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             required
             aria-invalid={errorField === 'secret' ? true : undefined}
             aria-describedby={errorField === 'secret' ? errorId : undefined}
-            className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </div>
         {isSignup ? (
@@ -144,7 +144,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
               required
               aria-invalid={errorField === 'secretConfirmation' ? true : undefined}
               aria-describedby={errorField === 'secretConfirmation' ? errorId : undefined}
-              className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             />
           </div>
         ) : null}
