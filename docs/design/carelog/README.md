@@ -82,7 +82,10 @@ are **verbatim** copies and `button.tsx`, `badge.tsx` are **derived** copies of 
 - Drift test: `src/components/ui/design-foundation-drift.test.ts` fails if a verbatim file differs from upstream, or if a derived file changes without updating the lock and its patch list.
 - Local needs go upstream first, or into `src/components/common/`. Derived patches are limited to the lock's list.
 - To update: take the new upstream files, recompute `sha256` (`sha256sum` of the upstream blob; verbatim body = file minus its first line), update `source.sha` and the headers, and review the upstream diff in the PR.
-- Not copied: Dialog, Checkbox (no call site), TextField/Notice (not in upstream yet).
+- `text-field.tsx`, `field-message.tsx`, `notice.tsx` were added later as **verbatim** copies of Finance FE `1c7b014`
+  (they did not exist at `7dd9590`). Their lock entries carry a per-file `sourceSha`; the drift test checks the
+  header and body against that SHA. Existing entries are unchanged.
+- Not copied: Dialog, Checkbox (no call site).
 
 ## Accessibility baseline
 
@@ -92,8 +95,10 @@ are **verbatim** copies and `button.tsx`, `badge.tsx` are **derived** copies of 
   reason. RPL-56 does not invent that copy.
 - Generic Button, Badge, and layout foundations must not clip text at increased text scale.
 - Hover is never the only interaction or state indicator.
-- Existing inputs retain sufficient non-text contrast when touched; a final Input/Textarea component
-  is not defined here.
+- Form fields use `TextField` (label, hint and error linked by `htmlFor`, `aria-describedby`, `aria-invalid`; 44+ height).
+  A validation error belongs to its field (`FieldMessage`); a save failure is a danger `Notice` and keeps the typed input.
+  Single choices use native radios (the language choice in Account and the event kind choice).
+  Scroll surfaces that hold a form set `scroll-padding-bottom` so the focused field is not hidden by the keyboard.
 
 ## Responsive foundation
 

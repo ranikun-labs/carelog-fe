@@ -1,10 +1,15 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import type { EventFormDraft } from '@/state/EventCreateDraftContext';
+
 export interface CustomerFormDraft {
   displayName: string;
   customerMemo: string;
 }
+
+/** 고객 상세의 인라인 일정 추가 폼. 열림 여부 + 입력값을 함께 들고, 회전으로 화면이 다시 마운트돼도 이어 쓰게 한다. */
+export type InlineEventDraft = EventFormDraft;
 
 export type CustomerFormDraftKey = 'create' | `edit:${string}`;
 
@@ -12,6 +17,9 @@ interface CustomerFormDraftContextValue {
   getDraft: (key: CustomerFormDraftKey) => CustomerFormDraft | undefined;
   setDraft: (key: CustomerFormDraftKey, draft: CustomerFormDraft) => void;
   clearDraft: (key: CustomerFormDraftKey) => void;
+  getInlineEventDraft: (customerId: string) => InlineEventDraft | undefined;
+  setInlineEventDraft: (customerId: string, draft: InlineEventDraft) => void;
+  clearInlineEventDraft: (customerId: string) => void;
 }
 
 const CustomerFormDraftContext = createContext<CustomerFormDraftContextValue | null>(null);
@@ -36,9 +44,47 @@ export function CustomerFormDraftProvider({ children }: { children: ReactNode })
     });
   }, []);
 
+  const [eventDrafts, setEventDrafts] = useState<Record<string, InlineEventDraft>>({});
+
+  const getInlineEventDraft = useCallback(
+    (customerId: string) => eventDrafts[customerId],
+    [eventDrafts],
+  );
+
+  const setInlineEventDraft = useCallback((customerId: string, draft: InlineEventDraft) => {
+    setEventDrafts((current) => {
+      const previous = current[customerId];
+      if (previous && JSON.stringify(previous) === JSON.stringify(draft)) return current;
+      return { ...current, [customerId]: draft };
+    });
+  }, []);
+
+  const clearInlineEventDraft = useCallback((customerId: string) => {
+    setEventDrafts((current) => {
+      if (!current[customerId]) return current;
+      const next = { ...current };
+      delete next[customerId];
+      return next;
+    });
+  }, []);
+
   const value = useMemo<CustomerFormDraftContextValue>(
-    () => ({ getDraft, setDraft, clearDraft }),
-    [clearDraft, getDraft, setDraft],
+    () => ({
+      getDraft,
+      setDraft,
+      clearDraft,
+      getInlineEventDraft,
+      setInlineEventDraft,
+      clearInlineEventDraft,
+    }),
+    [
+      clearDraft,
+      clearInlineEventDraft,
+      getDraft,
+      getInlineEventDraft,
+      setDraft,
+      setInlineEventDraft,
+    ],
   );
 
   return (

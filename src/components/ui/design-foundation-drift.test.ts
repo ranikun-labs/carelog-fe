@@ -18,6 +18,8 @@ type LockEntry = {
   upstreamPath: string;
   mode: 'verbatim' | 'derived';
   upstreamSha256: string;
+  /** 기본 출처(lock.source.sha)와 다른 커밋에서 가져온 파일(예: 이후 추가된 Field/Notice)의 전체 SHA. */
+  sourceSha?: string;
   localSha256?: string;
   patches?: string[];
 };
@@ -34,6 +36,12 @@ describe('design-foundation.lock.json', () => {
     expect(lock.source.foundationVersion).toBe('1.0.0');
   });
 
+  it('pins any per-file sourceSha to a full 40-hex commit', () => {
+    for (const entry of lock.files) {
+      if (entry.sourceSha !== undefined) expect(entry.sourceSha).toMatch(/^[0-9a-f]{40}$/);
+    }
+  });
+
   it('locks every non-test ui component (no unlocked copies)', () => {
     const uiDir = path.join(root, 'src/components/ui');
     const actual = readdirSync(uiDir)
@@ -46,9 +54,10 @@ describe('design-foundation.lock.json', () => {
   describe.each(lock.files)('$path', (entry) => {
     const content = readFileSync(path.join(root, entry.path), 'utf8');
     const [firstLine, ...rest] = content.split('\n');
+    const entrySourceSha = entry.sourceSha ?? SOURCE_SHA;
 
     it('starts with a provenance header naming the upstream path and short sha', () => {
-      expect(firstLine).toContain(`finance-fe@${SOURCE_SHA.slice(0, 7)}:${entry.upstreamPath}`);
+      expect(firstLine).toContain(`finance-fe@${entrySourceSha.slice(0, 7)}:${entry.upstreamPath}`);
       expect(firstLine).toContain(entry.mode === 'verbatim' ? '(verbatim)' : '(derived');
     });
 

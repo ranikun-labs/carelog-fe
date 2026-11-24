@@ -5,6 +5,7 @@ import { CUSTOMER_FIXTURE_RECORDS, landlordTenantScenario } from '@/fixtures/sce
 import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
 import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerDetailPage, type CustomerDetailPageProps } from '@/pages/CustomerDetailPage';
+import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 
 const TEST_NOW = new Date('2026-08-11T12:00:00+09:00');
@@ -132,5 +133,48 @@ describe('CustomerDetailPage', () => {
     expect(document.querySelector('[data-customer-identity]')).toContainElement(ai);
     expect(keyBlock).not.toContainElement(ai);
     expect(ai).toHaveClass('bg-control', 'min-h-11');
+  });
+
+  it('keeps the open inline event form and its values when the page remounts (rotation across the 1-pane/2-pane boundary)', () => {
+    const createEvent = vi.fn();
+    const tree = (pageKey: string) => (
+      <MemoryRouter initialEntries={[`/app/customers/${landlordTenantScenario.customer.id}`]}>
+        <I18nProvider locale="ko">
+          <CustomerStoreProvider initialCustomers={CUSTOMER_FIXTURE_RECORDS}>
+            <CustomerFormDraftProvider>
+              <Routes>
+                <Route
+                  path="/app/customers/:customerId"
+                  element={
+                    <CustomerDetailPage
+                      key={pageKey}
+                      now={TEST_NOW}
+                      events={SCHEDULE_FIXTURE.events}
+                      onCreateEvent={createEvent}
+                    />
+                  }
+                />
+              </Routes>
+            </CustomerFormDraftProvider>
+          </CustomerStoreProvider>
+        </I18nProvider>
+      </MemoryRouter>
+    );
+    const { rerender } = render(tree('portrait'));
+    fireEvent.click(screen.getByRole('button', { name: '일정 추가' }));
+    fireEvent.click(screen.getByRole('radio', { name: '지금 기록' }));
+    fireEvent.change(screen.getByLabelText('제목'), { target: { value: '회전 중 입력' } });
+    fireEvent.change(screen.getByLabelText('메모'), { target: { value: '메모 유지' } });
+
+    rerender(tree('landscape'));
+
+    expect(document.querySelector('[data-event-form]')).not.toBeNull();
+    expect(screen.getByLabelText('제목')).toHaveValue('회전 중 입력');
+    expect(screen.getByLabelText('메모')).toHaveValue('메모 유지');
+    expect(screen.getByRole('radio', { name: '지금 기록' })).toBeChecked();
+
+    fireEvent.click(document.querySelector<HTMLButtonElement>('[data-event-form-cancel]')!);
+    rerender(tree('after-cancel'));
+    expect(document.querySelector('[data-event-form]')).toBeNull();
   });
 });

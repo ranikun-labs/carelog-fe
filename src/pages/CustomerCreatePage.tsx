@@ -35,7 +35,7 @@ export function CustomerCreatePage() {
         backLabel={t('customers.back')}
         onBack={() => navigate(buildAppCustomersPath())}
       />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 scroll-pb-28 overflow-y-auto p-6">
         <CustomerForm
           mode="create"
           draftKey="create"
