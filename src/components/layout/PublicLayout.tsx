@@ -1,9 +1,10 @@
-import { Link, Outlet, useParams } from 'react-router';
+import { Link, Outlet, useMatch, useParams } from 'react-router';
 
 import {
   buildPublicFeaturesPath,
   buildPublicHomePath,
   isSupportedLocale,
+  PUBLIC_ROUTE_PATHS,
 } from '@/constants/routes';
 import { I18nProvider, useTranslation } from '@/i18n/I18nContext';
 import { PublicNotFoundPage } from '@/pages/public/PublicNotFoundPage';
@@ -11,6 +12,10 @@ import { PublicNotFoundPage } from '@/pages/public/PublicNotFoundPage';
 function PublicChrome() {
   const { locale, t } = useTranslation();
   const peer = locale === 'ko' ? 'en' : 'ko';
+  const onFeaturesPage = useMatch(PUBLIC_ROUTE_PATHS.features);
+  const alternateLanguagePath = onFeaturesPage
+    ? buildPublicFeaturesPath(peer)
+    : buildPublicHomePath(peer);
   return (
     <div className="min-h-dvh">
       <header className="border-b">
@@ -25,7 +30,7 @@ function PublicChrome() {
             {t('navigation.home')}
           </Link>
           <Link to={buildPublicFeaturesPath(locale)}>{t('navigation.features')}</Link>
-          <Link aria-label={t('common.changeLanguage')} to={buildPublicHomePath(peer)}>
+          <Link aria-label={t('common.changeLanguage')} to={alternateLanguagePath}>
             {peer.toUpperCase()}
           </Link>
         </nav>
