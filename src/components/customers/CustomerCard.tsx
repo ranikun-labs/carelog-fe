@@ -37,7 +37,8 @@ export function CustomerCard({ customer, isSelected = false, onSelect }: Custome
           <span
             className={cn(
               'type-content-title wrap-anywhere break-keep',
-              isSelected ? 'text-brand-deep' : 'text-foreground',
+              // 선택 행은 600 → 700으로 굵게 해 색 외 단서를 준다(WCAG 1.4.1).
+              isSelected ? 'text-brand-deep font-bold' : 'text-foreground',
             )}
           >
             {customer.displayName}

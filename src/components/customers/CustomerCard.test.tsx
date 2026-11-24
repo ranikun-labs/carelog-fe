@@ -38,10 +38,13 @@ describe('CustomerCard (Foundation 행)', () => {
     expect(link).toHaveAttribute('aria-current', 'true');
     expect(link).toHaveClass('bg-brand-subtle', 'text-brand-deep');
     expect(link).toHaveClass('min-h-11');
+    // 색 외 단서: 선택 행 이름은 굵게, 일반 행은 기본 굵기
+    expect(screen.getByText(CUSTOMER_FIXTURE_RECORDS[0]!.displayName)).toHaveClass('font-bold');
   });
 
   it('leaves unselected rows without aria-current', () => {
     renderCard(false);
     expect(screen.getByRole('link')).not.toHaveAttribute('aria-current');
+    expect(screen.getByText(CUSTOMER_FIXTURE_RECORDS[0]!.displayName)).not.toHaveClass('font-bold');
   });
 });
