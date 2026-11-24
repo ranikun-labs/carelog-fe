@@ -153,11 +153,8 @@ describe('Carelog Teal rule: text on brand-subtle must be brand-deep', () => {
     expect(violations.filter((file) => file.startsWith('/src/components/ui/'))).toEqual([]);
   });
 
-  it('screen files only contain the known pre-existing violation (cleared by the Auth status PR)', () => {
-    // TODO(PR-7): AuthStatusSurface의 `bg-accent-primary-bg text-accent-primary`를 deep으로 교체하면 이 목록을 비운다.
-    expect(violations.filter((file) => !file.startsWith('/src/components/ui/'))).toEqual([
-      '/src/components/auth/AuthStatusSurface.tsx',
-    ]);
+  it('screen files never put strong text on a brand-subtle surface (no exceptions)', () => {
+    expect(violations.filter((file) => !file.startsWith('/src/components/ui/'))).toEqual([]);
   });
 });
 

@@ -50,7 +50,7 @@ function AuthStatusContent({
       aria-busy={status === 'status' ? true : undefined}
       className="border-border-default bg-surface grid gap-4 rounded-xl border p-6 text-center shadow-sm sm:p-8"
     >
-      <div className="bg-accent-primary-bg text-accent-primary mx-auto grid size-12 place-items-center rounded-full font-semibold">
+      <div className="bg-accent-primary-bg text-accent-primary-deep mx-auto grid size-12 place-items-center rounded-full font-semibold">
         {status === 'status' ? '…' : '!'}
       </div>
       <div className="grid gap-2">

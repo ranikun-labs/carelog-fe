@@ -20,6 +20,8 @@ interface CustomerFormDraftContextValue {
   getInlineEventDraft: (customerId: string) => InlineEventDraft | undefined;
   setInlineEventDraft: (customerId: string, draft: InlineEventDraft) => void;
   clearInlineEventDraft: (customerId: string) => void;
+  getAssistantQuestionDraft: (contextKey: string) => string | undefined;
+  setAssistantQuestionDraft: (contextKey: string, question: string) => void;
 }
 
 const CustomerFormDraftContext = createContext<CustomerFormDraftContextValue | null>(null);
@@ -68,6 +70,20 @@ export function CustomerFormDraftProvider({ children }: { children: ReactNode })
     });
   }, []);
 
+  // 도우미 질문 입력: 1단↔2단 회전으로 화면이 다시 마운트돼도 입력 중이던 질문을 이어 쓰게 한다(메모리 보존만, 저장·전송과 무관).
+  const [assistantQuestions, setAssistantQuestions] = useState<Record<string, string>>({});
+
+  const getAssistantQuestionDraft = useCallback(
+    (contextKey: string) => assistantQuestions[contextKey],
+    [assistantQuestions],
+  );
+
+  const setAssistantQuestionDraft = useCallback((contextKey: string, question: string) => {
+    setAssistantQuestions((current) =>
+      current[contextKey] === question ? current : { ...current, [contextKey]: question },
+    );
+  }, []);
+
   const value = useMemo<CustomerFormDraftContextValue>(
     () => ({
       getDraft,
@@ -76,12 +92,16 @@ export function CustomerFormDraftProvider({ children }: { children: ReactNode })
       getInlineEventDraft,
       setInlineEventDraft,
       clearInlineEventDraft,
+      getAssistantQuestionDraft,
+      setAssistantQuestionDraft,
     }),
     [
       clearDraft,
       clearInlineEventDraft,
+      getAssistantQuestionDraft,
       getDraft,
       getInlineEventDraft,
+      setAssistantQuestionDraft,
       setDraft,
       setInlineEventDraft,
     ],
