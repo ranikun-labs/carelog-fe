@@ -85,4 +85,20 @@ describe('CustomerDetailPage', () => {
     expect(screen.getByRole('heading', { name: '메모' })).toBeVisible();
     expect(screen.getByTestId('customer-memo-copy')).toHaveClass('line-clamp-3');
   });
+
+  it('uses inset faces without borders and keeps the workspace as text, with no dark button', () => {
+    renderAt(landlordTenantScenario.customer.id, { memo: '짧은 메모' });
+    const container = document.body;
+
+    expect(screen.getByTestId('customer-memo-copy')).toHaveClass('bg-inset', 'rounded-inset');
+    expect(container.querySelector('[data-slot="badge"][class*="bg-brand-subtle"]')).toBeNull();
+    expect(screen.getByText(landlordTenantScenario.workspace.name).tagName).toBe('P');
+    expect(container.querySelector('[data-add-event]')).not.toHaveClass('bg-primary');
+    expect(container.querySelector('[data-assistant-entry="customer"]')).not.toHaveClass(
+      'bg-primary',
+    );
+    expect(
+      container.querySelector('[data-customer-detail-page] [class*="border-border-"]'),
+    ).toBeNull();
+  });
 });

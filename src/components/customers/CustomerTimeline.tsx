@@ -30,15 +30,15 @@ export function CustomerTimeline({ events, onOpenEvent }: CustomerTimelineProps)
   const visibleEvents = ordered.slice(0, visibleCount);
 
   return (
-    <section className="mt-6" data-customer-history aria-labelledby="customer-history-title">
-      <h2 id="customer-history-title" className="text-lg font-semibold">
+    <section className="mt-8" data-customer-history aria-labelledby="customer-history-title">
+      <h2 id="customer-history-title" className="type-section-title text-foreground break-keep">
         {t('timeline.title')}
       </h2>
       {ordered.length === 0 ? (
         <EmptyState title={t('timeline.title')} description={t('timeline.empty')} />
       ) : (
         <>
-          <ol className="border-border-subtle mt-3 border-t">
+          <ol className="border-border mt-2 border-t">
             {visibleEvents.map((event) => {
               const title = getEventTitle(event) ?? t('schedule.untitled');
               const coordinate = getAgendaCoordinate(event);
@@ -59,21 +59,24 @@ export function CustomerTimeline({ events, onOpenEvent }: CustomerTimelineProps)
                       onOpenEvent(event);
                     }}
                     aria-label={t('schedule.openEvent', { title })}
-                    className="border-border-subtle hover:bg-subtle block border-b px-1 py-4 transition-colors"
+                    className="border-border hover:bg-inset block min-h-11 border-b px-1 py-3 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-text-primary min-w-0 flex-1 font-medium break-words">
+                      <p className="type-content-title text-foreground min-w-0 flex-1 wrap-anywhere break-keep">
                         {title}
                       </p>
                       {isCancelled ? (
                         <Badge tone="cancelled">{t('eventDetail.statusCancelled')}</Badge>
                       ) : (
-                        <span className="text-status-neutral-foreground shrink-0 text-xs font-semibold">
+                        <span className="type-label text-text-secondary shrink-0">
                           {t('schedule.meta.occurred')}
                         </span>
                       )}
                     </div>
-                    <time dateTime={coordinate} className="text-text-tertiary mt-1 block text-sm">
+                    <time
+                      dateTime={coordinate}
+                      className="type-supporting text-text-tertiary mt-1 block"
+                    >
                       {formatAgendaDateTime(coordinate, locale)}
                     </time>
                   </Link>
@@ -84,9 +87,8 @@ export function CustomerTimeline({ events, onOpenEvent }: CustomerTimelineProps)
           {visibleEvents.length < ordered.length ? (
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3 w-full"
+              variant="neutral"
+              className="mt-4 w-full"
               data-history-load-more
               onClick={() => setVisibleCount((count) => count + CUSTOMER_HISTORY_PAGE_SIZE)}
             >

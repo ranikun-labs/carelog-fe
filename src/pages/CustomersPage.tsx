@@ -9,6 +9,7 @@ import {
   useOptionalAdaptiveHost,
 } from '@/components/layout/adaptiveHostContext';
 import { buttonVariants } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
 import { buildAppCustomerCreatePath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
@@ -45,18 +46,20 @@ export function CustomersPage() {
       data-customers-page
       data-scroll-surface
       data-root-scroll-surface="customers-list"
-      className="h-full min-h-full overflow-y-auto p-6 pt-10"
+      className="h-full min-h-full overflow-y-auto p-4 pt-8 md:p-6 md:pt-10"
     >
       <AdaptiveSurfaceContent policy="scan">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">{t('customers.title')}</h1>
-            <p className="text-text-secondary mt-2">{t('customers.description')}</p>
+            <h1 className="type-page-title text-foreground break-keep">{t('customers.title')}</h1>
+            <p className="type-supporting text-text-secondary mt-1 break-keep">
+              {t('customers.description')}
+            </p>
           </div>
           {customers.length > 0 ? (
             <Link
               to={buildAppCustomerCreatePath()}
-              className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'shrink-0')}
+              className={cn(buttonVariants({ variant: 'strong', size: 'sm' }), 'shrink-0')}
               data-customer-add-cta
             >
               + {t('customers.add')}
@@ -65,13 +68,13 @@ export function CustomersPage() {
         </header>
 
         {customerStore.loadState === 'loading' ? (
-          <p role="status" aria-busy="true" className="text-text-secondary mt-6 text-sm">
+          <p role="status" aria-busy="true" className="type-body text-text-secondary mt-6">
             {t('customers.loadingLabel')}
           </p>
         ) : customerStore.loadState === 'error' ? (
-          <EmptyState
-            title={t('customers.emptyTitle')}
-            description={
+          <ErrorState
+            className="mt-6"
+            title={
               customerStore.error
                 ? t(getCarelogMessageKey(customerStore.error))
                 : t('carelog.unknown')
@@ -79,7 +82,7 @@ export function CustomersPage() {
             action={
               <button
                 type="button"
-                className={cn(buttonVariants({ variant: 'text' }), 'mt-2')}
+                className={buttonVariants({ variant: 'subtle' })}
                 onClick={() => void customerStore.refresh().catch(() => undefined)}
               >
                 {t('schedule.retry')}
@@ -94,7 +97,7 @@ export function CustomersPage() {
               action={
                 <Link
                   to={buildAppCustomerCreatePath()}
-                  className={cn(buttonVariants({ variant: 'primary', size: 'lg' }), 'mt-2')}
+                  className={cn(buttonVariants({ variant: 'strong', size: 'lg' }), 'mt-2')}
                   data-first-customer-cta
                 >
                   {t('customers.firstCustomerAction')}
@@ -103,7 +106,7 @@ export function CustomersPage() {
             />
           </div>
         ) : (
-          <ul className="mt-6 space-y-3">
+          <ul className="divide-border mt-6 divide-y">
             {customers.map((customer) => (
               <li key={customer.id}>
                 <CustomerCard
