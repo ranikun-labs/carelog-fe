@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import type { AssistantAdapter, AssistantResult } from '@/assistant/assistantAdapter';
-import type { ResolvedAssistantContext } from '@/assistant/assistantTypes';
+import { getAssistantContextKey, type ResolvedAssistantContext } from '@/assistant/assistantTypes';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AdaptiveSurface, AdaptiveSurfaceContent } from '@/components/layout/adaptiveHostContext';
 import { formatAgendaDateTime } from '@/components/schedule/agendaModel';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/i18n/I18nContext';
+import { useOptionalCustomerFormDraft } from '@/state/CustomerFormDraftContext';
 
 interface AssistantSurfaceProps {
   context: ResolvedAssistantContext;
@@ -36,7 +37,16 @@ export function AssistantSurface({
   onSaveEventMemo,
 }: AssistantSurfaceProps) {
   const { locale, t } = useTranslation();
-  const [question, setQuestion] = useState('');
+  const draftStore = useOptionalCustomerFormDraft();
+  const contextKey = getAssistantContextKey(context.navigation.context);
+  const [question, setQuestionState] = useState(
+    () => draftStore?.getAssistantQuestionDraft(contextKey) ?? '',
+  );
+
+  function setQuestion(next: string) {
+    setQuestionState(next);
+    draftStore?.setAssistantQuestionDraft(contextKey, next);
+  }
   const [requestState, setRequestState] = useState<RequestState>('initial');
   const [result, setResult] = useState<AssistantResult | null>(null);
   const [memoDraft, setMemoDraft] = useState('');
@@ -238,7 +248,7 @@ export function AssistantSurface({
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder={t('assistant.questionPlaceholder')}
                 disabled={!adapter || isLoading}
-                className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="border-input bg-surface text-text-primary placeholder:text-text-tertiary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
               />
             </label>
             <Button
@@ -330,7 +340,7 @@ export function AssistantSurface({
                       onChange={(event) => setMemoDraft(event.target.value)}
                       placeholder={t('assistant.memoPlaceholder')}
                       rows={6}
-                      className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+                      className="border-input bg-surface text-text-primary placeholder:text-text-tertiary focus-visible:outline-accent-primary rounded-md border px-3 py-2 font-normal outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
                     />
                   </label>
                   {saveFailed ? (

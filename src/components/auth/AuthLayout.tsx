@@ -32,7 +32,7 @@ export function AuthLayout() {
         </button>
       </header>
       <main className="mx-auto flex min-h-[calc(100dvh-80px)] w-full max-w-[560px] items-center px-5 py-8 sm:px-8">
-        <div className="w-full">
+        <div className="w-full min-w-0">
           <Outlet />
         </div>
       </main>
