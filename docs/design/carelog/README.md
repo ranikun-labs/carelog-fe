@@ -104,6 +104,20 @@ are **verbatim** copies and `button.tsx`, `badge.tsx` are **derived** copies of 
   viewport is landscape.
 - `1180px+` landscape is two-pane capable.
 
+Shell behaviour (PR-2) and where it deliberately differs from the Foundation v1.0.0 responsive
+recommendation (0-767 bottom tabs, 768-1099 narrow rail, 1100+ sidebar / two-pane). **The Host
+contract wins**; the differences are:
+
+- The 80px rail is also the width that makes `availableWidth = viewport - 80`. A two-pane therefore
+  starts at a **1180px** landscape viewport, not 1100. At a 1100px landscape viewport
+  `availableWidth` is 1020, so the host stays single-column by contract (not a defect). The
+  v1.0.0 "1100+ sidebar" is not adopted; a wider sidebar would raise the threshold further.
+- Changing the 1100 threshold, the 80px rail width, or the landscape condition changes the LOCK
+  value and needs an Owner gate. PR-2 changes none of them (`adaptiveHostModel.test.ts` pins them).
+- Safe area: top/left/right are applied once on `AppShell` (and the public/auth chrome), bottom by
+  `BottomNavigation` (phone) or the shell (>= 768). The viewport already uses `viewport-fit=cover`.
+- Shell tabs use the 12px `type-label` role; focus is the global ring (no per-link outline).
+
 RPL-56 only removes the permanent 480px host limitation and supplies an opt-in adaptive seam. It
 does not implement a Schedule/Event Detail two-pane screen or stretch the RPL-49 screens into a new
 desktop design.

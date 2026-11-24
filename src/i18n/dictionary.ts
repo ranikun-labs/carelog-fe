@@ -42,7 +42,7 @@ export interface Messages {
     };
   };
   app: {
-    home: { eyebrow: string; title: string; description: string; customersAction: string };
+    home: { title: string; description: string; customersAction: string };
   };
   assistant: {
     title: string;

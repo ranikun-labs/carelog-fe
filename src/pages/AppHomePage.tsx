@@ -7,10 +7,9 @@ import { useTranslation } from '@/i18n/I18nContext';
 export function AppHomePage() {
   const { t } = useTranslation();
   return (
-    <main className="flex min-h-full flex-col gap-6 p-6 pt-12">
-      <p className="text-primary font-medium">{t('app.home.eyebrow')}</p>
-      <h1 className="text-3xl font-bold">{t('app.home.title')}</h1>
-      <p className="text-text-secondary">{t('app.home.description')}</p>
+    <main className="flex min-h-full flex-col items-start gap-4 p-5 pt-10">
+      <h1 className="type-page-title text-foreground">{t('app.home.title')}</h1>
+      <p className="type-reading text-text-secondary">{t('app.home.description')}</p>
       <Link className={buttonVariants()} to={buildAppCustomersPath()}>
         {t('app.home.customersAction')}
       </Link>

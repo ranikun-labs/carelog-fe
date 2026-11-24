@@ -17,7 +17,7 @@ export function ReviewDetailPage() {
         onBack={() => navigate(buildAppCustomersPath())}
       />
       <main className="flex-1 p-6">
-        <p className="text-text-secondary break-all">{reviewId}</p>
+        <p className="type-supporting text-text-secondary break-all">{reviewId}</p>
         <EmptyState title={t('reviews.detail.title')} description={t('placeholder.comingSoon')} />
       </main>
     </div>
