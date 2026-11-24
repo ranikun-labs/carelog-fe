@@ -100,6 +100,14 @@ describe.each(['light', 'dark'] as const)('Foundation v1 %s theme contrast (>= 4
     expect(contrastRatio(token(theme, 'input'), token(theme, 'card'))).toBeGreaterThanOrEqual(3);
   });
 
+  // 입력은 카드 면 외에 page·inset 위에도 놓인다(인증·도우미·일정 폼). 외곽선 토큰은 어느 면에서도 3:1.
+  it.each(['page', 'inset', 'control'] as const)(
+    'control/input outline is at least 3:1 on %s (non-text contrast)',
+    (surface) => {
+      expect(contrastRatio(token(theme, 'input'), token(theme, surface))).toBeGreaterThanOrEqual(3);
+    },
+  );
+
   it('focus ring (brand strong) is at least 3:1 on card, page and brand-subtle', () => {
     for (const surface of ['card', 'page', 'brand-subtle']) {
       expect(
