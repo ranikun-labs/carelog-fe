@@ -19,13 +19,13 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
   const [primaryEvent, ...additionalEvents] = upcomingEvents;
 
   return (
-    <section className="mt-6" data-customer-upcoming aria-labelledby="customer-upcoming-title">
-      <h2 id="customer-upcoming-title" className="text-lg font-semibold">
+    <section className="mt-8" data-customer-upcoming aria-labelledby="customer-upcoming-title">
+      <h2 id="customer-upcoming-title" className="type-section-title text-foreground break-keep">
         {t('customers.detail.upcomingTitle')}
       </h2>
 
       {primaryEvent ? (
-        <div className="mt-3 space-y-3">
+        <div className="mt-2 space-y-3">
           <Link
             to={buildAppEventDetailPath(primaryEvent.id)}
             onClick={(clickEvent) => {
@@ -37,25 +37,25 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
               title: getEventTitle(primaryEvent) ?? t('schedule.untitled'),
             })}
             data-upcoming-primary
-            className="bg-subtle border-border-default hover:bg-accent-primary-bg/60 block rounded-lg border p-4 transition-colors"
+            className="bg-inset hover:bg-control rounded-inset block p-4 transition-colors"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <h3 className="text-text-primary min-w-0 flex-1 text-lg font-semibold break-words">
+              <h3 className="type-content-title text-foreground min-w-0 flex-1 wrap-anywhere break-keep">
                 {getEventTitle(primaryEvent) ?? t('schedule.untitled')}
               </h3>
               <Badge tone="planned">{t('schedule.meta.planned')}</Badge>
             </div>
             <time
               dateTime={primaryEvent.scheduledAt}
-              className="text-text-secondary mt-2 block text-sm"
+              className="type-key-value text-foreground mt-2 block break-keep"
             >
               {formatAgendaDateTime(primaryEvent.scheduledAt, locale)}
             </time>
           </Link>
 
           {additionalEvents.length > 0 ? (
-            <div className="border-border-subtle border-t pt-3">
-              <p className="text-text-tertiary text-sm">
+            <div className="border-border border-t pt-3">
+              <p className="type-supporting text-text-tertiary">
                 {t('customers.detail.additionalUpcoming', {
                   count: String(additionalEvents.length),
                 })}
@@ -73,9 +73,9 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
                           onOpenEvent(event);
                         }}
                         aria-label={t('schedule.openEvent', { title })}
-                        className="text-accent-primary-deep hover:bg-subtle flex min-h-11 items-center justify-between gap-3 rounded-md px-2 text-sm font-semibold underline-offset-2 hover:underline"
+                        className="type-body text-brand-deep hover:bg-control rounded-control flex min-h-11 items-center justify-between gap-3 px-2 font-semibold underline-offset-2 hover:underline"
                       >
-                        <span className="min-w-0 break-words">{title}</span>
+                        <span className="min-w-0 wrap-anywhere break-keep">{title}</span>
                         <time dateTime={event.scheduledAt} className="shrink-0 font-normal">
                           {formatAgendaDateTime(event.scheduledAt, locale)}
                         </time>
@@ -88,11 +88,10 @@ export function CustomerUpcoming({ events, now, onOpenEvent }: CustomerUpcomingP
           ) : null}
         </div>
       ) : (
-        <div
-          data-customer-upcoming-empty
-          className="bg-subtle border-border-default mt-3 rounded-lg border p-4"
-        >
-          <p className="text-text-secondary text-sm">{t('customers.detail.noUpcoming')}</p>
+        <div data-customer-upcoming-empty className="bg-inset rounded-inset mt-2 p-4">
+          <p className="type-body text-text-secondary break-keep">
+            {t('customers.detail.noUpcoming')}
+          </p>
         </div>
       )}
     </section>

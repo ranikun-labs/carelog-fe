@@ -13,8 +13,8 @@ import {
   useOptionalAdaptiveHost,
 } from '@/components/layout/adaptiveHostContext';
 import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
-import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
 import {
   buildAppAssistantPath,
   buildAppCustomerEditPath,
@@ -133,17 +133,13 @@ export function CustomerDetailPage({
   if (!customer) {
     if (customerStore.detailLoadState === 'loading' || customerStore.loadState === 'loading') {
       return (
-        <div role="status" aria-busy="true" className="p-6">
+        <div role="status" aria-busy="true" className="type-body text-text-secondary p-4 md:p-6">
           {t('schedule.loadingLabel')}
         </div>
       );
     }
     if (customerStore.error) {
-      return (
-        <div role="alert" className="p-6">
-          {t(getCarelogMessageKey(customerStore.error))}
-        </div>
-      );
+      return <ErrorState title={t(getCarelogMessageKey(customerStore.error))} />;
     }
     return <AppNotFoundPage />;
   }
@@ -263,7 +259,7 @@ export function CustomerDetailPage({
         trailing={
           <Link
             to={buildAppCustomerEditPath(currentCustomer.id)}
-            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+            className={buttonVariants({ variant: 'text', size: 'sm' })}
             data-edit-customer
           >
             {t('customers.detail.edit')}
@@ -279,7 +275,9 @@ export function CustomerDetailPage({
         <AdaptiveSurfaceContent policy="readable">
           <section data-customer-identity aria-label={t('customers.detail.title')}>
             {currentCustomer.workspace?.name ? (
-              <Badge tone="info">{currentCustomer.workspace.name}</Badge>
+              <p className="type-supporting text-text-secondary wrap-anywhere break-keep">
+                {currentCustomer.workspace.name}
+              </p>
             ) : null}
             <CustomerContextSection context={currentCustomer.context} />
           </section>
@@ -289,7 +287,7 @@ export function CustomerDetailPage({
               ref={loadingStatusRef}
               role="status"
               tabIndex={-1}
-              className="text-text-secondary mt-6 text-sm"
+              className="type-body text-text-secondary mt-8"
             >
               {detailLoading
                 ? t('schedule.loadingLabel')
@@ -299,21 +297,25 @@ export function CustomerDetailPage({
             </p>
           ) : null}
           {detailFailed ? (
-            <div className="mt-6 space-y-3">
-              <p role="alert" className="text-warning text-sm font-semibold">
+            <div className="bg-inset rounded-inset mt-8 space-y-3 p-4">
+              <p role="alert" className="type-body text-danger font-semibold break-keep">
                 {eventStore?.detailError
                   ? t(getCarelogMessageKey(eventStore.detailError))
                   : t('schedule.errorDescription')}
               </p>
               {snapshot ? (
-                <p className="text-text-secondary text-sm">{t('customers.detail.staleEvents')}</p>
+                <p className="type-body text-text-secondary break-keep">
+                  {t('customers.detail.staleEvents')}
+                </p>
               ) : null}
               {!snapshot && knownEvents.length > 0 ? (
-                <p className="text-text-secondary text-sm">{t('customers.detail.partialEvents')}</p>
+                <p className="type-body text-text-secondary break-keep">
+                  {t('customers.detail.partialEvents')}
+                </p>
               ) : null}
               <Button
                 type="button"
-                variant="outline"
+                variant="neutral"
                 onClick={() => {
                   retryFocusRef.current = true;
                   setRetriedCustomerId(currentCustomer.id);
@@ -330,11 +332,11 @@ export function CustomerDetailPage({
             <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
           ) : null}
 
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-8 flex flex-wrap gap-2">
             <Button
               ref={addEventTriggerRef}
               type="button"
-              variant="outline"
+              variant="subtle"
               disabled={!createEvent || eventStore?.mutationPending}
               data-add-event
               onClick={() => {
@@ -346,7 +348,7 @@ export function CustomerDetailPage({
             </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant="neutral"
               data-assistant-entry="customer"
               onClick={openAssistant}
             >
