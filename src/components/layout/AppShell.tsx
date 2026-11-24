@@ -23,7 +23,12 @@ export function AppShellFrame() {
   const { handleClickCapture, handleKeyDownCapture } = useEventCreateReturnBoundary();
 
   return (
-    <div data-app-shell className="bg-page flex h-dvh w-full flex-col overflow-hidden">
+    // Safe Area: 상·좌우(노치·상태바·가로 회전)는 셸이, 하단은 폰=BottomNavigation / 태블릿=여기서 처리.
+    // 패딩 면은 content와 같은 surface로 칠해 가장자리에 page 색 띠가 생기지 않게 한다.
+    <div
+      data-app-shell
+      className="bg-surface flex h-dvh w-full flex-col overflow-hidden pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] md:pb-[env(safe-area-inset-bottom)]"
+    >
       {auth?.operationError ? (
         <AuthOperationErrorSurface
           failure={auth.operationError.failure}

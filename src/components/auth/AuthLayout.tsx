@@ -10,18 +10,21 @@ export function AuthLayout() {
   const peer = locale === 'ko' ? 'en' : 'ko';
 
   return (
-    <div data-auth-surface className="bg-page min-h-dvh w-full">
+    <div
+      data-auth-surface
+      className="bg-page min-h-dvh w-full pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
+    >
       <header className="mx-auto flex w-full max-w-[720px] items-center justify-between gap-4 px-5 py-5 sm:px-8">
         <Link
           to={buildAuthEntryPath()}
-          className="text-text-primary rounded-md font-semibold"
+          className="text-text-primary inline-flex min-h-11 items-center rounded-md font-semibold"
           aria-label={t('auth.entry.title')}
         >
           {t('common.appName')}
         </Link>
         <button
           type="button"
-          className="text-text-secondary hover:bg-subtle min-h-11 rounded-md px-3 text-sm font-semibold"
+          className="type-supporting text-text-secondary hover:bg-inset min-h-11 min-w-11 rounded-md px-3 font-semibold"
           onClick={() => setLocale(peer)}
           aria-label={t('common.changeLanguage')}
         >

@@ -46,7 +46,6 @@ export const ko: Messages = {
   },
   app: {
     home: {
-      eyebrow: '오늘',
       title: 'Carelog에 오신 것을 환영합니다',
       description: '아직 고객 데이터가 연결되어 있지 않습니다.',
       customersAction: '고객 목록 보기',

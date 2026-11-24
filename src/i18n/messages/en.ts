@@ -53,7 +53,6 @@ export const en: Messages = {
   },
   app: {
     home: {
-      eyebrow: 'Today',
       title: 'Welcome to Carelog',
       description: 'No customer data is connected here yet.',
       customersAction: 'View customers',

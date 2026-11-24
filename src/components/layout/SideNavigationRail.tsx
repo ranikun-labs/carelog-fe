@@ -6,9 +6,18 @@ import { buildAppSettingsPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 
+/**
+ * 태블릿·가로(>=768) 좌측 레일. 폭 80px은 AdaptiveHost의 availableWidth(>=1100 가로 2단) 계약을
+ * 결정하므로 바꾸지 않는다(1180 가로 = 레일 80 + 가용 1100). 라벨 12px, 활성 = brand-subtle + deep.
+ * 포커스는 전역 :focus-visible 규칙만 쓴다(개별 outline 지정 없음).
+ */
+const railLinkClass =
+  'type-label flex min-h-14 flex-col items-center justify-center gap-1 rounded-control px-1 text-center transition-[background-color,color]';
+
 export function SideNavigationRail() {
   const { pathname } = useLocation();
   const { t } = useTranslation();
+  const accountActive = pathname.startsWith(buildAppSettingsPath());
 
   return (
     <aside data-side-navigation className="bg-surface hidden w-20 shrink-0 border-r md:block">
@@ -22,13 +31,14 @@ export function SideNavigationRail() {
                 <Link
                   to={tab.href}
                   aria-current={active ? 'page' : undefined}
-                  style={{ outlineColor: 'var(--accent-primary)' }}
                   className={cn(
-                    'text-text-secondary flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-center text-[0.6875rem] font-semibold transition-colors',
-                    active ? 'bg-accent-primary-bg text-accent-primary-deep' : 'hover:bg-subtle',
+                    railLinkClass,
+                    active
+                      ? 'bg-brand-subtle text-brand-deep'
+                      : 'text-text-secondary hover:bg-inset',
                   )}
                 >
-                  <Icon className="size-5" aria-hidden="true" />
+                  <Icon className="size-5" aria-hidden="true" strokeWidth={active ? 2.5 : 2} />
                   <span className="max-w-full truncate">{t(tab.labelKey)}</span>
                 </Link>
               </li>
@@ -37,16 +47,19 @@ export function SideNavigationRail() {
           <li className="mt-auto">
             <Link
               to={buildAppSettingsPath()}
-              aria-current={pathname.startsWith(buildAppSettingsPath()) ? 'page' : undefined}
-              style={{ outlineColor: 'var(--accent-primary)' }}
+              aria-current={accountActive ? 'page' : undefined}
               className={cn(
-                'text-text-secondary flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-center text-[0.6875rem] font-semibold transition-colors',
-                pathname.startsWith(buildAppSettingsPath())
-                  ? 'bg-accent-primary-bg text-accent-primary-deep'
-                  : 'hover:bg-subtle',
+                railLinkClass,
+                accountActive
+                  ? 'bg-brand-subtle text-brand-deep'
+                  : 'text-text-secondary hover:bg-inset',
               )}
             >
-              <UserRound className="size-5" aria-hidden="true" />
+              <UserRound
+                className="size-5"
+                aria-hidden="true"
+                strokeWidth={accountActive ? 2.5 : 2}
+              />
               <span className="max-w-full truncate">{t('auth.account.entry')}</span>
             </Link>
           </li>
