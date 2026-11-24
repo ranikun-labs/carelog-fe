@@ -203,7 +203,6 @@ export interface Messages {
     description: string;
   };
   schedule: {
-    eyebrow: string;
     title: string;
     description: string;
     weekStripLabel: string;

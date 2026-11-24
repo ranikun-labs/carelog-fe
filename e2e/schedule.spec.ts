@@ -92,3 +92,61 @@ test('event detail preserves cancelled schedule context without inventing occurr
   ).not.toBeVisible();
   await expect(page.locator('[data-event-detail] time')).toHaveCount(1);
 });
+
+test('schedule week strip cells stay 44px or larger and text 12px or larger at 320', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'mobile-375',
+    '320 boundary is checked once, on the phone project',
+  );
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto('/app/schedule');
+  await expect(page.locator('[data-week-strip] button')).toHaveCount(7);
+
+  const cells = await page.locator('[data-week-strip] button').evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const box = button.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    }),
+  );
+  for (const cell of cells) {
+    expect(cell.width).toBeGreaterThanOrEqual(44);
+    expect(cell.height).toBeGreaterThanOrEqual(44);
+  }
+
+  const smallest = await page.evaluate(() => {
+    const sizes = [...document.querySelectorAll<HTMLElement>('[data-schedule-page] *')]
+      .filter((element) =>
+        [...element.childNodes].some(
+          (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+        ),
+      )
+      .map((element) => parseFloat(getComputedStyle(element).fontSize));
+    return Math.min(...sizes);
+  });
+  expect(smallest).toBeGreaterThanOrEqual(12);
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('agenda rows lead with the time and show text status without description badges', async ({
+  page,
+}) => {
+  await page.goto('/app/schedule');
+
+  const row = page.locator('[data-event-id="event-tenant-transitioned"]');
+  const timeBox = await row.locator('time').boundingBox();
+  const titleBox = await row.locator('h3').boundingBox();
+  expect(timeBox).not.toBeNull();
+  expect(titleBox).not.toBeNull();
+  expect(timeBox!.x).toBeLessThan(titleBox!.x);
+  await expect(row.getByText('기록됨', { exact: true })).toBeVisible();
+  await expect(row.locator('[data-slot="badge"]')).toHaveCount(0);
+
+  const cancelled = page.locator('[data-event-id="event-tenant-cancelled"]');
+  await expect(cancelled.locator('[data-slot="badge"]')).toHaveText('취소됨');
+});

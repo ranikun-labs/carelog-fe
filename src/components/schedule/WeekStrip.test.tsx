@@ -46,4 +46,21 @@ describe('WeekStrip', () => {
       2,
     );
   });
+
+  it('keeps weekday letters at 12px and cells touch-sized without gaps that shrink them', () => {
+    renderStrip('2026-08-11', new Set());
+
+    const strip = document.querySelector('[data-week-strip]') as HTMLElement;
+    // 7칸이 가장자리까지 나눠 갖도록 gap·좌우 padding이 없다(320에서도 칸 ≥ 44).
+    expect(strip.className).not.toMatch(/\bpx-\d/);
+    expect(strip.querySelector('ol')?.className).not.toMatch(/\bgap-/);
+    const buttons = [...strip.querySelectorAll('button')];
+    expect(buttons).toHaveLength(7);
+    for (const button of buttons) {
+      expect(button).toHaveClass('min-h-14', 'min-w-11');
+    }
+    // 11px(text-[0.6875rem]) 회귀 방지: 요일·날짜 글자는 type-* 역할만 쓴다.
+    expect(strip.innerHTML).not.toMatch(/text-\[/);
+    expect(strip.querySelector('button span')).toHaveClass('type-label');
+  });
 });

@@ -109,7 +109,9 @@ test('Customer-origin return provenance does not leak into Schedule', async ({ p
   await expect(page).toHaveURL('/app/schedule');
   const unrelatedEventRow = page.locator('[data-agenda-row][data-event-id="followup-tenant-1"]');
   await expect(unrelatedEventRow).toHaveCount(1);
-  await unrelatedEventRow.scrollIntoViewIfNeeded();
+  // 행이 이미 화면 안이면 scrollIntoViewIfNeeded는 스크롤하지 않아 오늘이 계속 보인다(키 큰 화면에서 행이 더 촘촘해진 경우).
+  // 의도는 "오늘에서 떨어진 일정을 보고 있다"이므로 행을 맨 위로 명시적으로 올려 화면 크기와 무관하게 만든다.
+  await unrelatedEventRow.evaluate((row) => row.scrollIntoView({ block: 'start' }));
   await expect(page.getByRole('button', { name: /오늘로 돌아가기|Return to today/ })).toBeVisible();
   const unrelatedEvent = unrelatedEventRow.getByRole('button');
   await expect(unrelatedEvent).toBeVisible();

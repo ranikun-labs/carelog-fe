@@ -218,7 +218,6 @@ export const ko: Messages = {
     description: '예정된 후속 업무를 확인하기 위한 자리표시자입니다.',
   },
   schedule: {
-    eyebrow: '시간축',
     title: '일정',
     description: '예정된 일정과 기록을 시간순으로 확인합니다.',
     weekStripLabel: '주간 일정',

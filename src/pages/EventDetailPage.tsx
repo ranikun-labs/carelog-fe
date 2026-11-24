@@ -7,6 +7,7 @@ import {
   useOptionalAdaptiveHost,
 } from '@/components/layout/adaptiveHostContext';
 import { PageHeader } from '@/components/common/PageHeader';
+import { ErrorState } from '@/components/ui/error-state';
 import { EventDetail } from '@/components/schedule/EventDetail';
 import { getAgendaDateKey, getEventTitle } from '@/components/schedule/agendaModel';
 import type { EventFormSubmitValues } from '@/components/schedule/EventForm';
@@ -102,23 +103,18 @@ export function EventDetailPage({
   }, [adaptiveHost]);
 
   if (!event || !customer) {
-    if (eventStore?.remoteReadsEnabled && eventStore.error) {
-      return (
-        <div role="alert" className="p-6">
-          {t(getCarelogMessageKey(eventStore.error))}
-        </div>
-      );
-    }
-    if (customerStore.remoteReadsEnabled && customerStore.error) {
-      return (
-        <div role="alert" className="p-6">
-          {t(getCarelogMessageKey(customerStore.error))}
-        </div>
-      );
+    const failure =
+      eventStore?.remoteReadsEnabled && eventStore.error
+        ? eventStore.error
+        : customerStore.remoteReadsEnabled && customerStore.error
+          ? customerStore.error
+          : undefined;
+    if (failure) {
+      return <ErrorState className="p-6" title={t(getCarelogMessageKey(failure))} />;
     }
     if (eventStore?.remoteReadsEnabled && eventStore.scheduleLoadState !== 'error') {
       return (
-        <div role="status" aria-busy="true" className="p-6">
+        <div role="status" aria-busy="true" className="type-body text-text-secondary p-6">
           {t('schedule.loadingLabel')}
         </div>
       );
