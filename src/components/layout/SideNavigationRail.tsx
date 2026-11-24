@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
  * 포커스는 전역 :focus-visible 규칙만 쓴다(개별 outline 지정 없음).
  */
 const railLinkClass =
-  'type-label flex min-h-14 flex-col items-center justify-center gap-1 rounded-control px-1 text-center transition-colors';
+  'type-label flex min-h-14 flex-col items-center justify-center gap-1 rounded-control px-1 text-center transition-[background-color,color]';
 
 export function SideNavigationRail() {
   const { pathname } = useLocation();

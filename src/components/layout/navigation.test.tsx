@@ -39,6 +39,8 @@ describe.each([
     expect(html).not.toMatch(/text-\[0\.6875rem\]|text-xs|text-\[11px\]/);
     expect(html).not.toContain('outline-color');
     expect(html).not.toContain('bg-subtle');
+    // transition-colors would animate outline-color and make the focus ring read mid-transition.
+    expect(html).not.toContain('transition-colors');
     for (const link of screen.getAllByRole('link')) {
       expect(link.className).toMatch(/min-h-1[14]|min-h-14/);
     }
