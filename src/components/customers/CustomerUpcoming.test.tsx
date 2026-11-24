@@ -84,4 +84,49 @@ describe('CustomerUpcoming', () => {
     expect(screen.queryByText('past record')).not.toBeInTheDocument();
     expect(screen.queryByText('overdue plan')).not.toBeInTheDocument();
   });
+
+  it('renders the action inside the Key Block, and keeps it in the empty state too', () => {
+    const planned: CustomerEvent = {
+      id: 'future',
+      customerId: 'customer-1',
+      status: 'PLANNED',
+      scheduledAt: '2026-08-12T10:00:00+09:00',
+      descriptor: 'next',
+    };
+    const { unmount } = render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <CustomerUpcoming events={[planned]} now={now} action={<button>행동</button>} />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    expect(document.querySelector('[data-upcoming-key]')).toContainElement(
+      screen.getByRole('button', { name: '행동' }),
+    );
+    unmount();
+
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <CustomerUpcoming events={[]} now={now} action={<button>행동</button>} />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    expect(document.querySelector('[data-customer-upcoming-empty]')).toContainElement(
+      screen.getByRole('button', { name: '행동' }),
+    );
+  });
+
+  it('keeps only the action, without heading or empty copy, while not ready', () => {
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <CustomerUpcoming events={[]} now={now} ready={false} action={<button>행동</button>} />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('button', { name: '행동' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: '다음 일정' })).not.toBeInTheDocument();
+    expect(screen.queryByText('다음 일정 없음')).not.toBeInTheDocument();
+  });
 });

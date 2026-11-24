@@ -199,6 +199,24 @@ export function CustomerDetailPage({
     });
   }
 
+  // 행동 강도: 조회 화면이라 Subtle. Strong 0.
+  const addEventButton = (
+    <Button
+      ref={addEventTriggerRef}
+      type="button"
+      variant="subtle"
+      className="w-full"
+      disabled={!createEvent || eventStore?.mutationPending}
+      data-add-event
+      onClick={() => {
+        eventCreateActivation?.beginCreateSession();
+        setCreatingCustomerId(currentCustomer.id);
+      }}
+    >
+      {t('customers.detail.addEvent')}
+    </Button>
+  );
+
   async function handleCreate(values: EventFormSubmitValues) {
     if (!createEvent) return;
     const viewGeneration = currentViewRef.current.generation;
@@ -279,6 +297,17 @@ export function CustomerDetailPage({
                 {currentCustomer.workspace.name}
               </p>
             ) : null}
+            {/* "AI에게 물어보기"는 머리 안 Neutral small. 다음 일정(Key Block)보다 약하게, 하지만 현행 위치 맥락은 유지한다. */}
+            <Button
+              type="button"
+              variant="neutral"
+              size="sm"
+              className="mt-3"
+              data-assistant-entry="customer"
+              onClick={openAssistant}
+            >
+              {t('customers.detail.askAssistant')}
+            </Button>
             <CustomerContextSection context={currentCustomer.context} />
           </section>
 
@@ -328,33 +357,14 @@ export function CustomerDetailPage({
               </Button>
             </div>
           ) : null}
-          {hasDetailData || getUpcomingCustomerEvents(knownEvents, now).length > 0 ? (
-            <CustomerUpcoming events={customerEvents} now={now} onOpenEvent={openEvent} />
-          ) : null}
-
-          <div className="mt-8 flex flex-wrap gap-2">
-            <Button
-              ref={addEventTriggerRef}
-              type="button"
-              variant="subtle"
-              disabled={!createEvent || eventStore?.mutationPending}
-              data-add-event
-              onClick={() => {
-                eventCreateActivation?.beginCreateSession();
-                setCreatingCustomerId(currentCustomer.id);
-              }}
-            >
-              {t('customers.detail.addEvent')}
-            </Button>
-            <Button
-              type="button"
-              variant="neutral"
-              data-assistant-entry="customer"
-              onClick={openAssistant}
-            >
-              {t('customers.detail.askAssistant')}
-            </Button>
-          </div>
+          {/* 로딩·실패로 다음 일정을 못 그려도 "일정 추가"는 같은 자리(같은 DOM)에 남는다. */}
+          <CustomerUpcoming
+            events={customerEvents}
+            now={now}
+            onOpenEvent={openEvent}
+            action={addEventButton}
+            ready={hasDetailData || getUpcomingCustomerEvents(knownEvents, now).length > 0}
+          />
 
           {isCreating && createEvent ? (
             <EventForm
