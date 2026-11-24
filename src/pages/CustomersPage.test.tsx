@@ -29,12 +29,10 @@ describe('CustomersPage', () => {
     const cta = screen.getByRole('link', { name: '+ 고객 추가' });
     expect(cta).toHaveAttribute('href', '/app/customers/new');
     expect(cta).toHaveAttribute('data-customer-add-cta');
-    expect(cta).toHaveClass('bg-accent-primary', 'min-h-11');
-    expect(cta).toHaveClass(
-      'focus-visible:outline-2',
-      'focus-visible:outline-offset-2',
-      'focus-visible:outline-accent-primary',
-    );
+    // Foundation: strong 강조(bg-primary). 포커스는 전역 :focus-visible(2px brand, offset 2)이
+    // 맡으므로 outline을 끄지 않는 것이 계약이다(실제 outline 값은 e2e가 검증).
+    expect(cta).toHaveClass('bg-primary', 'min-h-11');
+    expect(cta).not.toHaveClass('outline-none');
     expect(screen.queryByRole('link', { name: '첫 고객 추가' })).not.toBeInTheDocument();
   });
 
@@ -68,7 +66,7 @@ describe('CustomersPage', () => {
     expect(screen.getByText('아직 고객이 없습니다')).toBeVisible();
     const cta = screen.getByRole('link', { name: '첫 고객 추가' });
     expect(cta).toHaveAttribute('href', '/app/customers/new');
-    expect(cta).toHaveClass('bg-accent-primary', 'min-h-[54px]');
+    expect(cta).toHaveClass('bg-primary', 'min-h-[54px]');
     expect(screen.queryByRole('link', { name: '+ 고객 추가' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /고객 추가/ })).toHaveLength(1);
     expect(screen.queryByText(landlordTenantScenario.customer.displayName)).not.toBeInTheDocument();

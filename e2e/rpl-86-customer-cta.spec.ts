@@ -3,7 +3,7 @@ import type { Locator } from '@playwright/test';
 
 async function expectPrimaryCreateLink(link: Locator) {
   await expect(link).toHaveAttribute('href', '/app/customers/new');
-  await expect(link).toHaveClass(/\bbg-accent-primary\b/);
+  await expect(link).toHaveClass(/\bbg-primary\b/);
   const box = await link.boundingBox();
   expect(box).not.toBeNull();
   expect(box!.height).toBeGreaterThanOrEqual(44);

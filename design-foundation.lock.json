@@ -1,0 +1,66 @@
+{
+  "description": "Finance(finance-fe) Design Foundation 복사본의 출처·해시 잠금. 임시 방식: 공유 패키지가 생기면 삭제한다.",
+  "source": {
+    "repo": "finance-fe",
+    "branch": "origin/dev",
+    "sha": "7dd95900e0ec1d549d90d915b8026d01d1469f55",
+    "foundationVersion": "1.0.0"
+  },
+  "files": [
+    {
+      "path": "src/components/ui/card.tsx",
+      "upstreamPath": "src/components/ui/card.tsx",
+      "mode": "verbatim",
+      "upstreamSha256": "68ebd937cc43570a017281a25cfe404d3c17b9a1149376547bd751066850b84f"
+    },
+    {
+      "path": "src/components/ui/section-header.tsx",
+      "upstreamPath": "src/components/ui/section-header.tsx",
+      "mode": "verbatim",
+      "upstreamSha256": "3a666b61999b5f1c973c057bc1a79d3ac2ee0b834bc87d307c3e451b2f5f3fae"
+    },
+    {
+      "path": "src/components/ui/info-row.tsx",
+      "upstreamPath": "src/components/ui/info-row.tsx",
+      "mode": "verbatim",
+      "upstreamSha256": "c93786325977f82ab9e98a2ca02261fb3eac7cbe1c73001084c84c676ca3a935"
+    },
+    {
+      "path": "src/components/ui/select-chip.tsx",
+      "upstreamPath": "src/components/ui/select-chip.tsx",
+      "mode": "verbatim",
+      "upstreamSha256": "670fe5f60fe4e682689692f628af456e856f76b68844c99d56427e7b04cb0c59"
+    },
+    {
+      "path": "src/components/ui/error-state.tsx",
+      "upstreamPath": "src/components/ui/error-state.tsx",
+      "mode": "verbatim",
+      "upstreamSha256": "d6cd01b5b8ef474b81aa9a26c2230d924fe1f9211c6f3515ff5dc6391c777c5f"
+    },
+    {
+      "path": "src/components/ui/button.tsx",
+      "upstreamPath": "src/components/ui/button.tsx",
+      "mode": "derived",
+      "upstreamSha256": "7c0de4e647f6a787bd7f83b6695b2dc50820c1a355063bf113ce37eae1360f8c",
+      "localSha256": "6ee7de776d0b05e5d45165a7507dceca69b1129119f2d19c51639645ad9f1cfb",
+      "patches": [
+        "primary alias 추가(PR-10 삭제 대상)",
+        "고정 h-* 대신 min-h-*(확대 텍스트 clip 금지) — default는 min-h-(--control-h)",
+        "text emphasis 글자를 brand-deep으로(hover 면 brand-subtle 위 Teal strong 4.46 금지)",
+        "sm 시각 높이 44(Carelog 기존 계약, ::after 확장 제거)"
+      ]
+    },
+    {
+      "path": "src/components/ui/badge.tsx",
+      "upstreamPath": "src/components/ui/badge.tsx",
+      "mode": "derived",
+      "upstreamSha256": "d3cba15c745a33914ce6ca5721917e0c5e96435c5d17d42c0cc162a955ea9c7a",
+      "localSha256": "a8836161f28d1fa90898d2e641dfbd7165d480d29cecca1096b75d4765cc360b",
+      "patches": [
+        "info alias를 brand-subtle/brand-deep으로 교체",
+        "shrink-0 유지",
+        "planned/prepared/overdue/cancelled tone 추가"
+      ]
+    }
+  ]
+}

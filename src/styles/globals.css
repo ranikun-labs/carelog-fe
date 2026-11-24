@@ -4,29 +4,110 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Ranikun Labs Design Foundation v1.0.0 — Carelog (Light/Dark · Compact · brand.carelog Teal).
+ *
+ * 구획 규칙(드리프트 방지):
+ *   [FOUNDATION]  Finance origin/dev 7dd9590 globals.css 와 값이 같아야 하는 공통 토큰.
+ *   [CARELOG]     제품별로 의도적으로 다른 값: 브랜드 Teal, Compact 밀도, 상태 레일, 호환 별칭.
+ * 이 파일은 복사본이 아니라 "파생"이다(Finance 파일은 셸 CSS까지 섞여 있어 통복사 불가).
+ * 브랜드색은 행동·선택·포커스에만. 상태색은 브랜드와 독립. 카드는 테두리·그림자 없이
+ * page 대비 surface로 구분하고, 그림자는 오버레이에만 쓴다.
+ *
+ * 규칙: brand-subtle 면 위 글자는 반드시 brand-deep. Teal strong(#007974) on subtle(#d9f1ef)은
+ * 4.46:1로 4.5 미달이다(src/styles/contrast.test.ts가 금지 쌍으로 고정).
+ */
 :root {
-  --bg-page: oklch(97% 0.004 90);
-  --bg-surface: oklch(100% 0 0);
-  --bg-subtle: oklch(96% 0.006 90);
+  /* [FOUNDATION] 반경 기준(card 16). shadcn 파생 이름(rounded-*)은 아래 @theme inline 에서 매핑. */
+  --radius: 1rem;
 
-  --text-primary: oklch(22% 0.01 260);
-  --text-secondary: oklch(40% 0.012 260);
-  --text-tertiary: oklch(53% 0.01 260);
-  --status-neutral-foreground: oklch(48% 0.012 260);
+  /* [FOUNDATION] 터치 최소 44. */
+  --touch-min: 44px;
+  /* [CARELOG] Compact 컨트롤 높이 44 (Foundation density.compact 컨트롤 44). Comfortable은 48. */
+  --control-h: 44px;
 
-  --border-subtle: oklch(94% 0.006 90);
-  --border-default: oklch(90% 0.006 90);
+  /* [FOUNDATION] 중립 면 */
+  --page: #f2f4f6;
+  --inset: #f2f4f6;
+  --control: #e9ecef;
+  --scrim: rgb(15 17 20 / 0.52);
+  --overlay-shadow: 0 8px 28px rgb(15 17 20 / 0.16);
 
-  --accent-primary: oklch(52% 0.1 235);
-  --accent-primary-deep: oklch(45% 0.1 235);
-  --accent-primary-bg: oklch(94% 0.025 235);
-  --accent-primary-rail: oklch(70% 0.09 235);
+  /* [FOUNDATION] 글자 */
+  --text-body: #333d4b;
+  --text-secondary: #4e5968;
+  --text-tertiary: #5b6673;
+  --text-disabled: #8b95a1;
 
-  --warning: oklch(45% 0.1 70);
-  --warning-bg: oklch(94% 0.03 70);
-  --warning-rail: oklch(70% 0.11 70);
-  --rail-neutral: oklch(88% 0.006 90);
+  /* [CARELOG] 브랜드 Teal (Light). brand-border는 Foundation 브랜드 테마 후보값(carelog-b). */
+  --brand-deep: #00605c;
+  --brand-subtle: #d9f1ef;
+  --brand-border: #9fcfcb;
 
+  /* [FOUNDATION] 상태 (브랜드와 독립). fg는 해당 bg·card·page 위에서 4.5:1 이상. */
+  --success: #0a6b3b;
+  --success-bg: #e5f4ec;
+  --warning: #8a4a00;
+  --warning-bg: #fff1d6;
+  --danger: #c42336;
+  --danger-bg: #fdebed;
+  --conflict: #6b3fb4;
+  --conflict-bg: #f0eafb;
+  --info: #2a4f86;
+  --info-bg: #e9eff8;
+  --danger-solid: #c42336;
+  --on-danger-solid: #ffffff;
+
+  /* [FOUNDATION] shadcn 호환 이름 (값만 Foundation) */
+  --background: var(--page);
+  --foreground: #191f28;
+  --card: #ffffff;
+  --card-foreground: #191f28;
+  --popover: #ffffff;
+  --popover-foreground: #191f28;
+  /* [CARELOG] Teal strong / on-strong(Light #ffffff) */
+  --primary: #007974;
+  --primary-foreground: #ffffff;
+  --secondary: var(--control);
+  --secondary-foreground: #191f28;
+  --muted: var(--control);
+  --muted-foreground: var(--text-tertiary);
+  --accent: var(--inset);
+  --accent-foreground: #191f28;
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+  /* border: 구분선(divider). input: 컨트롤 외곽선(비텍스트 3:1). */
+  --border: #e5e8eb;
+  --input: #78838f;
+  --ring: var(--primary);
+
+  /*
+   * [CARELOG] 타입 역할 — Compact. 크기는 Foundation density.compact(22/18/15/20/15/14/13/12/12).
+   * 줄 높이는 reading 24, body 21만 Foundation에 명시돼 있다. 나머지 역할의 Compact 줄 높이는
+   * 근거 값이 없어 Comfortable 값(Finance 7dd9590)을 그대로 둔다.
+   * TODO(Foundation Compact 확정): page-title / section-title / content-title / key-value /
+   * supporting / meta / label 의 Compact 줄 높이 — 확정되면 이 줄 높이만 교체한다.
+   */
+  --type-page-title-size: 22px;
+  --type-page-title-lh: 32px;
+  --type-section-title-size: 18px;
+  --type-section-title-lh: 26px;
+  --type-content-title-size: 15px;
+  --type-content-title-lh: 24px;
+  --type-key-value-size: 20px;
+  --type-key-value-lh: 30px;
+  --type-reading-size: 15px;
+  --type-reading-lh: 24px;
+  --type-body-size: 14px;
+  --type-body-lh: 21px;
+  --type-supporting-size: 13px;
+  --type-supporting-lh: 20px;
+  --type-meta-size: 12px;
+  --type-meta-lh: 18px;
+  --type-label-size: 12px;
+  --type-label-lh: 18px;
+
+  /* [CARELOG] 간격 — RPL-56 번호 이름 유지 (재배열 금지) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -34,110 +115,129 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
-
-  --radius-badge: 6px;
-  --radius-control: 8px;
-  --radius-card: 12px;
-  --radius-pane: 16px;
-  --radius: var(--radius-card);
-
-  --status-rail-width: 3px;
   --shadow-default: none;
 
-  --type-display-size: 1.5rem;
-  --type-display-line-height: 1.3;
-  --type-title-lg-size: 1.25rem;
-  --type-title-lg-line-height: 1.35;
-  --type-title-size: 1.125rem;
-  --type-title-line-height: 1.4;
-  --type-body-lg-size: 1rem;
-  --type-body-lg-line-height: 1.45;
-  --type-body-size: 0.875rem;
-  --type-body-line-height: 1.6;
-  --type-body-sm-size: 0.8125rem;
-  --type-body-sm-line-height: 1.6;
-  --type-meta-size: 0.75rem;
-  --type-meta-line-height: 1.5;
-  --type-label-size: 0.6875rem;
-  --type-label-line-height: 1.4;
+  /* [CARELOG] 상태 레일(시간축 제품 문법). PLANNED=info(D-4), 정리 필요=warning, 그 외 중립. */
+  --status-rail-width: 3px;
+  --status-rail-planned: var(--info);
+  --status-rail-warning: var(--warning);
+  --status-rail-neutral: var(--border);
 
-  /* Compatibility aliases used by the existing Foundation primitives. */
-  --background: var(--bg-page);
-  --foreground: var(--text-primary);
-
-  --card: var(--bg-surface);
-  --card-foreground: var(--text-primary);
-
-  --popover: var(--bg-surface);
-  --popover-foreground: var(--text-primary);
-
-  --primary: var(--accent-primary);
-  --primary-foreground: oklch(1 0 0);
-
-  --secondary: var(--bg-subtle);
-  --secondary-foreground: var(--text-primary);
-
-  --muted: var(--bg-subtle);
-  --muted-foreground: var(--text-tertiary);
-
-  --accent: var(--bg-subtle);
-  --accent-foreground: var(--text-primary);
-
-  --destructive: #f04452;
-  --destructive-foreground: oklch(1 0 0);
-
-  --border: var(--border-default);
-  --input: var(--border-default);
-  --ring: var(--accent-primary);
+  /*
+   * [CARELOG] RPL-56 호환 별칭 — 화면 파일이 아직 쓰는 이름. 값은 Foundation으로 흐른다.
+   * 화면 PR이 Foundation 이름으로 옮기고 PR-10에서 삭제한다(종료 조건: grep 0건).
+   */
+  --bg-page: var(--page);
+  --bg-surface: var(--card);
+  --bg-subtle: var(--control);
+  --text-primary: var(--foreground);
+  --status-neutral-foreground: var(--text-secondary);
+  --border-subtle: var(--border);
+  --border-default: var(--border);
+  --accent-primary: var(--primary);
+  --accent-primary-deep: var(--brand-deep);
+  --accent-primary-bg: var(--brand-subtle);
+  --accent-primary-rail: var(--status-rail-planned);
+  --warning-rail: var(--status-rail-warning);
+  --rail-neutral: var(--status-rail-neutral);
+  --radius-pane: var(--radius-card);
 }
 
 .dark {
-  /* Existing dark values are retained; a final Carelog dark palette is not locked. */
-  --bg-page: oklch(0.16 0 0);
-  --bg-surface: oklch(0.2 0 0);
-  --bg-subtle: oklch(0.26 0 0);
-  --text-primary: oklch(0.96 0 0);
-  --text-secondary: oklch(0.75 0 0);
-  --text-tertiary: oklch(0.58 0 0);
-  --status-neutral-foreground: var(--muted-foreground);
-  --border-subtle: oklch(1 0 0 / 12%);
-  --border-default: oklch(1 0 0 / 18%);
-  --accent-primary: #3182f6;
+  --page: #0f1114;
+  --inset: #22262b;
+  --control: #2a2f35;
+  --scrim: rgb(15 17 20 / 0.52);
+  --overlay-shadow: 0 8px 28px rgb(0 0 0 / 0.5);
 
-  --background: oklch(0.16 0 0);
-  --foreground: oklch(0.96 0 0);
+  --text-body: #d1d6db;
+  --text-secondary: #b4bcc5;
+  --text-tertiary: #98a2ad;
+  --text-disabled: #6b7580;
 
-  --card: oklch(0.2 0 0);
-  --card-foreground: oklch(0.96 0 0);
+  /* [CARELOG] 브랜드 Teal (Dark). strong #3cb7ab / deep #8fe0d6 / subtle #0f2e2c 는 Foundation
+   * brand.carelog-b.dark. brand-border는 Foundation에 값이 없어 제안(미확정). */
+  --brand-deep: #8fe0d6;
+  --brand-subtle: #0f2e2c;
+  --brand-border: #2a6b65; /* 제안(미확정) */
 
-  --popover: oklch(0.2 0 0);
-  --popover-foreground: oklch(0.96 0 0);
+  --success: #5fd08f;
+  --success-bg: #12301f;
+  --warning: #f0b44c;
+  --warning-bg: #33260c;
+  --danger: #ff8a95;
+  --danger-bg: #3a1519;
+  --conflict: #b79cf0;
+  --conflict-bg: #261a40;
+  --info: #8fb2ea;
+  --info-bg: #172538;
+  --danger-solid: #ff7a87;
+  --on-danger-solid: #1a0508;
 
-  --primary: #3182f6;
-  --primary-foreground: oklch(1 0 0);
+  /* var() 별칭은 .dark에서도 다시 선언해 조상 요소에 .dark가 붙는 경우에도 해석되게 한다. */
+  --background: var(--page);
+  --secondary: var(--control);
+  --muted: var(--control);
+  --muted-foreground: var(--text-tertiary);
+  --accent: var(--inset);
+  --destructive: var(--danger);
+  --ring: var(--primary);
 
-  --secondary: oklch(0.26 0 0);
-  --secondary-foreground: oklch(0.96 0 0);
+  --foreground: #f2f4f6;
+  --card: #1a1d21;
+  --card-foreground: #f2f4f6;
+  --popover: #1a1d21;
+  --popover-foreground: #f2f4f6;
 
-  --muted: oklch(0.26 0 0);
-  --muted-foreground: oklch(0.65 0 0);
+  /*
+   * Teal strong(Dark) #3cb7ab 위 글자. 값 #0b1220 은 Foundation 설계안(on-strong Dark)이지만
+   * Owner 미확정 → "제안(미확정)". 대비 7.63:1(contrast.test.ts가 4.5 이상을 고정).
+   */
+  --primary: #3cb7ab;
+  --primary-foreground: #0b1220; /* 제안(미확정) */
 
-  --accent: oklch(0.26 0 0);
-  --accent-foreground: oklch(0.96 0 0);
+  --secondary-foreground: #f2f4f6;
+  --accent-foreground: #f2f4f6;
+  --destructive-foreground: #1a0508;
 
-  --destructive: #f04452;
-  --destructive-foreground: oklch(1 0 0);
+  --border: #2a2f35;
+  --input: #7f8995;
 
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 18%);
-  --ring: #3182f6;
+  --status-rail-planned: var(--info);
+  --status-rail-warning: var(--warning);
+  --status-rail-neutral: var(--border);
+
+  --bg-page: var(--page);
+  --bg-surface: var(--card);
+  --bg-subtle: var(--control);
+  --text-primary: var(--foreground);
+  --status-neutral-foreground: var(--text-secondary);
+  --border-subtle: var(--border);
+  --border-default: var(--border);
+  --accent-primary: var(--primary);
+  --accent-primary-deep: var(--brand-deep);
+  --accent-primary-bg: var(--brand-subtle);
+  --accent-primary-rail: var(--status-rail-planned);
+  --warning-rail: var(--status-rail-warning);
+  --rail-neutral: var(--status-rail-neutral);
+}
+
+/* [FOUNDATION] 반경 세트(밀도와 독립): badge 6 / control 10 / inset 12 / card 16 / sheet 24. */
+@theme {
+  --radius-badge: 6px;
+  --radius-control: 10px;
+  --radius-inset: 12px;
+  --radius-card: 16px;
+  --radius-sheet: 24px;
 }
 
 @theme inline {
+  /* shadcn 파생 이름 → Foundation 의미 반경 (rounded-sm/md/lg/xl). xl은 기존 pane(=card)과 같은 16. */
   --radius-sm: var(--radius-badge);
   --radius-md: var(--radius-control);
   --radius-lg: var(--radius-card);
-  --radius-xl: var(--radius-pane);
+  --radius-xl: var(--radius-card);
+  --shadow-overlay: var(--overlay-shadow);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -161,7 +261,31 @@
   --color-ring: var(--ring);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
-  --color-page: var(--bg-page);
+
+  --color-page: var(--page);
+  --color-inset: var(--inset);
+  --color-control: var(--control);
+  --color-scrim: var(--scrim);
+  --color-text-body: var(--text-body);
+  --color-text-disabled: var(--text-disabled);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-border: var(--brand-border);
+  --color-on-brand: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-conflict: var(--conflict);
+  --color-conflict-bg: var(--conflict-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-danger-solid: var(--danger-solid);
+  --color-on-danger-solid: var(--on-danger-solid);
+
+  /* [CARELOG] RPL-56 호환 이름 (PR-10에서 삭제) */
   --color-surface: var(--bg-surface);
   --color-subtle: var(--bg-subtle);
   --color-text-primary: var(--text-primary);
@@ -172,40 +296,76 @@
   --color-accent-primary-deep: var(--accent-primary-deep);
   --color-accent-primary-bg: var(--accent-primary-bg);
   --color-accent-primary-rail: var(--accent-primary-rail);
-  --color-warning: var(--warning);
-  --color-warning-bg: var(--warning-bg);
   --color-warning-rail: var(--warning-rail);
   --color-rail-neutral: var(--rail-neutral);
-
-  --text-display: var(--type-display-size);
-  --text-display--line-height: var(--type-display-line-height);
-  --text-title-lg: var(--type-title-lg-size);
-  --text-title-lg--line-height: var(--type-title-lg-line-height);
-  --text-title: var(--type-title-size);
-  --text-title--line-height: var(--type-title-line-height);
-  --text-body-lg: var(--type-body-lg-size);
-  --text-body-lg--line-height: var(--type-body-lg-line-height);
-  --text-body: var(--type-body-size);
-  --text-body--line-height: var(--type-body-line-height);
-  --text-body-sm: var(--type-body-sm-size);
-  --text-body-sm--line-height: var(--type-body-sm-line-height);
-  --text-meta: var(--type-meta-size);
-  --text-meta--line-height: var(--type-meta-line-height);
-  --text-label: var(--type-label-size);
-  --text-label--line-height: var(--type-label-line-height);
 
   --font-sans: 'Pretendard Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
+/*
+ * 타이포 역할. `text-*`가 아닌 `type-*` 이름을 쓰는 이유: tailwind-merge가 알 수 없는
+ * `text-xxx`를 색상으로 취급해 `text-foreground`와 서로 지워버리기 때문이다.
+ * 크기·줄 높이는 :root 의 --type-*(Compact)에서 온다. 최소 글자 크기 12px.
+ */
+@utility type-page-title {
+  font-size: var(--type-page-title-size);
+  line-height: var(--type-page-title-lh);
+  font-weight: 700;
+  letter-spacing: -0.48px;
+}
+@utility type-section-title {
+  font-size: var(--type-section-title-size);
+  line-height: var(--type-section-title-lh);
+  font-weight: 700;
+  letter-spacing: -0.18px;
+}
+@utility type-content-title {
+  font-size: var(--type-content-title-size);
+  line-height: var(--type-content-title-lh);
+  font-weight: 600;
+}
+@utility type-key-value {
+  font-size: var(--type-key-value-size);
+  line-height: var(--type-key-value-lh);
+  font-weight: 700;
+  letter-spacing: -0.22px;
+}
+@utility type-reading {
+  font-size: var(--type-reading-size);
+  line-height: var(--type-reading-lh);
+  font-weight: 400;
+}
+@utility type-body {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 400;
+}
+@utility type-supporting {
+  font-size: var(--type-supporting-size);
+  line-height: var(--type-supporting-lh);
+  font-weight: 400;
+}
+@utility type-meta {
+  font-size: var(--type-meta-size);
+  line-height: var(--type-meta-lh);
+  font-weight: 400;
+}
+@utility type-label {
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 600;
+}
+
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
   }
 
+  /* 포커스: 2px brand strong + offset 2px. :where로 specificity 0 — 컴포넌트가 덮어쓸 수 있다. */
   :where(
     a[href],
     button,
@@ -213,11 +373,24 @@
     select,
     textarea,
     summary,
+    dialog,
     [role='button'],
     [tabindex]:not([tabindex='-1'])
   ):focus-visible {
-    outline: 2px solid var(--accent-primary);
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+
+  /* 버튼 리셋은 :where(specificity 0)로만 — 컴포넌트의 타이포를 덮지 않는다. */
+  :where(button, [role='button'], summary) {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  :where(button, input, select, textarea) {
+    font-family: inherit;
+  }
+  :where(button:disabled, [aria-disabled='true']) {
+    cursor: not-allowed;
   }
 }
 
