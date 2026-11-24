@@ -120,6 +120,13 @@ landscape host. The app uses a single-column surface with bottom navigation on p
 and approximately 520/560 px content surfaces at tablet widths, and an adaptive-host seam for later
 desktop composition.
 
+## Design Foundation
+
+Visual tokens follow Ranikun Labs Design Foundation v1.0.0 (Carelog Teal, Compact). Shared UI in
+`src/components/ui` is an **interim copy** of the Finance FE (`origin/dev` `7dd9590`), guarded by
+`design-foundation.lock.json` and a drift test. Details and update steps:
+[docs/design/carelog/README.md](docs/design/carelog/README.md).
+
 ## Provenance
 
 This repository uses a clean initial history. Its structural foundation (routing boundaries,

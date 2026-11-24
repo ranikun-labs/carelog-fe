@@ -78,7 +78,7 @@ test('semantic tokens, touch targets, and keyboard focus load from the shared fo
       .replaceAll(' ', '')
       .trim(),
   );
-  expect(tertiary).toBe('oklch(53%.01260)');
+  expect(tertiary).toBe('#5b6673');
 
   for (const tab of await page.getByRole('navigation').getByRole('link').all()) {
     const box = await tab.boundingBox();

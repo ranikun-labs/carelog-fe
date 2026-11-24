@@ -1,6 +1,6 @@
 # Carelog P0 implementation contract
 
-Status: `DESIGN_SPRINT_FINAL_LOCK`
+Status: `FOUNDATION_V1_0_0_APPLYING` (visual LOCK lifted by the Owner; product-meaning contract retained)
 
 This document is the durable React implementation snapshot for Carelog P0. It records only the
 decisions locked by the Design Sprint and RPL-56 campaign contract; anything not listed here is not
@@ -36,71 +36,59 @@ The P0 product core is:
 - Follow-up is the P0 expression of a `PLANNED` event.
 - Scenario labels such as visit or contact are optional descriptors, not a core event-type enum.
 
-## Semantic color tokens
+## Design Foundation v1.0.0 (visual contract)
 
-| Token                       | Value                  | Role                                                        |
-| --------------------------- | ---------------------- | ----------------------------------------------------------- |
-| `bg-page`                   | `oklch(97% 0.004 90)`  | App background and space outside desktop panes              |
-| `bg-surface`                | `oklch(100% 0 0)`      | Card, pane, and row background                              |
-| `bg-subtle`                 | `oklch(96% 0.006 90)`  | Upcoming, memo, AI context, and neutral subtle blocks       |
-| `text-primary`              | `oklch(22% 0.01 260)`  | Customer, event, and screen titles                          |
-| `text-secondary`            | `oklch(40% 0.012 260)` | Body, event summary, and memo                               |
-| `text-tertiary`             | `oklch(53% 0.01 260)`  | Date, time, metadata, section label, and placeholder        |
-| `status-neutral-foreground` | `oklch(48% 0.012 260)` | Neutral status and tag label                                |
-| `border-subtle`             | `oklch(94% 0.006 90)`  | Row and section divider                                     |
-| `border-default`            | `oklch(90% 0.006 90)`  | Card, pane, and input outline                               |
-| `accent-primary`            | `oklch(52% 0.1 235)`   | Primary action, Today marker, and active navigation         |
-| `accent-primary-deep`       | `oklch(45% 0.1 235)`   | Accent-background text, secondary action, and customer link |
-| `accent-primary-bg`         | `oklch(94% 0.025 235)` | Planned/prepared badge and selected row                     |
-| `accent-primary-rail`       | `oklch(70% 0.09 235)`  | `PLANNED` status rail                                       |
-| `warning`                   | `oklch(45% 0.1 70)`    | Overdue/error text and cue                                  |
-| `warning-bg`                | `oklch(94% 0.03 70)`   | Overdue badge and cue background                            |
-| `warning-rail`              | `oklch(70% 0.11 70)`   | Overdue `PLANNED` status rail                               |
-| `rail-neutral`              | `oklch(88% 0.006 90)`  | `OCCURRED` and `CANCELLED` status rail                      |
+Status of the visual contract: **LOCK lifted by the Owner; Ranikun Labs Design Foundation v1.0.0 is
+being applied** (PR-1: tokens and shared UI). The product-meaning contract above (time axis, status
+grammar, boundaries below) is **not** lifted.
 
-`bg-subtle` does not communicate status. `accent-primary` communicates action rather than event
-status. The canonical tertiary text value is 53%; the 48% neutral status/tag foreground is a
-separate semantic role.
+Carelog follows Foundation as-is except for the four rows below. Policy text is not copied here;
+the canonical Foundation lives with the design system, and the interim reference implementation is
+the Finance FE at `origin/dev` `7dd9590` (see "Interim copy mechanism").
 
-The existing dark palette is preserved for compatibility. A final dark-mode palette is not locked.
+| Where Carelog differs | Carelog value                                                               | Why                                                        |
+| --------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Brand                 | `brand.carelog` Teal: strong `#007974`, deep `#00605c`, subtle `#d9f1ef`    | Product identity (Dark: `#3cb7ab` / `#8fe0d6` / `#0f2e2c`) |
+| Density               | Compact: control height 44, type 22/18/15/20/15/14/13/12/12                 | Information-dense, phone-first screens                     |
+| Status rails          | 3px rail. PLANNED = `info`, overdue = `warning`, others = divider           | Product status grammar (decision D-4)                      |
+| Compatibility aliases | RPL-56 names (`accent-primary*`, `bg-*`, `text-primary`, `border-*`) remain | Screens migrate PR by PR; removed in PR-10                 |
 
-## Typography
+Everything else (neutral surfaces, text roles, status colors, radius set badge 6 / control 10 /
+inset 12 / card 16 / sheet 24, focus, shadows only on overlays) is Foundation. `src/styles/globals.css`
+marks `[FOUNDATION]` and `[CARELOG]` sections.
 
-| Token      | Size / weight / line-height |
-| ---------- | --------------------------- |
-| `display`  | `24px / 700 / 1.3`          |
-| `title-lg` | `20px / 700 / 1.35`         |
-| `title`    | `18px / 700 / 1.4`          |
-| `body-lg`  | `16px / 700 / 1.45`         |
-| `body`     | `14px / 400-700 / 1.6`      |
-| `body-sm`  | `13px / 400-600 / 1.6`      |
-| `meta`     | `12px / 400-600 / 1.5`      |
-| `label`    | `11px / 600 / 1.4`          |
+Rules that tests enforce (`src/styles/contrast.test.ts`, `globals.test.ts`):
 
-## Spacing and shape
+- Text and status pairs are at least 4.5:1 in Light and Dark; control outlines and the focus ring at least 3:1.
+- **Text on a `brand-subtle` surface must be `brand-deep`.** Teal strong on subtle is 4.46:1 (below 4.5).
+- Dark `on-strong` (`#0b1220`, 7.63:1 on Teal strong) and Dark `brand-border` (`#2a6b65`) are
+  **proposals (unconfirmed)**; the first is guarded at 4.5:1 or more.
+- Dark mode is verified but **not exposed to users** (no code sets the `dark` class); exposure policy is unchanged.
 
-- Spacing: `4, 8, 12, 16, 20, 24, 32px` as `space-1, 2, 3, 4, 5, 6, 8`.
-- Radius: badge `6px`, control `8px`, card `12px`, pane `16px`.
-- Border: normal `1px`, status rail `3px`.
-- Default shadow: none.
+Open items (not decided here):
 
-## Status grammar
+- TODO: Foundation Compact line heights are specified only for `reading` (24) and `body` (21). The
+  other roles keep their Comfortable line heights until Foundation confirms Compact values.
+- Known violation kept for the Auth status PR: `AuthStatusSurface` uses `text-accent-primary` on
+  `bg-accent-primary-bg` (Teal strong on subtle). The contrast test pins it as the only exception.
 
-| State              | Rail                       | Badge/expression                             | Additional rule                                             |
-| ------------------ | -------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
-| `PLANNED`          | `accent-primary-rail`, 3px | `예정` where detail needs an explicit status | Transition history is not encoded by color                  |
-| Overdue `PLANNED`  | `warning-rail`, 3px        | `정리 필요`; meta may say `예정 시각 지남`   | Status remains `PLANNED`                                    |
-| `OCCURRED`         | `rail-neutral`, 3px        | Optional descriptor                          | Do not dim the entire past event                            |
-| `CANCELLED`        | `rail-neutral`, 3px        | Explicit `취소됨`                            | Header may be diminished; body and memo remain full opacity |
-| Prepared `PLANNED` | `accent-primary-rail`, 3px | `준비됨`                                     | Status remains `PLANNED`                                    |
+## Interim copy mechanism (shared UI)
 
-Badges always contain a visible label and are not actions. Color must not be the only status cue.
+There is no shared package yet, so `src/components/ui/{card,section-header,info-row,select-chip,error-state}.tsx`
+are **verbatim** copies and `button.tsx`, `badge.tsx` are **derived** copies of the Finance FE at
+`7dd9590` (Foundation 1.0.0). This is a temporary mechanism; delete it when a package exists.
+
+- Provenance: first line of each file, plus `design-foundation.lock.json` (source sha, upstream sha256, derived-file hash, patch list).
+- Drift test: `src/components/ui/design-foundation-drift.test.ts` fails if a verbatim file differs from upstream, or if a derived file changes without updating the lock and its patch list.
+- Local needs go upstream first, or into `src/components/common/`. Derived patches are limited to the lock's list.
+- To update: take the new upstream files, recompute `sha256` (`sha256sum` of the upstream blob; verbatim body = file minus its first line), update `source.sha` and the headers, and review the upstream diff in the PR.
+- Not copied: Dialog, Checkbox (no call site), TextField/Notice (not in upstream yet).
 
 ## Accessibility baseline
 
 - Interactive hit targets are at least `44px` in both dimensions; visual icons may remain smaller.
-- `focus-visible` is a 2px accent outline with a 2px offset.
-- Disabled primitives use opacity `0.4` and permit product flows to provide a textual or accessible
+- `focus-visible` is a global 2px brand outline (`--ring`) with a 2px offset.
+- Disabled primitives use opacity `0.5` (Foundation; was `0.4` under the old lock) and permit product flows to provide a textual or accessible
   reason. RPL-56 does not invent that copy.
 - Generic Button, Badge, and layout foundations must not clip text at increased text scale.
 - Hover is never the only interaction or state indicator.
@@ -144,4 +132,4 @@ RPL-56:
 - Skeleton delay threshold
 - Exact product-component React prop signatures
 - Production API DTO and backend schema
-- Dark-mode final visual contract
+- Dark-mode exposure to users (tokens are defined and tested; the app does not enable them)
