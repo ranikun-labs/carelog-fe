@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
+import { LeaveGuard, useLeaveGuardAvailable } from '@/components/common/LeaveGuard';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { TextField } from '@/components/ui/text-field';
@@ -54,6 +55,8 @@ export function CustomerForm({
   const [nameRequiredError, setNameRequiredError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
+  const lastFieldRef = useRef<HTMLElement | null>(null);
+  const guardAvailable = useLeaveGuardAvailable();
   const initializationRef = useRef({ draftKey, initialSignature });
   const isEdit = mode === 'edit';
 
@@ -131,75 +134,92 @@ export function CustomerForm({
 
   function cancel() {
     if (submitLockRef.current) return;
-    clearDraft();
+    // 입력이 있으면 이동이 확인 Dialog에 막힐 수 있다. 초안은 "나가기"가 확정될 때(onLeave) 버린다.
+    if (!(guardAvailable && hasUnsavedInput())) clearDraft();
     onCancel();
   }
 
+  // 저장 중(저장 뒤 이동 포함)에는 놓아주고, 처음 값과 다른 입력이 있을 때만 이탈을 막는다.
+  const hasUnsavedInput = () =>
+    !submitLockRef.current &&
+    (displayName !== (initialValues?.displayName ?? '') ||
+      customerMemo !== (initialValues?.customerMemo ?? ''));
+
   return (
-    <form
-      data-customer-form
-      data-customer-form-mode={mode}
-      data-customer-form-key={draftKey}
-      aria-busy={isSubmitting}
-      onSubmit={submit}
-      onInvalidCapture={() => setNameRequiredError(true)}
-      className="bg-card rounded-card p-4"
-    >
-      <div className="grid gap-4">
-        <TextField
-          id="customer-display-name"
-          name="displayName"
-          data-customer-field="displayName"
-          label={t('customers.form.displayName')}
-          value={displayName}
-          onChange={(inputEvent) => {
-            const nextDisplayName = inputEvent.target.value;
-            setDisplayName(nextDisplayName);
-            if (nextDisplayName.trim()) setNameRequiredError(false);
-            persistDraft({ displayName: nextDisplayName, customerMemo });
-          }}
-          placeholder={t('customers.form.displayNamePlaceholder')}
-          error={nameRequiredError ? t('customers.form.displayNameRequired') : undefined}
-          required
-        />
+    <>
+      <form
+        data-customer-form
+        data-customer-form-mode={mode}
+        data-customer-form-key={draftKey}
+        aria-busy={isSubmitting}
+        onSubmit={submit}
+        onFocusCapture={(focusEvent) => {
+          if (focusEvent.target instanceof HTMLElement) lastFieldRef.current = focusEvent.target;
+        }}
+        onInvalidCapture={() => setNameRequiredError(true)}
+        className="bg-card rounded-card p-4"
+      >
+        <div className="grid gap-4">
+          <TextField
+            id="customer-display-name"
+            name="displayName"
+            data-customer-field="displayName"
+            label={t('customers.form.displayName')}
+            value={displayName}
+            onChange={(inputEvent) => {
+              const nextDisplayName = inputEvent.target.value;
+              setDisplayName(nextDisplayName);
+              if (nextDisplayName.trim()) setNameRequiredError(false);
+              persistDraft({ displayName: nextDisplayName, customerMemo });
+            }}
+            placeholder={t('customers.form.displayNamePlaceholder')}
+            error={nameRequiredError ? t('customers.form.displayNameRequired') : undefined}
+            required
+          />
 
-        <TextField
-          multiline
-          id="customer-memo"
-          name="customerMemo"
-          data-customer-field="customerMemo"
-          label={t('customers.form.memo')}
-          value={customerMemo}
-          onChange={(inputEvent) => {
-            const nextCustomerMemo = inputEvent.target.value;
-            setCustomerMemo(nextCustomerMemo);
-            persistDraft({ displayName, customerMemo: nextCustomerMemo });
-          }}
-          rows={4}
-          placeholder={t('customers.form.memoPlaceholder')}
-        />
-      </div>
+          <TextField
+            multiline
+            id="customer-memo"
+            name="customerMemo"
+            data-customer-field="customerMemo"
+            label={t('customers.form.memo')}
+            value={customerMemo}
+            onChange={(inputEvent) => {
+              const nextCustomerMemo = inputEvent.target.value;
+              setCustomerMemo(nextCustomerMemo);
+              persistDraft({ displayName, customerMemo: nextCustomerMemo });
+            }}
+            rows={4}
+            placeholder={t('customers.form.memoPlaceholder')}
+          />
+        </div>
 
-      {error ? (
-        <Notice tone="danger" className="mt-4" data-customer-form-error>
-          {error}
-        </Notice>
-      ) : null}
+        {error ? (
+          <Notice tone="danger" className="mt-4" data-customer-form-error>
+            {error}
+          </Notice>
+        ) : null}
 
-      <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          variant="text-neutral"
-          onClick={cancel}
-          disabled={isSubmitting}
-          data-customer-form-cancel
-        >
-          {t('customers.form.cancel')}
-        </Button>
-        <Button type="submit" disabled={isSubmitting} data-customer-form-submit>
-          {isEdit ? t('customers.form.save') : t('customers.form.create')}
-        </Button>
-      </div>
-    </form>
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="text-neutral"
+            onClick={cancel}
+            disabled={isSubmitting}
+            data-customer-form-cancel
+          >
+            {t('customers.form.cancel')}
+          </Button>
+          <Button type="submit" disabled={isSubmitting} data-customer-form-submit>
+            {isEdit ? t('customers.form.save') : t('customers.form.create')}
+          </Button>
+        </div>
+      </form>
+      <LeaveGuard
+        shouldBlock={hasUnsavedInput}
+        onLeave={clearDraft}
+        restoreFocusTo={() => lastFieldRef.current}
+      />
+    </>
   );
 }

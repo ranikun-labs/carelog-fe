@@ -383,6 +383,7 @@ export function CustomerDetailPage({
               now={now}
               initialValues={inlineEventDraft}
               onDraftChange={handleInlineDraftChange}
+              onDiscard={() => draftStore?.clearInlineEventDraft(currentCustomer.id)}
               onSubmit={handleCreate}
               onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
               onCancel={() => {

@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router';
+import { RouterProvider, createBrowserRouter } from 'react-router';
 
 import { AppRouter } from '@/app/AppRouter';
 import type { AppInitialization } from '@/app/appInitialization';
@@ -44,11 +44,18 @@ async function startApplication() {
         assistantAdapter,
       }
     : undefined;
+  // 이탈 보호(useBlocker)는 Data Router가 필요하다. 라우트 정의는 AppRouter 안에 그대로 두고 catch-all로 감싼다.
+  const router = createBrowserRouter([
+    {
+      path: '*',
+      element: (
+        <AppRouter {...initialization} authPort={authPort} stateProviders={stateProviders} />
+      ),
+    },
+  ]);
   const tree = (
     <StrictMode>
-      <BrowserRouter>
-        <AppRouter {...initialization} authPort={authPort} stateProviders={stateProviders} />
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </StrictMode>
   );
 

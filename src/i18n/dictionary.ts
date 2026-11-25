@@ -260,6 +260,12 @@ export interface Messages {
     time: string;
     memo: string;
   };
+  leaveGuard: {
+    title: string;
+    description: string;
+    stay: string;
+    leave: string;
+  };
   eventForm: {
     createTitle: string;
     editTitle: string;

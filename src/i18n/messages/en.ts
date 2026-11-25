@@ -282,6 +282,12 @@ export const en: Messages = {
     time: 'Time',
     memo: 'Memo',
   },
+  leaveGuard: {
+    title: 'Your entry will be lost',
+    description: 'If you leave now, what you typed is discarded.',
+    stay: 'Keep editing',
+    leave: 'Leave',
+  },
   eventForm: {
     createTitle: 'Add event',
     editTitle: 'Edit event',
