@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 
 import {
   AdaptiveSurface,
   AdaptiveSurfaceContent,
+  readAdaptiveNavigationState,
   useOptionalAdaptiveHost,
 } from '@/components/layout/adaptiveHostContext';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -54,6 +55,10 @@ export function EventDetailPage({
   const eventId = eventIdProp ?? routeEventId;
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const startWithOccurrenceConfirmation = readAdaptiveNavigationState(
+    location.state,
+  ).openOccurrence;
   const adaptiveHost = useOptionalAdaptiveHost();
   const customerStore = useCustomerStore();
   const eventStore = useOptionalEventStore();
@@ -231,6 +236,7 @@ export function EventDetailPage({
             customerName={currentCustomer.displayName}
             customerPath={buildAppCustomerDetailPath(currentCustomer.id)}
             now={now}
+            startWithOccurrenceConfirmation={startWithOccurrenceConfirmation}
             onOpenAssistant={currentEvent.status === 'CANCELLED' ? undefined : openAssistant}
             onOpenCustomer={
               adaptiveHost

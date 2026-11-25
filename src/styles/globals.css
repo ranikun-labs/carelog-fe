@@ -364,7 +364,27 @@
     font-family: var(--font-sans);
   }
 
-  /* 포커스: 2px brand strong + offset 2px. :where로 specificity 0 — 컴포넌트가 덮어쓸 수 있다. */
+  /*
+   * 포커스: 2px 실선 + offset 2px, 색은 항상 포커스 토큰(--ring). 글자색(currentColor)·반투명 금지(F3 C-06).
+   * :where로 specificity 0 — 컴포넌트가 덮어쓸 수 있다.
+   *
+   * 평상시에도 outline-color를 토큰으로 못 박는다. Button의 transition-colors가 outline-color도 전환하는데,
+   * 기본값(currentColor)에서 출발하면 Strong 버튼은 포커스 직후 흰 글자색에서 토큰 색으로 번져
+   * 포커스 표시가 바탕과 1:1로 보인다. 시작·끝 색이 같으면 전환이 보이지 않는다.
+   */
+  :where(
+    a[href],
+    button,
+    input,
+    select,
+    textarea,
+    summary,
+    dialog,
+    [role='button'],
+    [tabindex]:not([tabindex='-1'])
+  ) {
+    outline-color: var(--ring);
+  }
   :where(
     a[href],
     button,

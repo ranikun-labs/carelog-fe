@@ -193,6 +193,8 @@ export const ko: Messages = {
       partialEvents: '전체 일정을 불러오지 못해 확인된 일정만 표시합니다.',
       eventsLoaded: '일정을 다시 불러왔습니다.',
       additionalUpcoming: '이후 예정 {{count}}건',
+      overdueCount: '정리 필요 {{count}}건',
+      overdueHint: '예정 시각이 지났어요. 실제로 진행했다면 기록 완료로 정리해 주세요.',
       memoTitle: '메모',
     },
     form: {
