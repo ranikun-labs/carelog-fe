@@ -46,12 +46,12 @@ Carelog follows Foundation as-is except for the four rows below. Policy text is 
 the canonical Foundation lives with the design system, and the interim reference implementation is
 the Finance FE at `origin/dev` `7dd9590` (see "Interim copy mechanism").
 
-| Where Carelog differs | Carelog value                                                               | Why                                                        |
-| --------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Brand                 | `brand.carelog` Teal: strong `#007974`, deep `#00605c`, subtle `#d9f1ef`    | Product identity (Dark: `#3cb7ab` / `#8fe0d6` / `#0f2e2c`) |
-| Density               | Compact: control height 44, type 22/18/15/20/15/14/13/12/12                 | Information-dense, phone-first screens                     |
-| Status rails          | 3px rail. PLANNED = `info`, overdue = `warning`, others = divider           | Product status grammar (decision D-4)                      |
-| Compatibility aliases | RPL-56 names (`accent-primary*`, `bg-*`, `text-primary`, `border-*`) remain | Screens migrate PR by PR; removed in PR-10                 |
+| Where Carelog differs | Carelog value                                                                                | Why                                                        |
+| --------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Brand                 | `brand.carelog` Teal: strong `#007974`, deep `#00605c`, subtle `#d9f1ef`                     | Product identity (Dark: `#3cb7ab` / `#8fe0d6` / `#0f2e2c`) |
+| Density               | Compact: control height 44, type 22/18/15/20/15/14/13/12/12, line 30/26/22/28/24/21/19/17/17 | Information-dense, phone-first screens                     |
+| Status rails          | 3px rail. PLANNED = `info`, overdue = `warning`, others = divider                            | Product status grammar (decision D-4)                      |
+| Compatibility aliases | RPL-56 names (`accent-primary*`, `bg-*`, `text-primary`, `border-*`) remain                  | Screens migrate PR by PR; removed in PR-10                 |
 
 Everything else (neutral surfaces, text roles, status colors, radius set badge 6 / control 10 /
 inset 12 / card 16 / sheet 24, focus, shadows only on overlays) is Foundation. `src/styles/globals.css`
@@ -67,8 +67,6 @@ Rules that tests enforce (`src/styles/contrast.test.ts`, `globals.test.ts`):
 
 Open items (not decided here):
 
-- TODO: Foundation Compact line heights are specified only for `reading` (24) and `body` (21). The
-  other roles keep their Comfortable line heights until Foundation confirms Compact values.
 - Known violation kept for the Auth status PR: `AuthStatusSurface` uses `text-accent-primary` on
   `bg-accent-primary-bg` (Teal strong on subtle). The contrast test pins it as the only exception.
 

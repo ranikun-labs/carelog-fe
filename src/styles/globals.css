@@ -82,30 +82,29 @@
   --ring: var(--primary);
 
   /*
-   * [CARELOG] 타입 역할 — Compact. 크기는 Foundation density.compact(22/18/15/20/15/14/13/12/12).
-   * 줄 높이는 reading 24, body 21만 Foundation에 명시돼 있다. 나머지 역할의 Compact 줄 높이는
-   * 근거 값이 없어 Comfortable 값(Finance 7dd9590)을 그대로 둔다.
-   * TODO(Foundation Compact 확정): page-title / section-title / content-title / key-value /
-   * supporting / meta / label 의 Compact 줄 높이 — 확정되면 이 줄 높이만 교체한다.
+   * [CARELOG] 타입 역할 — Compact. 크기·줄 높이 모두 Foundation density.compact 정본 값이다.
+   * 크기 22/18/15/20/15/14/13/12/12, 줄 높이 30/26/22/28/24/21/19/17/17
+   * (page-title / section-title / content-title / key-value / reading / body / supporting / meta / label).
+   * 정본: design-system docs/02 §6 · tokens/density.compact.tokens.json (Owner 확정, F1-G1).
    */
   --type-page-title-size: 22px;
-  --type-page-title-lh: 32px;
+  --type-page-title-lh: 30px;
   --type-section-title-size: 18px;
   --type-section-title-lh: 26px;
   --type-content-title-size: 15px;
-  --type-content-title-lh: 24px;
+  --type-content-title-lh: 22px;
   --type-key-value-size: 20px;
-  --type-key-value-lh: 30px;
+  --type-key-value-lh: 28px;
   --type-reading-size: 15px;
   --type-reading-lh: 24px;
   --type-body-size: 14px;
   --type-body-lh: 21px;
   --type-supporting-size: 13px;
-  --type-supporting-lh: 20px;
+  --type-supporting-lh: 19px;
   --type-meta-size: 12px;
-  --type-meta-lh: 18px;
+  --type-meta-lh: 17px;
   --type-label-size: 12px;
-  --type-label-lh: 18px;
+  --type-label-lh: 17px;
 
   /* [CARELOG] 간격 — RPL-56 번호 이름 유지 (재배열 금지) */
   --space-1: 4px;
