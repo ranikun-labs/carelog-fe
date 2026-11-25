@@ -2,8 +2,12 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { getEventTitle, formatAgendaDateTime } from '@/components/schedule/agendaModel';
-import { getUpcomingCustomerEvents } from '@/components/customers/customerDetailModel';
+import {
+  getOverdueCustomerEvents,
+  getUpcomingCustomerEvents,
+} from '@/components/customers/customerDetailModel';
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
 import { buildAppEventDetailPath } from '@/constants/routes';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { useTranslation } from '@/i18n/I18nContext';
@@ -12,7 +16,7 @@ import { cn } from '@/lib/utils';
 interface CustomerUpcomingProps {
   events: readonly CustomerEvent[];
   now: Date;
-  onOpenEvent?: (event: CustomerEvent) => void;
+  onOpenEvent?: (event: CustomerEvent, options?: { openOccurrence?: boolean }) => void;
   /** Key Block 안 맨 아래 행동(일정 추가). 다음 일정이 없어도 같은 자리에 선다. */
   action?: ReactNode;
   /**
@@ -30,8 +34,12 @@ export function CustomerUpcoming({
   ready = true,
 }: CustomerUpcomingProps) {
   const { locale, t } = useTranslation();
+  // 정리 필요(지난 PLANNED)가 먼저, 그다음 앞으로의 예정. "다음 일정 없음"은 PLANNED가 하나도 없을 때만이다.
+  const overdueEvents = getOverdueCustomerEvents(events, now);
   const upcomingEvents = getUpcomingCustomerEvents(events, now);
-  const [primaryEvent, ...additionalEvents] = upcomingEvents;
+  const [primaryEvent, ...additionalEvents] = [...overdueEvents, ...upcomingEvents];
+  const primaryOverdue = primaryEvent !== undefined && overdueEvents[0]?.id === primaryEvent.id;
+  const overdueIds = new Set(overdueEvents.map((event) => event.id));
 
   const hasPrimary = ready && primaryEvent !== undefined;
 
@@ -42,9 +50,19 @@ export function CustomerUpcoming({
       aria-labelledby={ready ? 'customer-upcoming-title' : undefined}
     >
       {ready ? (
-        <h2 id="customer-upcoming-title" className="type-section-title text-foreground break-keep">
-          {t('customers.detail.upcomingTitle')}
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+          <h2
+            id="customer-upcoming-title"
+            className="type-section-title text-foreground break-keep"
+          >
+            {t('customers.detail.upcomingTitle')}
+          </h2>
+          {overdueEvents.length > 0 ? (
+            <p data-overdue-count className="type-supporting text-warning font-semibold break-keep">
+              {t('customers.detail.overdueCount', { count: String(overdueEvents.length) })}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       {/* 래퍼는 세 상태(Key Block·없음·준비 전)에서 같은 자리라, 안의 행동 버튼이 다시 마운트되지 않는다. */}
@@ -62,7 +80,10 @@ export function CustomerUpcoming({
           <>
             <span
               aria-hidden="true"
-              className="bg-accent-primary-rail absolute top-4 bottom-4 left-1 w-[var(--status-rail-width)] rounded-full"
+              className={cn(
+                'absolute top-4 bottom-4 left-1 w-[var(--status-rail-width)] rounded-full',
+                primaryOverdue ? 'bg-warning-rail' : 'bg-accent-primary-rail',
+              )}
             />
             <Link
               to={buildAppEventDetailPath(primaryEvent.id)}
@@ -77,7 +98,11 @@ export function CustomerUpcoming({
               data-upcoming-primary
               className="hover:bg-control rounded-inset -m-2 flex min-w-0 flex-col items-start gap-2 p-2 transition-colors"
             >
-              <Badge tone="planned">{t('schedule.meta.planned')}</Badge>
+              {primaryOverdue ? (
+                <Badge tone="overdue">{t('schedule.overdueBadge')}</Badge>
+              ) : (
+                <Badge tone="planned">{t('schedule.meta.planned')}</Badge>
+              )}
               <h3 className="type-content-title text-foreground w-full min-w-0 wrap-anywhere break-keep">
                 {getEventTitle(primaryEvent) ?? t('schedule.untitled')}
               </h3>
@@ -88,6 +113,28 @@ export function CustomerUpcoming({
                 {formatAgendaDateTime(primaryEvent.scheduledAt, locale)}
               </time>
             </Link>
+
+            {primaryOverdue ? (
+              <>
+                <p className="type-supporting text-text-secondary break-keep">
+                  {t('customers.detail.overdueHint')}
+                </p>
+                {/* 정리 필요일 때만 Strong 1개. 실제 시각 확인은 일정 상세의 패널이 맡는다. */}
+                <Link
+                  to={buildAppEventDetailPath(primaryEvent.id)}
+                  state={{ openOccurrence: true }}
+                  onClick={(clickEvent) => {
+                    if (!onOpenEvent) return;
+                    clickEvent.preventDefault();
+                    onOpenEvent(primaryEvent, { openOccurrence: true });
+                  }}
+                  data-upcoming-occur
+                  className={buttonVariants({ variant: 'strong', className: 'w-full' })}
+                >
+                  {t('eventDetail.markOccurred')}
+                </Link>
+              </>
+            ) : null}
 
             {additionalEvents.length > 0 ? (
               <div className="border-border border-t pt-3">
@@ -111,7 +158,14 @@ export function CustomerUpcoming({
                           aria-label={t('schedule.openEvent', { title })}
                           className="type-body text-brand-deep hover:bg-control rounded-control flex min-h-11 items-center justify-between gap-3 px-2 font-semibold underline-offset-2 hover:underline"
                         >
-                          <span className="min-w-0 wrap-anywhere break-keep">{title}</span>
+                          <span className="min-w-0 wrap-anywhere break-keep">
+                            {overdueIds.has(event.id) ? (
+                              <span className="text-warning mr-1.5 font-semibold">
+                                {t('schedule.overdueBadge')}
+                              </span>
+                            ) : null}
+                            {title}
+                          </span>
                           <time dateTime={event.scheduledAt} className="shrink-0 font-normal">
                             {formatAgendaDateTime(event.scheduledAt, locale)}
                           </time>

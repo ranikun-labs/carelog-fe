@@ -33,6 +33,30 @@ function getTimeTexts() {
 }
 
 describe('EventDetail', () => {
+  it('opens the occurrence confirmation at start when entered from the customer record action', () => {
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <EventDetail
+            event={{
+              id: 'overdue',
+              customerId: 'customer-1',
+              status: 'PLANNED',
+              scheduledAt: '2026-08-11T09:30:00+09:00',
+            }}
+            customerName="박세입"
+            customerPath="/app/customers/customer-1"
+            now={now}
+            onOccurEvent={vi.fn()}
+            startWithOccurrenceConfirmation
+          />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    expect(document.querySelector('[data-event-occurrence-confirmation]')).not.toBeNull();
+    expect(screen.getByLabelText(/실제/)).toHaveFocus();
+  });
+
   it.each(['2026-08-12T09:00:00+09:00', '2026-08-11T09:00:00+09:00'])(
     'returns focus to the occurrence trigger after closing confirmation for %s',
     (scheduledAt) => {
