@@ -6,7 +6,7 @@ import { useBlocker, type Blocker } from 'react-router';
  * React Router 공식 `useBlocker`를 쓰므로 Data Router(`createBrowserRouter` 등) 안에서만 동작한다.
  * 반환된 blocker가 'blocked'이면 호출부(LeaveGuard)가 확인을 띄우고 `proceed`/`reset`을 부른다.
  *
- * `shouldBlock`은 이동 시점에 호출된다(렌더 때가 아니다). 저장 중처럼 "지금은 놓아줘야 할" 순간을
+ * `shouldBlock`은 이동·닫기 시점에 호출된다(렌더 때가 아니다). 저장 중처럼 "지금은 놓아줘야 할" 순간을
  * ref로 읽을 수 있게 하려는 설계다. 같은 경로·쿼리로의 이동(state만 바뀜)은 막지 않는다.
  */
 export function useLeaveGuard(shouldBlock: () => boolean): Blocker {
@@ -14,6 +14,17 @@ export function useLeaveGuard(shouldBlock: () => boolean): Blocker {
   useEffect(() => {
     shouldBlockRef.current = shouldBlock;
   });
+
+  // 새로고침·탭 닫기는 라우터가 가로채지 못한다. 브라우저 기본 확인(문구는 브라우저가 정한다)만 띄울 수 있다.
+  useEffect(() => {
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (!shouldBlockRef.current()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
 
   return useBlocker(({ currentLocation, nextLocation }) => {
     if (

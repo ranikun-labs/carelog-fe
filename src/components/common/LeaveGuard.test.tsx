@@ -3,7 +3,10 @@ import { useState } from 'react';
 import { Link, RouterProvider, createMemoryRouter } from 'react-router';
 import { vi } from 'vitest';
 
-import { LeaveGuard } from '@/components/common/LeaveGuard';
+import {
+  LeaveGuard,
+  LeaveGuardDataRouterScope,
+} from '@/components/common/LeaveGuard';
 import { I18nProvider } from '@/i18n/I18nContext';
 
 function Page({ onLeave }: { onLeave?: () => void }) {
@@ -27,7 +30,14 @@ function Page({ onLeave }: { onLeave?: () => void }) {
 function renderRouter(onLeave?: () => void) {
   const router = createMemoryRouter(
     [
-      { path: '/form', element: <Page onLeave={onLeave} /> },
+      {
+        path: '/form',
+        element: (
+          <LeaveGuardDataRouterScope>
+            <Page onLeave={onLeave} />
+          </LeaveGuardDataRouterScope>
+        ),
+      },
       { path: '/start', element: <p>시작 화면</p> },
       { path: '/other', element: <p>다른 화면 본문</p> },
     ],
@@ -94,5 +104,17 @@ describe('LeaveGuard', () => {
     });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(router.state.location.state).toEqual({ adaptive: true });
+  });
+
+  it('beforeunload asks the browser only while the input is dirty', () => {
+    renderRouter();
+    const clean = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+
+    fireEvent.change(screen.getByLabelText('메모'), { target: { value: 'x' } });
+    const dirty = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
   });
 });
