@@ -305,10 +305,14 @@ export const ko: Messages = {
   },
   settings: {
     title: '설정',
-    description: '앱 언어는 이 기기에 저장됩니다.',
+    description: '앱 언어와 화면 모드는 이 기기에 저장됩니다.',
     currentLanguage: '현재 언어',
     korean: '한국어',
     english: 'English',
+    themeTitle: '화면 모드',
+    themeSystem: '시스템 설정 따르기',
+    themeLight: '라이트',
+    themeDark: '다크',
   },
   notFound: {
     title: '페이지를 찾을 수 없습니다',

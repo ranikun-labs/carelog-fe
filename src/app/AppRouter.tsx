@@ -20,6 +20,7 @@ import {
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { PublicLayout } from '@/components/layout/PublicLayout';
 import { AppLocaleProvider } from '@/i18n/AppLocaleProvider';
+import { ThemeProvider } from '@/theme/ThemeProvider';
 import {
   APP_BASE,
   APP_ROUTE_PATHS,
@@ -210,15 +211,17 @@ export function AppRouter({
   );
   return (
     <AppLocaleProvider syncDocumentLang={isAppOrAuthRoute}>
-      <AuthProvider authPort={authPort}>
-        <AssistantAdapterProvider adapter={assistantAdapter}>
-          <EventCreateActivationProvider>
-            <StateProviders {...(stateProviders ? { initialCustomers, initialEvents } : {})}>
-              <AppRoutes />
-            </StateProviders>
-          </EventCreateActivationProvider>
-        </AssistantAdapterProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider authPort={authPort}>
+          <AssistantAdapterProvider adapter={assistantAdapter}>
+            <EventCreateActivationProvider>
+              <StateProviders {...(stateProviders ? { initialCustomers, initialEvents } : {})}>
+                <AppRoutes />
+              </StateProviders>
+            </EventCreateActivationProvider>
+          </AssistantAdapterProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </AppLocaleProvider>
   );
 }

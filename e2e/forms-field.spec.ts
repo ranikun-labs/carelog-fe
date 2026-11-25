@@ -89,8 +89,7 @@ test('일정 추가 화면: 직접 진입 폼도 같은 Field 계약을 따른�
 
 test('계정 언어 선택: native radio, 선택은 brand-subtle 면 + 체크', async ({ page }) => {
   await page.goto('/app/settings');
-  const radios = page.getByRole('radio');
-  await expect(radios).toHaveCount(2);
+  await expect(page.locator('[data-locale-option]')).toHaveCount(2);
   const ko = page.locator('[data-locale-option="ko"]');
   const en = page.locator('[data-locale-option="en"]');
   await expectTouchTarget(ko);
@@ -102,5 +101,19 @@ test('계정 언어 선택: native radio, 선택은 brand-subtle 면 + 체크', 
   await en.click();
   await expect(page.getByRole('radio', { name: 'English' })).toBeChecked();
   await expect(en.locator('svg')).toHaveCount(1);
+  await expectNoHorizontalOverflow(page);
+});
+
+test('계정 화면 모드 선택: 3개 native radio, 터치 타깃 44px, 선택은 체크', async ({ page }) => {
+  await page.goto('/app/settings');
+  await expect(page.locator('[data-theme-option]')).toHaveCount(3);
+  for (const value of ['system', 'light', 'dark']) {
+    await expectTouchTarget(page.locator(`[data-theme-option="${value}"]`));
+  }
+  await expect(page.locator('[data-theme-option="system"] svg')).toHaveCount(1);
+  await page.locator('[data-theme-option="dark"]').click();
+  await expect(page.getByRole('radio', { name: '다크' })).toBeChecked();
+  await expect(page.locator('[data-theme-option="dark"] svg')).toHaveCount(1);
+  await expect(page.locator('[data-theme-option="system"] svg')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });

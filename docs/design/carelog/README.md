@@ -63,7 +63,7 @@ Rules that tests enforce (`src/styles/contrast.test.ts`, `globals.test.ts`):
 - **Text on a `brand-subtle` surface must be `brand-deep`.** Teal strong on subtle is 4.46:1 (below 4.5).
 - Dark `on-strong` (`#0b1220`, 7.63:1 on Teal strong) and Dark `brand-border` (`#2a6b65`) are
   **proposals (unconfirmed)**; the first is guarded at 4.5:1 or more.
-- Dark mode is verified but **not exposed to users** (no code sets the `dark` class); exposure policy is unchanged.
+- Dark mode is exposed in Account > Display mode (System / Light / Dark; Owner approval G2). Default follows the system setting; the choice is stored only in this browser's `localStorage` (`carelog.theme`), never sent to a server. An inline script in `index.html` applies it before first paint; `color-scheme` and `theme-color` are kept in sync. Dark `on-strong` stays a proposal (D-2).
 
 Open items (not decided here):
 
@@ -149,4 +149,3 @@ RPL-56:
 - Skeleton delay threshold
 - Exact product-component React prop signatures
 - Production API DTO and backend schema
-- Dark-mode exposure to users (tokens are defined and tested; the app does not enable them)

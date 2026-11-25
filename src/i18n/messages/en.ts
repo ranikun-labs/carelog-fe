@@ -312,10 +312,14 @@ export const en: Messages = {
   },
   settings: {
     title: 'Settings',
-    description: 'The app language is stored on this device.',
+    description: 'The app language and display mode are stored on this device.',
     currentLanguage: 'Current language',
     korean: '한국어',
     english: 'English',
+    themeTitle: 'Display mode',
+    themeSystem: 'Follow system setting',
+    themeLight: 'Light',
+    themeDark: 'Dark',
   },
   notFound: {
     title: 'Page not found',

@@ -7,7 +7,29 @@
       name="description"
       content="Carelog helps customer-facing professionals keep customer context and follow-ups in one place."
     />
+    <meta name="theme-color" content="#f2f4f6" />
     <title>Carelog</title>
+    <!-- 첫 페인트 전에 저장된 화면 모드(carelog.theme)·시스템 설정으로 .dark를 맞춰 깜빡임을 막는다. 값은 src/theme/themePreference.ts와 같다(테스트가 동작 일치를 고정). -->
+    <script>
+      (function () {
+        var dark = false;
+        try {
+          var p = window.localStorage.getItem('carelog.theme');
+          dark =
+            p === 'dark' ||
+            (p !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        } catch (e) {
+          try {
+            dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          } catch (e2) {}
+        }
+        var r = document.documentElement;
+        r.classList.toggle('dark', dark);
+        r.style.colorScheme = dark ? 'dark' : 'light';
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', dark ? '#0f1114' : '#f2f4f6');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
