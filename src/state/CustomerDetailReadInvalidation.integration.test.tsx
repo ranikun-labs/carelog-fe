@@ -88,7 +88,7 @@ it.each(['success', 'failure'] as const)(
       else old.fail(new Error('old read failed'));
       await Promise.allSettled([old.promise]);
     });
-    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('일정을 불러오는 중')).not.toBeInTheDocument());
     expect(screen.getByRole('link', { name: '일정 상세 열기: 서버 확인 일정' })).toBeVisible();
     expect(current.getCustomerSnapshot(customer.id)).toEqual({
       upcoming: [confirmed],

@@ -276,6 +276,7 @@ export const ko: Messages = {
     memo: '메모',
   },
   eventForm: {
+    savedNotice: '{{when}} 일정을 저장했어요.',
     createTitle: '일정 추가',
     editTitle: '일정 수정',
     customer: '{{customer}} 고객',

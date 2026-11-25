@@ -261,6 +261,7 @@ export interface Messages {
     memo: string;
   };
   eventForm: {
+    savedNotice: string;
     createTitle: string;
     editTitle: string;
     customer: string;

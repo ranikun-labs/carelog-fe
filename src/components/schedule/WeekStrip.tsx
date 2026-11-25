@@ -18,11 +18,7 @@ export function WeekStrip({ days, selectedDateKey, eventDateKeys, onSelect }: We
   const { locale, t } = useTranslation();
 
   return (
-    <nav
-      aria-label={t('schedule.weekStripLabel')}
-      data-week-strip
-      className="bg-surface sticky top-0 z-20 py-2"
-    >
+    <nav aria-label={t('schedule.weekStripLabel')} data-week-strip className="bg-surface py-2">
       <ol className="grid grid-cols-7">
         {days.map((day) => {
           const active = day.dateKey === selectedDateKey;

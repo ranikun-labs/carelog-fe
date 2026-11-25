@@ -16,6 +16,7 @@ import {
   getOverdueEvents,
   getWeekDaysForDate,
 } from '@/components/schedule/agendaModel';
+import { EventSavedNotice } from '@/components/schedule/EventSavedNotice';
 import { OverdueCue } from '@/components/schedule/OverdueCue';
 import { WeekStrip } from '@/components/schedule/WeekStrip';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -126,6 +127,11 @@ export function SchedulePage({
     () => buildAgendaSections(sourceEvents, todayDateKey, selectedDateKey),
     [selectedDateKey, sourceEvents, todayDateKey],
   );
+  const showOverdueCue =
+    effectiveLoadState === 'ready' &&
+    !hasNoCustomers &&
+    sourceEvents.length > 0 &&
+    overdueEvents.length > 0;
   const sectionSignature = sections.map((section) => section.dateKey).join('|');
 
   useEffect(() => {
@@ -223,7 +229,7 @@ export function SchedulePage({
 
       const surfaceRect = scrollSurface.getBoundingClientRect();
       const weekStripBottom =
-        scrollSurface.querySelector<HTMLElement>('[data-week-strip]')?.getBoundingClientRect()
+        scrollSurface.querySelector<HTMLElement>('[data-schedule-sticky]')?.getBoundingClientRect()
           .bottom ?? surfaceRect.top;
       const sectionElements = Array.from(
         scrollSurface.querySelectorAll<HTMLElement>('[data-agenda-section][data-date-key]'),
@@ -349,26 +355,38 @@ export function SchedulePage({
               {t('schedule.description')}
             </p>
           </div>
-          {/* 훑어보러 오는 화면이라 "+ 일정"은 Subtle(Strong 0). 고객 0명 빈 상태 CTA만 Strong 1. */}
-          <Button
-            type="button"
-            variant="subtle"
-            size="sm"
-            className="shrink-0"
-            aria-label={t('schedule.addEvent')}
-            data-schedule-add-event
-            onClick={openEventCreate}
-          >
-            {t('schedule.addEvent')}
-          </Button>
         </header>
 
-        <WeekStrip
-          days={weekDays}
-          selectedDateKey={selectedDateKey}
-          eventDateKeys={eventDateKeys}
-          onSelect={selectDate}
-        />
+        {/* 고정 영역: "+ 일정"·정리 필요 안내·주간 띠. 오늘로 자동 스크롤돼 열려도 항상 화면 안에 있다(F3 C-03). */}
+        <div data-schedule-sticky className="bg-surface sticky top-0 z-20">
+          <div className="flex items-center gap-2 px-4 pt-2 md:px-6">
+            {showOverdueCue ? (
+              <OverdueCue count={overdueEvents.length} onSelect={jumpToLatestOverdue} />
+            ) : (
+              <div className="min-w-0 flex-1" />
+            )}
+            {/* 훑어보러 오는 화면이라 "+ 일정"은 Subtle(Strong 0). 고객 0명 빈 상태 CTA만 Strong 1. */}
+            <Button
+              type="button"
+              variant="subtle"
+              size="sm"
+              className="shrink-0"
+              aria-label={t('schedule.addEvent')}
+              data-schedule-add-event
+              onClick={openEventCreate}
+            >
+              {t('schedule.addEvent')}
+            </Button>
+          </div>
+          <WeekStrip
+            days={weekDays}
+            selectedDateKey={selectedDateKey}
+            eventDateKeys={eventDateKeys}
+            onSelect={selectDate}
+          />
+          {/* 저장 알림도 고정 영역에 둔다. 새 일정으로 스크롤돼도 문장이 화면 안에 남는다. */}
+          <EventSavedNotice className="px-4 pb-2 empty:hidden md:px-6" />
+        </div>
 
         {effectiveLoadState === 'loading' ? (
           <AgendaSkeleton />
@@ -426,8 +444,6 @@ export function SchedulePage({
           </div>
         ) : (
           <>
-            <OverdueCue count={overdueEvents.length} onSelect={jumpToLatestOverdue} />
-
             {!todayVisible ? (
               <div className="px-4 pt-2 md:px-6">
                 <button

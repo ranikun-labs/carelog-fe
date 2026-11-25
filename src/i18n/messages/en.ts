@@ -283,6 +283,7 @@ export const en: Messages = {
     memo: 'Memo',
   },
   eventForm: {
+    savedNotice: 'Saved the event for {{when}}.',
     createTitle: 'Add event',
     editTitle: 'Edit event',
     customer: '{{customer}} customer',

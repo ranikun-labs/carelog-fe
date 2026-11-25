@@ -38,7 +38,7 @@ export function DateSection({
       data-agenda-section
       data-date-key={section.dateKey}
       data-today-anchor={isToday ? true : undefined}
-      className="scroll-mt-28"
+      className="scroll-mt-40"
     >
       <header className="flex min-h-9 items-baseline justify-between gap-3 px-1 pb-2">
         <h2 id={headingId} className="type-section-title text-foreground break-keep">

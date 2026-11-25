@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
+import { getDefaultPlannedDateTimeLocal } from '@/components/schedule/agendaModel';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { TextField } from '@/components/ui/text-field';
@@ -67,7 +68,7 @@ export function EventForm({
     event?.status === 'PLANNED'
       ? toDateTimeLocalValue(event.scheduledAt)
       : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
-          toDateTimeLocalValue(now.toISOString()),
+          getDefaultPlannedDateTimeLocal(undefined, now),
   );
   const [occurredAt, setOccurredAt] = useState(
     event?.status === 'OCCURRED'

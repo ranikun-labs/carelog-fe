@@ -6,6 +6,7 @@ import {
   formatOverdueCount,
   getAgendaCoordinate,
   getAgendaStatusPresentation,
+  getDefaultPlannedDateTimeLocal,
   getOverdueEvents,
   getWeekDaysForDate,
   hasSameInstant,
@@ -178,3 +179,36 @@ describe('24-hour display format (F1-G9)', () => {
 });
 
 const SAME_YEAR = new Date(2026, 5, 1, 12);
+
+describe('getDefaultPlannedDateTimeLocal', () => {
+  const now = new Date(2026, 7, 11, 12, 30, 0);
+
+  it('uses the next full hour today when the selected date is today, past, or missing', () => {
+    expect(getDefaultPlannedDateTimeLocal('2026-08-11', now)).toBe('2026-08-11T13:00');
+    expect(getDefaultPlannedDateTimeLocal('2026-07-05', now)).toBe('2026-08-11T13:00');
+    expect(getDefaultPlannedDateTimeLocal(undefined, now)).toBe('2026-08-11T13:00');
+  });
+
+  it('uses the selected date when it is after today, at the next full hour clock time', () => {
+    expect(getDefaultPlannedDateTimeLocal('2026-08-15', now)).toBe('2026-08-15T13:00');
+  });
+
+  it('is strictly after now on an exact hour and across midnight', () => {
+    expect(getDefaultPlannedDateTimeLocal(undefined, new Date(2026, 7, 11, 12, 0, 0))).toBe(
+      '2026-08-11T13:00',
+    );
+    expect(getDefaultPlannedDateTimeLocal(undefined, new Date(2026, 7, 11, 23, 30, 0))).toBe(
+      '2026-08-12T00:00',
+    );
+  });
+
+  it('is always in the future for any selected date', () => {
+    for (const dateKey of ['2020-01-01', '2026-08-10', '2026-08-11', '2026-08-12', '2030-12-31']) {
+      for (const hour of [0, 9, 12, 23]) {
+        const at = new Date(2026, 7, 11, hour, 59, 59);
+        const value = getDefaultPlannedDateTimeLocal(dateKey, at);
+        expect(new Date(value).getTime()).toBeGreaterThan(at.getTime());
+      }
+    }
+  });
+});

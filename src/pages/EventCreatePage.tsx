@@ -13,7 +13,11 @@ import {
 import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
 import { buttonVariants } from '@/components/ui/button';
 import { buildAppCustomerCreatePath, buildAppSchedulePath } from '@/constants/routes';
-import { getAgendaDateKey, getDateKeyFromDate } from '@/components/schedule/agendaModel';
+import {
+  getAgendaDateKey,
+  getDateKeyFromDate,
+  getDefaultPlannedDateTimeLocal,
+} from '@/components/schedule/agendaModel';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
@@ -23,11 +27,6 @@ import { useEventStore } from '@/state/EventStoreContext';
 
 export interface EventCreatePageProps {
   now?: Date;
-}
-
-function buildInitialScheduledAt(dateKey: string, now: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${dateKey}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
 export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
@@ -103,7 +102,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
     () => ({
       descriptor: draft.descriptor,
       note: draft.note,
-      scheduledAt: draft.scheduledAt || buildInitialScheduledAt(selectedDateKey, now),
+      scheduledAt: draft.scheduledAt || getDefaultPlannedDateTimeLocal(selectedDateKey, now),
     }),
     [draft.descriptor, draft.note, draft.scheduledAt, now, selectedDateKey],
   );

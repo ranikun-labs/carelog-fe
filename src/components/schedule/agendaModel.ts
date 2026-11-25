@@ -281,3 +281,28 @@ function parseDateKey(dateKey: string): Date | undefined {
   }
   return date;
 }
+
+/**
+ * 새 "예정으로 추가"의 기본 예정 시각(datetime-local 값). 항상 지금보다 미래다.
+ * 선택 날짜가 오늘 이후면 그 날짜, 아니면(오늘이거나 지난 날짜) 오늘의 다음 정시다.
+ * 기본값 그대로 저장해도 곧바로 "정리 필요"가 되지 않게 하려는 규칙이다.
+ */
+export function getDefaultPlannedDateTimeLocal(
+  selectedDateKey: string | undefined,
+  now: Date,
+): string {
+  const nextHour = new Date(now);
+  nextHour.setMinutes(0, 0, 0);
+  nextHour.setHours(nextHour.getHours() + 1);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const time = `${pad(nextHour.getHours())}:00`;
+  const todayKey = getDateKeyFromDate(now);
+  if (
+    selectedDateKey &&
+    /^\d{4}-\d{2}-\d{2}$/.test(selectedDateKey) &&
+    selectedDateKey > todayKey
+  ) {
+    return `${selectedDateKey}T${time}`;
+  }
+  return `${getDateKeyFromDate(nextHour)}T${time}`;
+}

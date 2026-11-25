@@ -39,6 +39,9 @@ export interface CustomerEventSnapshot {
 export interface EventStoreValue {
   events: readonly CustomerEvent[];
   highlightedEventId: string | null;
+  /** 방금 저장한 일정. 화면이 `role=status` 한 문장으로 알리고 지운다. */
+  savedNoticeEventId: string | null;
+  clearSavedNotice: (eventId?: string) => void;
   remoteReadsEnabled: boolean;
   scheduleLoadState: EventLoadState;
   detailLoadState: EventLoadState;
@@ -84,6 +87,7 @@ export function EventStoreProvider({
   );
   const seed = initialEvents ?? [];
   const [state, dispatch] = useReducer(eventStoreReducer, seed, createEventStoreState);
+  const [savedNoticeEventId, setSavedNoticeEventId] = useState<string | null>(null);
   const [scheduleLoadState, setScheduleLoadState] = useState<EventLoadState>(
     !isExplicitPort || initialEvents !== undefined ? 'ready' : 'loading',
   );
@@ -328,7 +332,11 @@ export function EventStoreProvider({
   );
 
   const createEvent = useCallback(
-    (input: EventCreationInput) => runMutation(() => port.create(input)),
+    async (input: EventCreationInput) => {
+      const created = await runMutation(() => port.create(input));
+      setSavedNoticeEventId(created.id);
+      return created;
+    },
     [port, runMutation],
   );
 
@@ -363,6 +371,12 @@ export function EventStoreProvider({
     dispatch({ type: 'clear-highlight', eventId });
   }, []);
 
+  const clearSavedNotice = useCallback((eventId?: string) => {
+    setSavedNoticeEventId((current) =>
+      eventId === undefined || current === eventId ? null : current,
+    );
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
     setErrorCode(null);
@@ -372,6 +386,8 @@ export function EventStoreProvider({
     () => ({
       events: state.events,
       highlightedEventId: state.highlightedEventId,
+      savedNoticeEventId,
+      clearSavedNotice,
       remoteReadsEnabled,
       scheduleLoadState,
       detailLoadState,
@@ -396,6 +412,7 @@ export function EventStoreProvider({
       cancelEvent,
       clearError,
       clearHighlight,
+      clearSavedNotice,
       createEvent,
       detailLoadState,
       detailCustomerId,
@@ -411,6 +428,7 @@ export function EventStoreProvider({
       mutationPending,
       occurEvent,
       remoteReadsEnabled,
+      savedNoticeEventId,
       scheduleLoadState,
       state.events,
       state.highlightedEventId,
