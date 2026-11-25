@@ -88,6 +88,7 @@ test('schedule and detail show 24-hour times without a meridiem marker', async (
   await expect(page.locator('main, body').first()).not.toContainText(/오전 \d|오후 \d/);
 
   await page.goto('/app/events/event-tenant-transitioned');
+  await expect(page.locator('[data-event-detail] time').first()).toBeVisible();
   const times = await page.locator('[data-event-detail] time').allTextContents();
   expect(times.length).toBe(2);
   for (const text of times) {
