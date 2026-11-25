@@ -282,6 +282,12 @@ export const ko: Messages = {
     time: '시간',
     memo: '메모',
   },
+  leaveGuard: {
+    title: '작성 중인 내용이 사라져요',
+    description: '지금 나가면 입력한 내용을 잃어요.',
+    stay: '계속 작성',
+    leave: '나가기',
+  },
   eventForm: {
     createTitle: '일정 추가',
     editTitle: '일정 수정',

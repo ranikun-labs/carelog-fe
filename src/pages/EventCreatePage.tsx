@@ -188,6 +188,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
                 initialValues={initialValues}
                 fixedCreateStatus="PLANNED"
                 onDraftChange={onDraftChange}
+                onDiscard={clearDraft}
                 onSubmit={handleCreate}
                 onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
                 onCancel={returnToSchedule}
