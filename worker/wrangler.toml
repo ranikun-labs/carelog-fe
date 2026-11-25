@@ -9,10 +9,16 @@ compatibility_date = "2026-11-01"
 directory = "../dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-# /api/* always reaches the Worker, never the static SPA fallback.
-run_worker_first = ["/api/*"]
+# /api (exact) and /api/* always reach the Worker, never the static SPA fallback.
+# Only lowercase /api is listed. Mixed-case paths such as /API/... are answered by the
+# Worker if they reach it, but they reach it only through the routing for those patterns.
+run_worker_first = ["/api", "/api/*"]
 
 # Required secrets/vars. Do not commit values. Set per environment, for example:
 #   wrangler secret put GATEWAY_ORIGIN   # https://<shared-gateway-host>  (no path)
 #   wrangler secret put PUBLIC_ORIGIN    # https://<this-worker-host>     (exact browser origin)
 # If either is missing or malformed, every /api request answers 500 JSON.
+
+[vars]
+# Optional. Upstream timeout in ms (whole number, 1-60000). Unset or "10000" is the default.
+UPSTREAM_TIMEOUT_MS = "10000"

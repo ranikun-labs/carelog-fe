@@ -22,6 +22,14 @@ function browser(path: string, init: RequestInit & { headers?: Record<string, st
   return new Request(`${PUBLIC}${path}`, init);
 }
 
+/**
+ * A request whose URL string is kept exactly as written. `new Request()` would already
+ * resolve `..` and turn `\` into `/`, which is what the raw-path guard must see first.
+ */
+function rawRequest(rawUrl: string, method = 'GET'): Request {
+  return { url: rawUrl, method, headers: new Headers() } as unknown as Request;
+}
+
 describe('DEV same-origin edge routing', () => {
   it('serves non-API paths from assets and never calls the Gateway', async () => {
     const assets = vi.fn(async () => html(200));
@@ -196,7 +204,7 @@ describe('DEV same-origin edge error responses', () => {
 
   it('does not expose an upstream redirect location', async () => {
     const response = await handleDevEdgeRequest(
-      browser('/api/v1/auth/login'),
+      browser('/api/v1/auth/login', { method: 'POST', body: '{}' }),
       env,
       async () =>
         new Response(null, { status: 302, headers: { location: 'https://internal.example/x' } }),
@@ -244,16 +252,19 @@ describe('DEV same-origin edge caching and headers', () => {
   });
 
   it('forwards only the allowlisted response headers', async () => {
-    const response = await handleDevEdgeRequest(browser('/api/v1/auth/login'), env, async () =>
-      json(
-        401,
-        { status: 401, message: 'no' },
-        {
-          'retry-after': '3',
-          'set-cookie': 'gateway=secret',
-          'x-gateway-internal': 'leak',
-        },
-      ),
+    const response = await handleDevEdgeRequest(
+      browser('/api/v1/auth/login', { method: 'POST', body: '{}' }),
+      env,
+      async () =>
+        json(
+          401,
+          { status: 401, message: 'no' },
+          {
+            'retry-after': '3',
+            'set-cookie': 'gateway=secret',
+            'x-gateway-internal': 'leak',
+          },
+        ),
     );
 
     expect(response.headers.get('retry-after')).toBe('3');
@@ -289,5 +300,224 @@ describe('DEV same-origin edge configuration', () => {
       'http://127.0.0.1:8080',
     );
     expect(() => parseExactOrigin('http://gateway.example.test', 'GATEWAY_ORIGIN')).toThrow();
+  });
+});
+
+describe('DEV same-origin edge raw path guard', () => {
+  it.each([
+    ['encoded slash', '/api/v1/customer-events/a%2fb'],
+    ['encoded backslash', '/api/v1/customer-events/a%5Cb'],
+    ['encoded dot', '/api/v1/customer-events/%2e%2E/x'],
+    ['semicolon', '/api/v1/customer-events;x/1'],
+    ['raw backslash', '/api/v1/customer-events\\x'],
+    ['empty segment', '/api/v1//customer-events'],
+    ['dot-dot segment', '/api/v1/users/../auth/login'],
+    ['encoded unreserved letter in an auth path', '/api/v1/%61uth/login'],
+    ['dot-dot on a non-API path', '/app/%2e%2e/secret'],
+  ])('rejects %s with JSON 400 before routing or contacting the Gateway', async (_label, path) => {
+    const assets = vi.fn(async () => html(200));
+    const upstream = vi.fn();
+    const response = await handleDevEdgeRequest(
+      rawRequest(`${PUBLIC}${path}`),
+      { ...env, ASSETS: { fetch: assets } },
+      upstream,
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    expect(await response.json()).toEqual({ status: 400, message: 'Invalid request path.' });
+    expect(assets).not.toHaveBeenCalled();
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it('does not inspect the query string', async () => {
+    const upstream = vi.fn(async () => json(200, { status: 200, message: 'ok', data: [] }));
+    const response = await handleDevEdgeRequest(
+      browser('/api/v1/customer-events?cursor=a%2Fb;c&q=..'),
+      env,
+      upstream,
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('DEV same-origin edge upstream timeout', () => {
+  it('bounds the upstream call with a 10 second AbortSignal by default', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    try {
+      await handleDevEdgeRequest(browser('/api/v1/users/customers'), env, async () =>
+        json(200, { status: 200, message: 'ok', data: [] }),
+      );
+      expect(spy).toHaveBeenCalledWith(10_000);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('answers 504 JSON when the Gateway does not respond in time', async () => {
+    const response = await handleDevEdgeRequest(
+      browser('/api/v1/auth/login', { method: 'POST', body: '{}' }),
+      { ...env, UPSTREAM_TIMEOUT_MS: '20' },
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+        }),
+    );
+
+    expect(response.status).toBe(504);
+    expect(await response.json()).toEqual({
+      status: 504,
+      message: 'The Carelog API did not respond in time.',
+    });
+  });
+
+  it.each(['0', '-5', 'ten', '1.5', '60001'])(
+    'fails closed with JSON 500 for UPSTREAM_TIMEOUT_MS=%s',
+    async (value) => {
+      const upstream = vi.fn();
+      const response = await handleDevEdgeRequest(
+        browser('/api/v1/auth/login', { method: 'POST', body: '{}' }),
+        { ...env, UPSTREAM_TIMEOUT_MS: value },
+        upstream,
+      );
+
+      expect(response.status).toBe(500);
+      expect(upstream).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('DEV same-origin edge auth route allowlist', () => {
+  it.each([
+    '/api/v1/auth/login',
+    '/api/v1/auth/refresh',
+    '/api/v1/auth/logout',
+    '/api/v1/auth/carelog/registration',
+  ])('forwards POST %s to the Gateway', async (path) => {
+    const upstream = vi.fn(async () => json(200, { status: 200, message: 'ok' }));
+    const response = await handleDevEdgeRequest(
+      browser(path, { method: 'POST', body: '{}' }),
+      env,
+      upstream,
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['GET login', 'GET', '/api/v1/auth/login'],
+    ['PUT refresh', 'PUT', '/api/v1/auth/refresh'],
+    ['DELETE logout', 'DELETE', '/api/v1/auth/logout'],
+    ['GET registration', 'GET', '/api/v1/auth/carelog/registration'],
+    ['POST an unlisted auth path', 'POST', '/api/v1/auth/password/reset'],
+    ['POST below the registration path', 'POST', '/api/v1/auth/carelog/registration/extra'],
+    ['POST the auth root', 'POST', '/api/v1/auth'],
+  ])('answers 405 JSON for %s without contacting the Gateway', async (_label, method, path) => {
+    const upstream = vi.fn();
+    const response = await handleDevEdgeRequest(
+      browser(path, { method, body: method === 'GET' ? undefined : '{}' }),
+      env,
+      upstream,
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get('allow')).toBe('POST');
+    expect(await response.json()).toEqual({ status: 405, message: 'Method not allowed.' });
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it('sends the public origin only on POST to the registration path', async () => {
+    const upstream = vi.fn(async () => json(200, { status: 200, message: 'ok' }));
+    await handleDevEdgeRequest(
+      browser('/api/v1/auth/login', {
+        method: 'POST',
+        body: '{}',
+        headers: { origin: 'https://evil.example.test' },
+      }),
+      env,
+      upstream,
+    );
+
+    const init = (upstream.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect((init.headers as Headers).get('origin')).toBeNull();
+  });
+});
+
+describe('DEV same-origin edge API namespace casing', () => {
+  it.each(['/API/v1/users/customers', '/Api/v1/users/customers', '/aPI', '/API/v1/auth/login'])(
+    'answers JSON 404 for %s without assets or the Gateway',
+    async (path) => {
+      const assets = vi.fn(async () => html(200));
+      const upstream = vi.fn();
+      const response = await handleDevEdgeRequest(
+        browser(path, { method: 'POST', body: '{}' }),
+        { ...env, ASSETS: { fetch: assets } },
+        upstream,
+      );
+
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ status: 404, message: 'Not found.' });
+      expect(assets).not.toHaveBeenCalled();
+      expect(upstream).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('DEV same-origin edge request body cap', () => {
+  it('answers 413 JSON when the declared Content-Length is over 64 KiB', async () => {
+    const upstream = vi.fn();
+    const response = await handleDevEdgeRequest(
+      browser('/api/v1/auth/login', {
+        method: 'POST',
+        body: '{}',
+        headers: { 'content-length': String(64 * 1024 + 1) },
+      }),
+      env,
+      upstream,
+    );
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ status: 413, message: 'Request body is too large.' });
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it('answers 413 when a chunked body without a length exceeds the cap', async () => {
+    const chunk = new Uint8Array(40 * 1024);
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(chunk);
+        controller.enqueue(chunk);
+        controller.close();
+      },
+    });
+    const upstream = vi.fn();
+    const response = await handleDevEdgeRequest(
+      new Request(`${PUBLIC}/api/v1/auth/login`, {
+        method: 'POST',
+        body: stream,
+        duplex: 'half',
+      } as RequestInit),
+      env,
+      upstream,
+    );
+
+    expect(response.status).toBe(413);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it('forwards a body of exactly 64 KiB', async () => {
+    const upstream = vi.fn(async () => json(200, { status: 200, message: 'ok' }));
+    const response = await handleDevEdgeRequest(
+      browser('/api/v1/auth/login', { method: 'POST', body: 'a'.repeat(64 * 1024) }),
+      env,
+      upstream,
+    );
+
+    expect(response.status).toBe(200);
+    const init = (upstream.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect((init.body as ArrayBuffer).byteLength).toBe(64 * 1024);
   });
 });
