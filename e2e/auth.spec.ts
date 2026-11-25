@@ -28,6 +28,8 @@ test('signup reaches the Customers empty flow when the canonical store is empty'
   await useEmptyApplicationSeed(page);
   await page.goto('/auth/signup');
   await page.getByLabel('계정').fill('fixture-account');
+  await page.getByLabel('이름').fill('김치료');
+  await page.getByLabel('이메일').fill('fixture@example.test');
   await page.getByLabel('비밀번호', { exact: true }).fill('fixture-secret');
   await page.getByLabel('비밀번호 확인').fill('fixture-secret');
   await page.getByRole('button', { name: '회원가입', exact: true }).click();

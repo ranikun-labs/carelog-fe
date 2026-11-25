@@ -30,9 +30,17 @@ it('routes login success to Schedule when canonical Customer state has records',
   expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
 });
 
+function fillSignupIdentity() {
+  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '김치료' } });
+  fireEvent.change(screen.getByLabelText('이메일'), {
+    target: { value: 'fixture@example.test' },
+  });
+}
+
 it('routes signup success to the canonical Customers empty flow', async () => {
   renderAuth('/auth/signup', {}, []);
   fireEvent.change(await screen.findByLabelText('계정'), { target: { value: 'fixture-account' } });
+  fillSignupIdentity();
   fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'fixture-secret' } });
   fireEvent.change(screen.getByLabelText('비밀번호 확인'), {
     target: { value: 'fixture-secret' },
@@ -83,6 +91,7 @@ it('marks only the confirmation field for a signup mismatch', async () => {
   const secret = screen.getByLabelText('비밀번호');
   const confirmation = screen.getByLabelText('비밀번호 확인');
   fireEvent.change(account, { target: { value: 'fixture-account' } });
+  fillSignupIdentity();
   fireEvent.change(secret, { target: { value: 'fixture-secret' } });
   fireEvent.change(confirmation, { target: { value: 'different-secret' } });
   fireEvent.click(screen.getByRole('button', { name: '회원가입' }));

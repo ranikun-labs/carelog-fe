@@ -27,9 +27,19 @@ interface CarelogEnvelope<T> {
   data: T;
 }
 
+export interface CarelogRequestOptions {
+  /** Extra request headers, such as Idempotency-Key. Values must be single-line. */
+  headers?: Record<string, string>;
+  /**
+   * The envelope carries status and message only (no `data` member), as the
+   * Core registration response does. The result is `undefined`.
+   */
+  withoutData?: boolean;
+}
+
 export interface CarelogHttpClient {
   get<T>(path: string): Promise<T>;
-  post<T>(path: string, body?: unknown): Promise<T>;
+  post<T>(path: string, body?: unknown, options?: CarelogRequestOptions): Promise<T>;
   patch<T>(path: string, body?: unknown): Promise<T>;
 }
 
@@ -43,7 +53,12 @@ export function createCarelogHttpClient({
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   if (!fetchImpl) throw new CarelogConfigurationError('The browser fetch API is unavailable.');
 
-  async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async function request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    options: CarelogRequestOptions = {},
+  ): Promise<T> {
     const sessionVersion = sessionProvider?.getSessionVersion?.();
     const sessionIsCurrent = () =>
       sessionVersion === undefined || sessionProvider?.getSessionVersion?.() === sessionVersion;
@@ -60,6 +75,7 @@ export function createCarelogHttpClient({
       const headers: Record<string, string> = { Accept: 'application/json' };
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       if (token) headers.Authorization = `Bearer ${token}`;
+      Object.assign(headers, options.headers);
 
       try {
         return await fetchImpl(joinUrl(normalizedBaseUrl, path), {
@@ -120,7 +136,7 @@ export function createCarelogHttpClient({
 
     if (!response.ok) throw new CarelogHttpError(response.status, payload);
 
-    const envelope = validateEnvelope<T>(payload);
+    const envelope = validateEnvelope<T>(payload, options.withoutData === true);
     if (envelope.status !== response.status) {
       throw new CarelogProtocolError(
         'The Carelog API envelope status does not match HTTP status.',
@@ -130,12 +146,13 @@ export function createCarelogHttpClient({
         },
       );
     }
-    return envelope.data;
+    return options.withoutData ? (undefined as T) : (envelope.data as T);
   }
 
   return {
     get: <T>(path: string) => request<T>('GET', path),
-    post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
+    post: <T>(path: string, body?: unknown, options?: CarelogRequestOptions) =>
+      request<T>('POST', path, body, options),
     patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   };
 }
@@ -179,7 +196,7 @@ function parseJson(text: string, isSuccess: boolean): unknown {
   }
 }
 
-function validateEnvelope<T>(payload: unknown): CarelogEnvelope<T> {
+function validateEnvelope<T>(payload: unknown, withoutData: boolean): CarelogEnvelope<T> {
   if (!payload || typeof payload !== 'object') {
     throw new CarelogProtocolError('The Carelog API response envelope is invalid.', payload);
   }
@@ -188,7 +205,7 @@ function validateEnvelope<T>(payload: unknown): CarelogEnvelope<T> {
     typeof candidate.status !== 'number' ||
     !Number.isInteger(candidate.status) ||
     typeof candidate.message !== 'string' ||
-    !Object.prototype.hasOwnProperty.call(candidate, 'data')
+    (!withoutData && !Object.prototype.hasOwnProperty.call(candidate, 'data'))
   ) {
     throw new CarelogProtocolError('The Carelog API response envelope is invalid.', payload);
   }

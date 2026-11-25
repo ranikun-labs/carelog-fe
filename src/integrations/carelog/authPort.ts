@@ -5,6 +5,7 @@ import {
   type AuthCredentialFixture,
   type AuthFailure,
   type AuthPort,
+  type AuthSignupFixture,
 } from '@/auth/authTypes';
 import {
   CarelogConfigurationError,
@@ -21,10 +22,65 @@ import {
 const LOGIN_PATH = '/api/v1/auth/login';
 const LOGOUT_PATH = '/api/v1/auth/logout';
 const REFRESH_PATH = '/api/v1/auth/refresh';
+const REGISTRATION_PATH = '/api/v1/auth/carelog/registration';
+const REGISTRATION_MAX_ATTEMPTS = 3;
+const REGISTRATION_RETRY_BASE_MS = 500;
+const REFRESH_TOKEN_STORAGE_KEY = 'carelog.auth.refreshToken';
 
 export interface CarelogTokenPair {
   accessToken: string;
   refreshToken: string;
+}
+
+/**
+ * Persists only the refresh token, and only for the lifetime of this browser
+ * tab. Access tokens never leave page memory.
+ */
+export interface RefreshTokenVault {
+  read: () => string | undefined;
+  write: (refreshToken: string) => void;
+  clear: () => void;
+}
+
+/**
+ * sessionStorage survives a reload of the same tab and is cleared when the tab
+ * closes. Every access is guarded: storage can be blocked or throw, and then
+ * the session degrades to in-memory only (a reload returns to Anonymous).
+ */
+export function createSessionStorageRefreshTokenVault(
+  storage: Storage | undefined = readSessionStorage(),
+): RefreshTokenVault {
+  return {
+    read: () => {
+      try {
+        return storage?.getItem(REFRESH_TOKEN_STORAGE_KEY) ?? undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    write: (refreshToken) => {
+      try {
+        storage?.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
+      } catch {
+        // In-memory tokens still serve this page; only the reload restore is lost.
+      }
+    },
+    clear: () => {
+      try {
+        storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+      } catch {
+        // Nothing else to clean up; the in-memory session is already cleared.
+      }
+    },
+  };
+}
+
+function readSessionStorage(): Storage | undefined {
+  try {
+    return globalThis.sessionStorage;
+  } catch {
+    return undefined;
+  }
 }
 
 export interface CarelogAuthSessionStore {
@@ -37,34 +93,49 @@ export interface CarelogAuthSessionStore {
   clearIfVersion: (expectedVersion: number) => boolean;
 }
 
-export function createCarelogAuthSessionStore(): CarelogAuthSessionStore {
+export interface CarelogAuthSessionStoreOptions {
+  /** Without a vault the refresh token lives only in page memory. */
+  refreshTokenVault?: RefreshTokenVault;
+}
+
+export function createCarelogAuthSessionStore({
+  refreshTokenVault,
+}: CarelogAuthSessionStoreOptions = {}): CarelogAuthSessionStore {
   let sessionVersion = 0;
   let tokens: CarelogTokenPair | undefined;
 
+  // Any session boundary (new login, logout, failed recovery) drops both copies.
+  const forgetTokens = () => {
+    tokens = undefined;
+    refreshTokenVault?.clear();
+  };
+
   return {
     getAccessToken: () => tokens?.accessToken,
-    getRefreshToken: () => tokens?.refreshToken,
+    // After a reload the page has no in-memory tokens; the vault restores the refresh token.
+    getRefreshToken: () => tokens?.refreshToken ?? refreshTokenVault?.read(),
     getSessionVersion: () => sessionVersion,
     beginSession: () => {
       sessionVersion += 1;
-      tokens = undefined;
+      forgetTokens();
       return sessionVersion;
     },
     saveTokens: (nextTokens, expectedVersion) => {
       if (sessionVersion !== expectedVersion) return false;
       tokens = { ...nextTokens };
+      refreshTokenVault?.write(nextTokens.refreshToken);
       return true;
     },
     invalidateSession: () => {
       const accessToken = tokens?.accessToken;
       sessionVersion += 1;
-      tokens = undefined;
+      forgetTokens();
       return { accessToken, version: sessionVersion };
     },
     clearIfVersion: (expectedVersion) => {
       if (sessionVersion !== expectedVersion) return false;
       sessionVersion += 1;
-      tokens = undefined;
+      forgetTokens();
       return true;
     },
   };
@@ -81,16 +152,28 @@ export interface CarelogAuthRuntimeOptions {
   apiBaseUrl: string;
   fetchImpl?: typeof fetch;
   sessionStore?: CarelogAuthSessionStore;
+  /** Test seam for the registration retry backoff. */
+  registrationRetryBaseMs?: number;
+}
+
+interface RegistrationPayload {
+  userId: string;
+  email: string;
+  password: string;
+  name: string;
 }
 
 /**
- * Implements the existing Carelog password-auth contract. Tokens stay in this
- * page's memory; the adapter does not infer a cookie or browser-storage policy.
+ * Password login plus self-service registration, over the shared Gateway.
+ * Access tokens stay in page memory. The refresh token is mirrored into the
+ * sessionStore's vault (sessionStorage in production) so a reload can restore
+ * the session; see docs/adr/0001-carelog-session-restore.md.
  */
 export function createCarelogAuthRuntime({
   apiBaseUrl,
   fetchImpl,
   sessionStore = createCarelogAuthSessionStore(),
+  registrationRetryBaseMs = REGISTRATION_RETRY_BASE_MS,
 }: CarelogAuthRuntimeOptions): CarelogAuthRuntime {
   let client: CarelogHttpClient | undefined;
   let clientError: unknown;
@@ -164,6 +247,77 @@ export function createCarelogAuthRuntime({
     if (version !== undefined) sessionStore.clearIfVersion(version);
   };
 
+  // Same payload retried from the form reuses its key, so the server replays the
+  // original outcome instead of answering 409 to the user's own retry. In memory only.
+  let pendingRegistration: { payload: RegistrationPayload; key: string } | undefined;
+
+  const passwordLogin = async (input: AuthCredentialFixture): Promise<AuthCommandResult> => {
+    const version = sessionStore.beginSession();
+    pendingLoginVersion = version;
+    try {
+      if (logoutFlight) await logoutFlight.catch(() => undefined);
+      if (sessionStore.getSessionVersion() !== version) {
+        return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
+      }
+      try {
+        // Carelog's existing DTO names these product-form values userId/password.
+        const payload = await requireClient().post<unknown>(LOGIN_PATH, {
+          userId: input.account,
+          password: input.secret,
+        });
+        const tokens = readTokenPair(payload);
+        if (!sessionStore.saveTokens(tokens, version)) {
+          return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
+        }
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, failure: failureFor(error) };
+      }
+    } finally {
+      if (pendingLoginVersion === version) pendingLoginVersion = undefined;
+    }
+  };
+
+  const registrationKeyFor = (payload: RegistrationPayload): string => {
+    const pending = pendingRegistration;
+    if (
+      pending &&
+      pending.payload.userId === payload.userId &&
+      pending.payload.email === payload.email &&
+      pending.payload.password === payload.password &&
+      pending.payload.name === payload.name
+    ) {
+      return pending.key;
+    }
+    const key = createIdempotencyKey();
+    pendingRegistration = { payload, key };
+    return key;
+  };
+
+  const registerAccount = async (payload: RegistrationPayload): Promise<void> => {
+    const key = registrationKeyFor(payload);
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        // Core answers 201 with a message-only envelope (no `data` member).
+        await requireClient().post<void>(REGISTRATION_PATH, payload, {
+          headers: { 'Idempotency-Key': key },
+          withoutData: true,
+        });
+        pendingRegistration = undefined;
+        return;
+      } catch (error) {
+        if (!isRetryableRegistrationError(error) || attempt >= REGISTRATION_MAX_ATTEMPTS) {
+          // 400/409 are terminal for this key; a fresh form value needs a fresh key.
+          if (error instanceof CarelogHttpError && (error.status === 400 || error.status === 409)) {
+            pendingRegistration = undefined;
+          }
+          throw error;
+        }
+        await wait(registrationRetryBaseMs * attempt);
+      }
+    }
+  };
+
   const authPort: AuthPort = {
     async bootstrapSession(): Promise<AuthBootstrapResult> {
       if (!client) return { status: 'error', failure: failureFor(clientError) };
@@ -186,38 +340,30 @@ export function createCarelogAuthRuntime({
       return { status: 'anonymous' };
     },
 
-    async login(input: AuthCredentialFixture): Promise<AuthCommandResult> {
-      const version = sessionStore.beginSession();
-      pendingLoginVersion = version;
-      try {
-        if (logoutFlight) await logoutFlight.catch(() => undefined);
-        if (sessionStore.getSessionVersion() !== version) {
-          return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
-        }
-        try {
-          // Carelog's existing DTO names these product-form values userId/password.
-          const payload = await requireClient().post<unknown>(LOGIN_PATH, {
-            userId: input.account,
-            password: input.secret,
-          });
-          const tokens = readTokenPair(payload);
-          if (!sessionStore.saveTokens(tokens, version)) {
-            return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
-          }
-          return { ok: true };
-        } catch (error) {
-          return { ok: false, failure: failureFor(error) };
-        }
-      } finally {
-        if (pendingLoginVersion === version) pendingLoginVersion = undefined;
-      }
-    },
+    login: passwordLogin,
 
     cancelPendingLogin,
 
-    async signup(): Promise<AuthCommandResult> {
-      // The inspected Carelog AuthController has no public signup endpoint.
-      return { ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } };
+    async signup(input: AuthSignupFixture): Promise<AuthCommandResult> {
+      const payload: RegistrationPayload = {
+        userId: input.account.trim(),
+        email: input.email.trim(),
+        password: input.secret,
+        name: input.name.trim(),
+      };
+      try {
+        await registerAccount(payload);
+      } catch (error) {
+        return { ok: false, failure: registrationFailureFor(error) };
+      }
+      // Registration returns no tokens. Obtain the session through the same
+      // password login the form uses, so the restore path is identical.
+      const session = await passwordLogin({ account: payload.userId, secret: payload.password });
+      if (session.ok) return session;
+      return {
+        ok: false,
+        failure: { kind: AUTH_ERROR_KIND.UNKNOWN, reason: 'registered-login-required' },
+      };
     },
 
     async logout(): Promise<void> {
@@ -263,6 +409,36 @@ export function createCarelogAuthRuntime({
   };
 
   return { authPort, sessionProvider, sessionStore, apiBaseUrl };
+}
+
+function isRetryableRegistrationError(error: unknown): boolean {
+  // 503 is Core's PENDING (or a transient failure). The same key makes a retry safe.
+  if (error instanceof CarelogNetworkError) return true;
+  return error instanceof CarelogHttpError && error.status === 503;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function registrationFailureFor(error: unknown): AuthFailure {
+  if (error instanceof CarelogHttpError) {
+    if (error.status === 409) return { kind: AUTH_ERROR_KIND.UNKNOWN, reason: 'account-conflict' };
+    if (error.status === 400)
+      return { kind: AUTH_ERROR_KIND.UNKNOWN, reason: 'invalid-registration' };
+  }
+  return failureFor(error);
+}
+
+function createIdempotencyKey(): string {
+  const cryptoApi = globalThis.crypto;
+  if (typeof cryptoApi?.randomUUID === 'function') return cryptoApi.randomUUID();
+  // randomUUID needs a secure context; fall back to random bytes in plain-HTTP dev.
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function readTokenPair(payload: unknown): CarelogTokenPair {

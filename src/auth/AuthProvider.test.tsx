@@ -383,7 +383,14 @@ it('uses an unavailable production boundary that cannot authenticate arbitrary c
     ok: false,
     failure: { kind: AUTH_ERROR_KIND.UNKNOWN },
   });
-  expect(await port.signup({ account: 'anything@example.com', secret: 'anything' })).toEqual({
+  expect(
+    await port.signup({
+      account: 'anything@example.com',
+      secret: 'anything',
+      name: 'anything',
+      email: 'anything@example.com',
+    }),
+  ).toEqual({
     ok: false,
     failure: { kind: AUTH_ERROR_KIND.UNKNOWN },
   });
