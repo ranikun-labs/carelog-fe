@@ -200,6 +200,8 @@ export const en: Messages = {
       partialEvents: 'All events could not be loaded. Showing only known events.',
       eventsLoaded: 'Events have been reloaded.',
       additionalUpcoming: '{{count}} more upcoming',
+      overdueCount: '{{count}} need attention',
+      overdueHint: 'The planned time has passed. If it happened, mark it recorded.',
       memoTitle: 'Memo',
     },
     form: {

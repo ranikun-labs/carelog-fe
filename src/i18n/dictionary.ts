@@ -178,6 +178,8 @@ export interface Messages {
       partialEvents: string;
       eventsLoaded: string;
       additionalUpcoming: string;
+      overdueCount: string;
+      overdueHint: string;
       memoTitle: string;
     };
     form: {

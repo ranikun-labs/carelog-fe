@@ -127,3 +127,17 @@ describe('Carelog semantic design tokens (Foundation v1.0.0)', () => {
 function isStructural(name: string): boolean {
   return /^--(radius|touch-min|control-h|type-|space-|status-rail-width|shadow-default)/.test(name);
 }
+
+describe('focus indicator contract (F3 C-06)', () => {
+  const css = globalsCss;
+
+  it('pins outline-color to the focus token at rest so transition-colors cannot start from currentColor', () => {
+    expect(css).toMatch(/\)\s*\{\s*outline-color:\s*var\(--ring\);\s*\}/);
+  });
+
+  it('draws the focus ring as 2px solid with offset 2 in the focus token color', () => {
+    expect(css).toMatch(
+      /:focus-visible\s*\{\s*outline:\s*2px solid var\(--ring\);\s*outline-offset:\s*2px;/,
+    );
+  });
+});

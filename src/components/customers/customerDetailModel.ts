@@ -1,5 +1,9 @@
 import { getAgendaCoordinate } from '@/components/schedule/agendaModel';
-import type { CustomerEvent, PlannedCustomerEvent } from '@/domain/customerEvent';
+import {
+  isCustomerEventOverdue,
+  type CustomerEvent,
+  type PlannedCustomerEvent,
+} from '@/domain/customerEvent';
 
 export type CustomerHistoryEvent = Extract<CustomerEvent, { status: 'OCCURRED' | 'CANCELLED' }>;
 
@@ -18,7 +22,23 @@ export function getUpcomingCustomerEvents(
       (event): event is PlannedCustomerEvent =>
         event.status === 'PLANNED' &&
         isValidInstant(event.scheduledAt) &&
-        Date.parse(event.scheduledAt) > nowInstant,
+        Date.parse(event.scheduledAt) >= nowInstant,
+    )
+    .sort(compareUpcomingEvents);
+}
+
+/**
+ * 예정 시각이 지난 PLANNED(정리 필요, 파생 Overdue). 가장 오래 밀린 일정이 먼저다.
+ * 고객 상세가 이 일정을 숨기면 고객 화면만 보는 사용자가 밀린 일을 놓친다.
+ */
+export function getOverdueCustomerEvents(
+  events: readonly CustomerEvent[],
+  now: string | number | Date,
+): PlannedCustomerEvent[] {
+  return events
+    .filter(
+      (event): event is PlannedCustomerEvent =>
+        event.status === 'PLANNED' && isCustomerEventOverdue(event, now),
     )
     .sort(compareUpcomingEvents);
 }

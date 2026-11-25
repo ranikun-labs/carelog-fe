@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
 import { CustomerUpcoming } from '@/components/customers/CustomerUpcoming';
@@ -18,7 +18,7 @@ function renderUpcoming(events: readonly CustomerEvent[]) {
 }
 
 describe('CustomerUpcoming', () => {
-  it('uses the nearest future PLANNED event as the primary card', () => {
+  it('puts the overdue PLANNED first with label, title, time and a single Strong action', () => {
     renderUpcoming([
       {
         id: 'occurred-latest',
@@ -31,7 +31,7 @@ describe('CustomerUpcoming', () => {
         id: 'overdue-planned',
         customerId: 'customer-1',
         status: 'PLANNED',
-        scheduledAt: '2026-08-11T11:00:00+09:00',
+        scheduledAt: '2026-08-11T09:30:00+09:00',
         descriptor: 'overdue planned',
       },
       {
@@ -50,19 +50,48 @@ describe('CustomerUpcoming', () => {
       },
     ]);
 
-    const primary = screen.getByRole('link', { name: '일정 상세 열기: nearest planned' });
-    expect(primary).toHaveAttribute('href', '/app/events/future-nearest');
-    expect(primary).toHaveTextContent('nearest planned');
-    expect(primary).not.toHaveTextContent('latest occurred');
-    expect(primary).not.toHaveTextContent('overdue planned');
-    expect(screen.getByText('이후 예정 1건')).toBeVisible();
-    expect(screen.getByRole('link', { name: '일정 상세 열기: later planned' })).toHaveAttribute(
+    const primary = screen.getByRole('link', { name: '일정 상세 열기: overdue planned' });
+    expect(primary).toHaveAttribute('href', '/app/events/overdue-planned');
+    expect(primary).toHaveTextContent('정리 필요');
+    expect(primary).toHaveTextContent('overdue planned');
+    expect(primary.querySelector('time')).toHaveAttribute('datetime', '2026-08-11T09:30:00+09:00');
+    expect(screen.getByText('정리 필요 1건')).toBeVisible();
+    expect(screen.getAllByRole('link', { name: '기록 완료' })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: '기록 완료' })).toHaveAttribute(
       'href',
-      '/app/events/future-later',
+      '/app/events/overdue-planned',
     );
+    expect(screen.getByText('이후 예정 2건')).toBeVisible();
+    expect(screen.queryByText('다음 일정 없음')).not.toBeInTheDocument();
   });
 
-  it('shows the locked no-upcoming grammar without promoting past events', () => {
+  it('uses the nearest future PLANNED as primary without a record action when nothing is overdue', () => {
+    renderUpcoming([
+      {
+        id: 'future-later',
+        customerId: 'customer-1',
+        status: 'PLANNED',
+        scheduledAt: '2026-08-13T10:00:00+09:00',
+        descriptor: 'later planned',
+      },
+      {
+        id: 'future-nearest',
+        customerId: 'customer-1',
+        status: 'PLANNED',
+        scheduledAt: '2026-08-12T10:00:00+09:00',
+        descriptor: 'nearest planned',
+      },
+    ]);
+
+    const primary = screen.getByRole('link', { name: '일정 상세 열기: nearest planned' });
+    expect(primary).toHaveAttribute('href', '/app/events/future-nearest');
+    expect(primary).not.toHaveTextContent('정리 필요');
+    expect(screen.queryByRole('link', { name: '기록 완료' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/정리 필요 \d건/)).not.toBeInTheDocument();
+    expect(screen.getByText('이후 예정 1건')).toBeVisible();
+  });
+
+  it('shows "다음 일정 없음" only when no PLANNED event exists', () => {
     renderUpcoming([
       {
         id: 'occurred',
@@ -72,17 +101,38 @@ describe('CustomerUpcoming', () => {
         descriptor: 'past record',
       },
       {
-        id: 'overdue',
+        id: 'cancelled',
         customerId: 'customer-1',
-        status: 'PLANNED',
-        scheduledAt: '2026-08-11T11:00:00+09:00',
-        descriptor: 'overdue plan',
+        status: 'CANCELLED',
+        scheduledAt: '2026-08-12T11:00:00+09:00',
+        descriptor: 'cancelled plan',
       },
     ]);
 
     expect(screen.getByText('다음 일정 없음')).toBeVisible();
     expect(screen.queryByText('past record')).not.toBeInTheDocument();
-    expect(screen.queryByText('overdue plan')).not.toBeInTheDocument();
+    expect(screen.queryByText('cancelled plan')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '기록 완료' })).not.toBeInTheDocument();
+  });
+
+  it('calls onOpenEvent with the occurrence intent from the Strong action', () => {
+    const onOpenEvent = vi.fn();
+    const overdue: CustomerEvent = {
+      id: 'overdue',
+      customerId: 'customer-1',
+      status: 'PLANNED',
+      scheduledAt: '2026-08-11T09:30:00+09:00',
+      descriptor: 'overdue',
+    };
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <CustomerUpcoming events={[overdue]} now={now} onOpenEvent={onOpenEvent} />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('link', { name: '기록 완료' }));
+    expect(onOpenEvent).toHaveBeenCalledWith(overdue, { openOccurrence: true });
   });
 
   it('renders the action inside the Key Block, and keeps it in the empty state too', () => {

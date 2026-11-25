@@ -23,6 +23,8 @@ export interface AdaptiveNavigationState {
   targetEventId?: string;
   targetDateKey?: string;
   targetScrollTop?: number;
+  /** 고객 상세의 "기록 완료"에서 왔다: 일정 상세가 실제 시각 확인 패널을 열고 시작한다. */
+  openOccurrence?: boolean;
   assistant?: AssistantNavigationState;
 }
 
@@ -46,7 +48,11 @@ export interface AdaptiveHostContextValue {
   eventDetailScrollTop: number;
   selectEvent: (eventId: string, options?: SelectEventOptions) => void;
   selectCustomer: (customerId: string) => void;
-  selectCustomerEvent: (customerId: string, eventId: string) => void;
+  selectCustomerEvent: (
+    customerId: string,
+    eventId: string,
+    options?: Pick<SelectEventOptions, 'openOccurrence'>,
+  ) => void;
   openCustomerFromEvent: (customerId: string) => void;
   goBackFromEvent: (customerId: string) => void;
   returnFromEvent: (eventId: string, customerId: string, targetDateKey: string) => void;
@@ -63,6 +69,7 @@ export interface SelectEventOptions {
   root?: AdaptiveRoot;
   customerId?: string;
   targetDateKey?: string;
+  openOccurrence?: boolean;
 }
 
 const AdaptiveHostContext = createContext<AdaptiveHostContextValue | null>(null);
@@ -150,6 +157,7 @@ export function readAdaptiveNavigationState(value: unknown): AdaptiveNavigationS
     ...(typeof state.targetScrollTop === 'number' && Number.isFinite(state.targetScrollTop)
       ? { targetScrollTop: Math.max(0, state.targetScrollTop) }
       : {}),
+    ...(state.openOccurrence === true ? { openOccurrence: true } : {}),
     ...(assistant ? { assistant } : {}),
   };
 }

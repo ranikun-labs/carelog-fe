@@ -114,3 +114,38 @@ test('Customer Detail History resolves to the real occurred Event Detail route',
   await expect(page.locator('[data-event-detail]').getByText('박세입')).toBeVisible();
   await expect(page.locator('[data-event-detail] time')).toHaveCount(2);
 });
+
+test('Customer Detail surfaces the overdue PLANNED first and the Strong 기록 완료 opens the time confirmation', async ({
+  page,
+}) => {
+  await page.goto('/app/customers/customer-patient-1');
+
+  const upcoming = page.locator('[data-customer-upcoming]');
+  await expect(upcoming.getByRole('heading', { name: '다음 일정' })).toBeVisible();
+  await expect(page.locator('[data-customer-upcoming-empty]')).toHaveCount(0);
+  await expect(upcoming.getByText('다음 일정 없음')).toHaveCount(0);
+  const primary = page.locator('[data-upcoming-primary]');
+  await expect(primary).toBeVisible();
+  await expect(primary.getByText('정리 필요')).toBeVisible();
+  await expect(primary.getByText('다음 방문 일정 확인 연락')).toBeVisible();
+  await expect(upcoming.getByText('정리 필요 1건')).toBeVisible();
+
+  const record = upcoming.getByRole('link', { name: '기록 완료' });
+  await expect(record).toHaveCount(1);
+  await record.click();
+
+  await expect(page).toHaveURL(/\/app\/events\/followup-patient-1$/);
+  await expect(page.getByText('실제 발생 시각을 확인해 주세요')).toBeVisible();
+  await expect(page.locator('[data-event-detail]')).toHaveAttribute('data-event-status', 'PLANNED');
+});
+
+test('Customer Detail keeps the plain 다음 일정 without a record action when nothing is overdue', async ({
+  page,
+}) => {
+  await page.goto('/app/customers/customer-tenant-1');
+  await expect(page.locator('[data-upcoming-primary]')).toBeVisible();
+  await expect(page.locator('[data-customer-upcoming]').getByText('정리 필요')).toHaveCount(0);
+  await expect(
+    page.locator('[data-customer-upcoming]').getByRole('link', { name: '기록 완료' }),
+  ).toHaveCount(0);
+});

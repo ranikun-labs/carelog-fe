@@ -34,6 +34,8 @@ interface EventDetailProps {
   onOccurEvent?: (
     occurredAt: string,
   ) => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
+  /** 고객 상세의 "기록 완료"로 들어왔을 때, 실제 시각 확인 패널을 열고 시작한다. */
+  startWithOccurrenceConfirmation?: boolean;
 }
 
 export function EventDetail({
@@ -46,13 +48,18 @@ export function EventDetail({
   onEdit,
   onCancelEvent,
   onOccurEvent,
+  startWithOccurrenceConfirmation = false,
 }: EventDetailProps) {
   const { locale, t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
   const cancelTriggerRef = useRef<HTMLButtonElement>(null);
   const cancelCloseRef = useRef<HTMLButtonElement>(null);
-  const [isConfirmingOccurrence, setIsConfirmingOccurrence] = useState(false);
+  // 같은 tick 안의 이중 클릭은 setState 반영 전이라 isActionPending으로 막을 수 없다. ref로 즉시 잠근다.
+  const cancelLockRef = useRef(false);
+  const [isConfirmingOccurrence, setIsConfirmingOccurrence] = useState(
+    startWithOccurrenceConfirmation && event.status === 'PLANNED' && Boolean(onOccurEvent),
+  );
   const occurrenceTriggerRef = useRef<HTMLButtonElement>(null);
   const occurrenceInputRef = useRef<HTMLInputElement>(null);
   const [isActionPending, setIsActionPending] = useState(false);
@@ -100,7 +107,8 @@ export function EventDetail({
   }
 
   async function cancelEvent() {
-    if (!onCancelEvent || isActionPending) return;
+    if (!onCancelEvent || isActionPending || cancelLockRef.current) return;
+    cancelLockRef.current = true;
     setIsActionPending(true);
     setActionError(null);
     try {
@@ -108,6 +116,7 @@ export function EventDetail({
     } catch (error: unknown) {
       setActionError(t(getCarelogMessageKey(error)));
     } finally {
+      cancelLockRef.current = false;
       setIsActionPending(false);
     }
   }
