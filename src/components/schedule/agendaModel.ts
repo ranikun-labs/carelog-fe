@@ -211,13 +211,22 @@ export function formatAgendaTime(timestamp: string, locale: string): string {
   }).format(date);
 }
 
-/** ko: `M월 D일 (요일) HH:mm` 24시간제(F1-G9). en은 별도 형식을 유지한다. */
-export function formatAgendaDateTime(timestamp: string, locale: string): string {
+/** ko에서 올해가 아닌 날짜는 연도가 빠지면 다른 해와 구분되지 않으므로 `YYYY년 `을 앞에 붙인다. */
+function koYearPrefix(date: Date, now: Date): string {
+  return date.getFullYear() === now.getFullYear() ? '' : `${date.getFullYear()}년 `;
+}
+
+/** ko: `M월 D일 (요일) HH:mm` 24시간제(F1-G9), 올해가 아니면 연도를 앞에 붙인다. en은 별도 형식을 유지한다. */
+export function formatAgendaDateTime(
+  timestamp: string,
+  locale: string,
+  now: Date = new Date(),
+): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return timestamp;
   if (locale === 'ko') {
     const weekday = new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(date);
-    return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekday}) ${formatKoClock(date)}`;
+    return `${koYearPrefix(date, now)}${date.getMonth() + 1}월 ${date.getDate()}일 (${weekday}) ${formatKoClock(date)}`;
   }
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
@@ -230,12 +239,18 @@ export function formatAgendaDateTime(timestamp: string, locale: string): string 
 
 /**
  * ISO 타임스탬프의 날짜 부분(`formatDate`와 같은 시간대 무변환 slice)을 화면용으로 표시한다.
- * ko: `M월 D일 (요일)`(F1-G9), en: 기존 `YYYY-MM-DD` 유지. 파싱 불가하면 원문 slice를 그대로 쓴다.
+ * ko: `M월 D일 (요일)`(F1-G9), 올해가 아니면 `YYYY년 ` 접두. en: 기존 `YYYY-MM-DD` 유지. 파싱 불가하면 원문 slice를 그대로 쓴다.
  */
-export function formatDisplayDate(isoTimestamp: string, locale: string): string {
+export function formatDisplayDate(
+  isoTimestamp: string,
+  locale: string,
+  now: Date = new Date(),
+): string {
   const dateKey = formatDate(isoTimestamp);
   if (locale !== 'ko') return dateKey;
-  return formatAgendaDate(dateKey, locale);
+  const formatted = formatAgendaDate(dateKey, locale);
+  const parsed = parseDateKey(dateKey);
+  return parsed ? `${koYearPrefix(parsed, now)}${formatted}` : formatted;
 }
 
 function compareDateKeys(first: string, second: string): number {

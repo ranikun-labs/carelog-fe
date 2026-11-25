@@ -145,8 +145,8 @@ describe('24-hour display format (F1-G9)', () => {
   });
 
   it('shows ko date-times as "M월 D일 (요일) HH:mm" without year', () => {
-    expect(formatAgendaDateTime(at(10, 0), 'ko')).toBe('8월 15일 (토) 10:00');
-    expect(formatAgendaDateTime(at(18, 5), 'ko')).toBe('8월 15일 (토) 18:05');
+    expect(formatAgendaDateTime(at(10, 0), 'ko', SAME_YEAR)).toBe('8월 15일 (토) 10:00');
+    expect(formatAgendaDateTime(at(18, 5), 'ko', SAME_YEAR)).toBe('8월 15일 (토) 18:05');
   });
 
   it('keeps en as its own 12-hour format', () => {
@@ -161,7 +161,20 @@ describe('24-hour display format (F1-G9)', () => {
 
   it('shows ko dates as "M월 D일 (요일)" from the stored date part, en keeps YYYY-MM-DD', () => {
     // 날짜 부분은 시간대 변환 없이 slice한다(기존 formatDate 계약).
-    expect(formatDisplayDate('2026-07-20T09:00:00+09:00', 'ko')).toBe('7월 20일 (월)');
+    expect(formatDisplayDate('2026-07-20T09:00:00+09:00', 'ko', SAME_YEAR)).toBe('7월 20일 (월)');
     expect(formatDisplayDate('2026-07-20T09:00:00+09:00', 'en')).toBe('2026-07-20');
   });
+
+  it('prefixes the year in ko when the date is not in the current year', () => {
+    // 1년 전 연락·맥락이 올해 날짜처럼 읽히지 않도록 연도를 붙인다.
+    const nextYear = new Date(2027, 0, 10, 12);
+    expect(formatDisplayDate('2026-07-20T09:00:00+09:00', 'ko', nextYear)).toBe(
+      '2026년 7월 20일 (월)',
+    );
+    expect(formatAgendaDateTime(at(10, 0), 'ko', nextYear)).toBe('2026년 8월 15일 (토) 10:00');
+    // en 형식은 원래 연도를 포함하므로 그대로다.
+    expect(formatDisplayDate('2026-07-20T09:00:00+09:00', 'en', nextYear)).toBe('2026-07-20');
+  });
 });
+
+const SAME_YEAR = new Date(2026, 5, 1, 12);
