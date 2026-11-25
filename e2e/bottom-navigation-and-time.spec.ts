@@ -100,6 +100,7 @@ test('schedule and detail show 24-hour times without a meridiem marker', async (
 
 test('customer list and detail dates use the ko display format', async ({ page }) => {
   await page.goto('/app/customers');
+  await expect(page.locator('main time').first()).toBeVisible();
   const dates = await page.locator('main time').allTextContents();
   expect(dates.length).toBeGreaterThan(0);
   for (const text of dates)

@@ -204,14 +204,14 @@ export function SchedulePage({
         return;
       }
 
-      // 첫 앵커 직후 글꼴·레이아웃이 자리 잡으며 스크롤 한계(높이)가 바뀌면 브라우저가 scroll 이벤트를 더 낸다.
+      // 첫 앵커 직후 글꼴·레이아웃이 자리 잡으며 스크롤 높이가 바뀌면 브라우저가 scroll 이벤트를 더 낸다.
       // 사용자가 움직인 게 아니므로 무시한다 — 안 그러면 가운데 정렬된 오늘이 위 날짜로 밀리거나
-      // 맨 아래 보정으로 마지막 날짜가 선택돼 오늘이 풀린다. 높이가 바뀌었거나 이동이 4px 이내면 정착 이벤트로
-      // 보고 기준 위치를 새로 잡는다(사용자의 큰 스크롤은 높이가 그대로이고 이동도 커서 통과한다).
+      // 맨 아래 보정으로 마지막 날짜가 선택돼 오늘이 풀린다. 이동량이 4px 이내이거나 높이 변화량으로
+      // 설명되면 정착 이벤트로 보고 기준 위치를 새로 잡는다(높이 변화보다 크게 움직인 사용자 스크롤은 통과).
       const anchor = initialAnchor.current;
       if (anchor && performance.now() - anchor.at < 1000) {
-        const layoutSettled = scrollSurface.scrollHeight !== anchor.height;
-        if (layoutSettled || Math.abs(scrollSurface.scrollTop - anchor.top) <= 4) {
+        const settleTolerance = Math.max(4, Math.abs(scrollSurface.scrollHeight - anchor.height));
+        if (Math.abs(scrollSurface.scrollTop - anchor.top) <= settleTolerance) {
           initialAnchor.current = {
             ...anchor,
             top: scrollSurface.scrollTop,
