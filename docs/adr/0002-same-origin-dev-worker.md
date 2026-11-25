@@ -22,9 +22,13 @@
   only on `POST /api/v1/auth/carelog/registration`. That origin must be in the Gateway allowlist.
 - `GATEWAY_ORIGIN` is the exact HTTPS origin of the public DEV Gateway, with no path.
   It is a Worker secret, not a committed value. Plain HTTP is accepted only for loopback, for local runs.
-- Raw path guard, checked on the request URL string before any URL normalization, for every path.
-  The request is rejected with JSON 400 if the path contains `%2f`, `%5c` or `%2e` (case-insensitive),
-  `;`, `\`, `//`, a `..` segment, or a percent-encoded unreserved character (for example `%61uth`).
+- Raw path guard, for every path. It reads `request.url` as the runtime delivers it, before the URL
+  parser runs on it. The request is rejected with JSON 400 if the path contains `%2f`, `%5c` or `%2e`
+  (case-insensitive), `;`, `\`, `//`, a `..` segment, or a percent-encoded unreserved character (for
+  example `%61uth`). The runtime `Request` already normalizes `..`, `%2e%2e` and `\` before the Worker
+  sees them, so the guard catches what survives in that string. It does not prove those were absent
+  from the client's original bytes. The forwarded path is derived from the same `request.url`, so the
+  path checked is the path forwarded.
 - Auth allowlist. The FE calls exactly four auth routes, all `POST`: `/api/v1/auth/login`,
   `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `/api/v1/auth/carelog/registration`
   (verified against `src/integrations/carelog/authPort.ts`). Any other method or path under
@@ -37,7 +41,10 @@
 - Request body is capped at 64 KiB. A declared `Content-Length` over the cap, or a streamed body
   that goes over it, gets JSON 413 before anything is forwarded.
 - Upstream timeout is `AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)`, default 10000 ms, accepted range
-  1 to 60000. A timed-out upstream call gets JSON 504. Invalid config fails closed with JSON 500.
+  1 to 60000. It covers the wait for upstream response headers only. A timed-out upstream call gets
+  JSON 504. Once headers arrive the body streams through with no timeout, so a mid-body cut cannot
+  become a 504. The client's request body is read before the upstream call and outside this timeout.
+  It is bounded by the 64 KiB cap, not by time. Invalid config fails closed with JSON 500.
 - Forwarded response headers are `content-type`, `retry-after`, `www-authenticate`. `Set-Cookie`
   and `Location` are dropped. Every `/api` response is `Cache-Control: no-store`.
 - Errors stay JSON. An upstream HTML page is replaced with `{status, message}` at the same status.
@@ -47,21 +54,25 @@
   goes to static assets.
 - Rate limiting is done at the Cloudflare WAF, not in the Worker. An in-isolate counter is not a
   global limit, so the Worker adds no guard of its own.
+- The Gateway host is public. This design relies on no Gateway-side limit for login, refresh or
+  registration on that host. So the same WAF rule must also apply there, or the Gateway's ingress must
+  be restricted to the Worker only (checklist 4).
+- `workers_dev` is disabled. The custom domain is the only public entry (checklist 8).
 
 ## Exact values to configure
 
-| Name                                                      | Where                               | Value                                                                                                                                                                                                                                                                                                                                         |
-| --------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PUBLIC_ORIGIN`                                           | Worker secret                       | `https://<dev-fe-host>` (scheme, host, port; no path). Example form only.                                                                                                                                                                                                                                                                     |
-| `GATEWAY_ORIGIN`                                          | Worker secret                       | `https://<dev-api-host>` (the public Cloudflare Tunnel hostname that maps to the Gateway, no path).                                                                                                                                                                                                                                           |
-| `UPSTREAM_TIMEOUT_MS`                                     | Worker var (`[vars]`)               | `10000` (default when unset). Whole number, 1 to 60000. Keep it below the Tunnel and Cloudflare idle timeouts.                                                                                                                                                                                                                                |
-| `PLATFORM_GATEWAY_CARELOG_REGISTRATION_ENABLED`           | Gateway env                         | `true`                                                                                                                                                                                                                                                                                                                                        |
-| `platform.gateway.carelog-registration-allowed-origins`   | Gateway config                      | exactly the `PUBLIC_ORIGIN` value. Env form assumed to be `PLATFORM_GATEWAY_CARELOG_REGISTRATION_ALLOWED_ORIGINS` (Spring relaxed binding). Verify before enabling.                                                                                                                                                                           |
-| `PLATFORM_GATEWAY_AUTH_URI`                               | Gateway env                         | Platform Core, already `http://<prefix>-core.<namespace>:8081` in `platform-infra` `environments/dev/platform/services.tf:51`                                                                                                                                                                                                                 |
-| `PLATFORM_GATEWAY_OAUTH_RATE_LIMIT_TRUSTED_PROXY_HOPS`    | Gateway env                         | Must match the real chain Worker to Tunnel to Gateway. Not verified here. See the deploy checklist.                                                                                                                                                                                                                                           |
-| Cloudflare WAF rate-limit rule (proposed starting values) | Cloudflare zone of the Worker route | Expression: `http.request.method eq "POST" and http.request.uri.path in {"/api/v1/auth/login" "/api/v1/auth/refresh" "/api/v1/auth/carelog/registration"}`. Counting: per IP (`ip.src`). Period 60 s, threshold 20 requests, action Block, mitigation 600 s. A clinic behind one NAT IP shares this budget, so tune it after DEV observation. |
-| Build                                                     | CI or local                         | `VITE_CARELOG_API_BASE_URL=/ pnpm build:client` (outputs `dist/`)                                                                                                                                                                                                                                                                             |
-| Deploy                                                    | `worker/`                           | `wrangler deploy` with the two secrets set. Not run here: no Cloudflare account access.                                                                                                                                                                                                                                                       |
+| Name                                                      | Where                               | Value                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUBLIC_ORIGIN`                                           | Worker secret                       | `https://<dev-fe-host>` (scheme, host, port; no path). Example form only.                                                                                                                                                                                                                                                                                                                                                     |
+| `GATEWAY_ORIGIN`                                          | Worker secret                       | `https://<dev-api-host>` (the public Cloudflare Tunnel hostname that maps to the Gateway, no path).                                                                                                                                                                                                                                                                                                                           |
+| `UPSTREAM_TIMEOUT_MS`                                     | Worker var (`[vars]`)               | `10000` (default when unset). Whole number, 1 to 60000. Keep it below the Tunnel and Cloudflare idle timeouts.                                                                                                                                                                                                                                                                                                                |
+| `PLATFORM_GATEWAY_CARELOG_REGISTRATION_ENABLED`           | Gateway env                         | `true`                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `platform.gateway.carelog-registration-allowed-origins`   | Gateway config                      | exactly the `PUBLIC_ORIGIN` value. Env form assumed to be `PLATFORM_GATEWAY_CARELOG_REGISTRATION_ALLOWED_ORIGINS` (Spring relaxed binding). Verify before enabling.                                                                                                                                                                                                                                                           |
+| `PLATFORM_GATEWAY_AUTH_URI`                               | Gateway env                         | Platform Core, already `http://<prefix>-core.<namespace>:8081` in `platform-infra` `environments/dev/platform/services.tf:51`                                                                                                                                                                                                                                                                                                 |
+| `PLATFORM_GATEWAY_OAUTH_RATE_LIMIT_TRUSTED_PROXY_HOPS`    | Gateway env                         | Must match the real chain Worker to Tunnel to Gateway. Not verified here. See the deploy checklist.                                                                                                                                                                                                                                                                                                                           |
+| Cloudflare WAF rate-limit rule (proposed starting values) | Cloudflare zone of the Worker route | Expression: `http.request.method eq "POST" and http.request.uri.path in {"/api/v1/auth/login" "/api/v1/auth/refresh" "/api/v1/auth/carelog/registration"}`. Counting: per IP (`ip.src`). Period 60 s, threshold 20 requests, action Block, mitigation 600 s. A clinic behind one NAT IP shares this budget, so tune it after DEV observation. Check the plan supports these period and mitigation values first (checklist 9). |
+| Build                                                     | CI or local                         | `VITE_CARELOG_API_BASE_URL=/ pnpm build:client` (outputs `dist/`)                                                                                                                                                                                                                                                                                                                                                             |
+| Deploy                                                    | `worker/`                           | `wrangler deploy` with the two secrets set. Not run here: no Cloudflare account access.                                                                                                                                                                                                                                                                                                                                       |
 
 ## Deploy checklist (must verify before the DEV URL is shared)
 
@@ -74,13 +85,21 @@
    `PLATFORM_GATEWAY_OAUTH_RATE_LIMIT_TRUSTED_PROXY_HOPS` to the hop count that gives this result.
    The Worker overwrites `x-forwarded-for` with `cf-connecting-ip`, and cloudflared may append to it.
    Verify the actual chain. Do not assume it.
-4. The WAF rate-limit rule exists on the zone that serves the Worker route. Confirm that it fires on
-   the Worker host by sending more than the threshold of login requests from one IP and seeing 429.
-   Confirm that a rule on the Gateway host alone does not count for this route.
+4. **Rate limits on both public hosts (must verify).** The WAF rule must return 429 on the Worker host
+   and on the Gateway host, for login, refresh and registration. Send more than the threshold from one IP
+   to each host and confirm 429 on both. If the Gateway host cannot get the rule, restrict its ingress to
+   the Worker only (for example a Tunnel or Access policy) and record which option was used. A Worker-host
+   pass alone is not enough.
 5. Spot checks on the deployed Worker: `GET /api/v1/auth/login` returns 405 JSON with `Allow: POST`.
    `GET /API/v1/x` returns 404 JSON. `GET /api/v1/x%2fy` returns 400 JSON. An unknown `/api` path returns JSON 404.
 6. `run_worker_first` routing works in the deployed Worker. `/api` and `/api/v1/...` reach the Worker, not assets.
 7. The FE build used `VITE_CARELOG_API_BASE_URL=/`, and the `dist/` deployed with the Worker matches it.
+8. **workers.dev disabled (must verify).** `workers_dev = false` is in `wrangler.toml`, and a custom domain
+   route is set in the deploy environment (no hostname is committed). The `<name>.<subdomain>.workers.dev`
+   address returns 404 or is disabled, so the custom domain is the only public entry.
+9. **Plan limits (must verify).** Confirm the Cloudflare plan supports the rate-limit period and mitigation
+   values in the table. Some plans may allow only a 10 s period; this has not been checked here. If the
+   values are not supported, use a supported period with an equivalent threshold and record the values used.
 
 ## Verification
 

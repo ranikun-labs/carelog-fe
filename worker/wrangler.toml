@@ -3,6 +3,10 @@
 name = "carelog-fe-dev"
 main = "src/index.ts"
 compatibility_date = "2026-11-01"
+# The custom domain is the only public entry. The workers.dev address must be disabled (ADR 0002, checklist 8).
+workers_dev = false
+# Required in each deploy environment. No hostname is committed here. Example form:
+#   routes = [{ pattern = "<dev-fe-host>", custom_domain = true }]
 
 [assets]
 # Built with VITE_CARELOG_API_BASE_URL=/ so the FE calls relative /api paths.
