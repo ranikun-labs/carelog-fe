@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AUTH_ERROR_KIND, type AuthCommandResult } from '@/auth/authTypes';
+import { findSignupPasswordProblem, type SignupPasswordProblem } from '@/auth/signupPolicy';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { buildAuthEntryPath, buildAuthLoginPath, buildAuthSignupPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
@@ -13,11 +14,16 @@ export type AuthFormMode = 'login' | 'signup';
 
 type ErrorField = 'account' | 'name' | 'email' | 'secret' | 'secretConfirmation' | 'form';
 
-// Mirrors the registration contract: userId/email/name ≤255, password ≤40.
+// Mirrors the registration contract: userId/email/name ≤255. The password rule lives in signupPolicy.
 const ACCOUNT_MAX_LENGTH = 255;
 const NAME_MAX_LENGTH = 255;
 const EMAIL_MAX_LENGTH = 255;
-const SECRET_MAX_LENGTH = 40;
+
+const PASSWORD_PROBLEM_KEY = {
+  length: 'auth.form.secretLength',
+  characters: 'auth.form.secretCharacters',
+  bytes: 'auth.form.secretBytes',
+} as const satisfies Record<SignupPasswordProblem, MessageKey>;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function resultMessageKey(result: AuthCommandResult, isSignup: boolean): MessageKey | null {
@@ -48,6 +54,8 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
   const [error, setError] = useState<string | null>(null);
   const [errorField, setErrorField] = useState<ErrorField | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Values at the moment a 503 retry budget ran out. The same-content retry is offered only while they are unchanged.
+  const [retrySnapshot, setRetrySnapshot] = useState<string | null>(null);
   const errorId = useId();
   const errorRef = useRef<HTMLParagraphElement>(null);
   const isSignup = mode === 'signup';
@@ -56,9 +64,16 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
     if (error) errorRef.current?.focus({ preventScroll: true });
   }, [error]);
 
+  const currentValuesKey = () => JSON.stringify([account, name, email, secret, secretConfirmation]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await attempt();
+  }
+
+  async function attempt() {
     if (isSubmitting) return;
+    setRetrySnapshot(null);
     const normalizedAccount = account.trim();
     if (!normalizedAccount) {
       setError(t('auth.form.accountRequired'));
@@ -90,8 +105,9 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
         setErrorField('email');
         return;
       }
-      if (secret.length > SECRET_MAX_LENGTH) {
-        setError(t('auth.form.secretTooLong'));
+      const passwordProblem = findSignupPasswordProblem(secret);
+      if (passwordProblem) {
+        setError(t(PASSWORD_PROBLEM_KEY[passwordProblem]));
         setErrorField('secret');
         return;
       }
@@ -120,6 +136,9 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
     if (messageKey) {
       setError(t(messageKey));
       setErrorField('form');
+    }
+    if (isSignup && !result.ok && result.failure.reason === 'registration-retry-exhausted') {
+      setRetrySnapshot(currentValuesKey());
     }
   }
 
@@ -239,6 +258,28 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
               aria-describedby={errorField === 'secretConfirmation' ? errorId : undefined}
               className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             />
+          </div>
+        ) : null}
+
+        {retrySnapshot !== null ? (
+          <div data-auth-retry className="grid gap-3">
+            <p className="text-text-secondary text-sm">
+              {retrySnapshot === currentValuesKey()
+                ? t('auth.form.retrySameWarning')
+                : t('auth.form.retryNewRequestWarning')}
+            </p>
+            {retrySnapshot === currentValuesKey() ? (
+              <Button
+                type="button"
+                variant="outline"
+                data-auth-retry-same
+                disabled={isSubmitting}
+                onClick={() => void attempt()}
+                className="w-full"
+              >
+                {t('auth.form.retrySameAction')}
+              </Button>
+            ) : null}
           </div>
         ) : null}
 

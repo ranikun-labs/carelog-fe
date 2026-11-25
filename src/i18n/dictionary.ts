@@ -100,7 +100,12 @@ export interface Messages {
       nameRequired: string;
       emailInvalid: string;
       secretRequired: string;
-      secretTooLong: string;
+      secretLength: string;
+      secretCharacters: string;
+      secretBytes: string;
+      retrySameAction: string;
+      retrySameWarning: string;
+      retryNewRequestWarning: string;
       secretMismatch: string;
       invalidCredentials: string;
       genericFailure: string;

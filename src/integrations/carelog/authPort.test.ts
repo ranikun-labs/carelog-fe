@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AUTH_ERROR_KIND } from '@/auth/authTypes';
 import {
@@ -806,4 +806,130 @@ it('does not replay A mutation with B credentials when switching during token re
   expect(fetchImpl).toHaveBeenCalledTimes(2);
   expect(sessionStore.getAccessToken()).toBe('synthetic-b');
   expect(sessionStore.getRefreshToken()).toBe('synthetic-refresh-b');
+});
+
+// Core KEY pattern in CarelogRegistrationCoordinator: lowercase UUIDv4 with RFC 4122 variant.
+const CORE_IDEMPOTENCY_KEY =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function keyOf(call: readonly unknown[] | undefined): string {
+  const init = call?.[1] as RequestInit | undefined;
+  return (init?.headers as Record<string, string>)['Idempotency-Key'];
+}
+
+describe('Carelog signup password policy', () => {
+  it.each([
+    ['7 code points', 'a'.repeat(7)],
+    ['21 code points', 'a'.repeat(21)],
+    ['a control character', 'abcdefg\u0007'],
+    ['too many UTF-8 bytes', '😀'.repeat(20)],
+  ])('rejects %s locally without any network call', async (_label, password) => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const runtime = signupRuntime(fetchImpl);
+
+    await expect(runtime.authPort.signup({ ...SIGNUP_INPUT, secret: password })).resolves.toEqual({
+      ok: false,
+      failure: { kind: AUTH_ERROR_KIND.UNKNOWN, reason: 'invalid-registration' },
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('accepts 20 Hangul code points (60 UTF-8 bytes) and does not trim the password', async () => {
+    const password = '가'.repeat(20);
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(registrationResponse(201))
+      .mockResolvedValueOnce(response(200, { accessToken: 'a', refreshToken: 'r' }));
+    const runtime = signupRuntime(fetchImpl);
+
+    await expect(runtime.authPort.signup({ ...SIGNUP_INPUT, secret: password })).resolves.toEqual({
+      ok: true,
+    });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1]?.body as string).password).toBe(password);
+  });
+});
+
+describe('Carelog signup retry budget', () => {
+  it('marks a 503 that exhausted the retry budget so the form can offer a same-content retry', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => registrationError(503));
+    const runtime = signupRuntime(fetchImpl);
+
+    await expect(runtime.authPort.signup(SIGNUP_INPUT)).resolves.toEqual({
+      ok: false,
+      failure: { kind: AUTH_ERROR_KIND.SERVER, reason: 'registration-retry-exhausted' },
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('starts a new key when the user edits a field after the budget ran out', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(registrationError(503))
+      .mockResolvedValueOnce(registrationError(503))
+      .mockResolvedValueOnce(registrationError(503))
+      .mockResolvedValueOnce(registrationResponse(201))
+      .mockResolvedValueOnce(response(200, { accessToken: 'a', refreshToken: 'r' }));
+    const runtime = signupRuntime(fetchImpl);
+
+    await runtime.authPort.signup(SIGNUP_INPUT);
+    await runtime.authPort.signup({ ...SIGNUP_INPUT, name: '이치료' });
+
+    expect(keyOf(fetchImpl.mock.calls[0])).not.toBe(keyOf(fetchImpl.mock.calls[3]));
+    expect(JSON.parse(fetchImpl.mock.calls[3][1]?.body as string).name).toBe('이치료');
+  });
+
+  it('reuses the same key and body on a same-content retry after the budget ran out', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(registrationError(503))
+      .mockResolvedValueOnce(registrationError(503))
+      .mockResolvedValueOnce(registrationError(503))
+      .mockResolvedValueOnce(registrationResponse(201))
+      .mockResolvedValueOnce(response(200, { accessToken: 'a', refreshToken: 'r' }));
+    const runtime = signupRuntime(fetchImpl);
+
+    await runtime.authPort.signup(SIGNUP_INPUT);
+    await expect(runtime.authPort.signup(SIGNUP_INPUT)).resolves.toEqual({ ok: true });
+
+    expect(keyOf(fetchImpl.mock.calls[0])).toBe(keyOf(fetchImpl.mock.calls[3]));
+    expect(fetchImpl.mock.calls[0][1]?.body).toBe(fetchImpl.mock.calls[3][1]?.body);
+  });
+});
+
+describe('Carelog signup idempotency key fallback', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('produces a key that matches the Core pattern when randomUUID is unavailable', async () => {
+    vi.stubGlobal('crypto', {
+      getRandomValues: <T extends ArrayBufferView>(array: T): T => {
+        const bytes = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+        for (let index = 0; index < bytes.length; index += 1)
+          bytes[index] = (index * 37 + 11) & 0xff;
+        return array;
+      },
+    });
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(registrationResponse(201))
+      .mockResolvedValueOnce(response(200, { accessToken: 'a', refreshToken: 'r' }));
+    const runtime = signupRuntime(fetchImpl);
+
+    await runtime.authPort.signup(SIGNUP_INPUT);
+
+    expect(keyOf(fetchImpl.mock.calls[0])).toMatch(CORE_IDEMPOTENCY_KEY);
+  });
+
+  it('produces a Core-pattern key from randomUUID as well', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(registrationResponse(201))
+      .mockResolvedValueOnce(response(200, { accessToken: 'a', refreshToken: 'r' }));
+    const runtime = signupRuntime(fetchImpl);
+
+    await runtime.authPort.signup(SIGNUP_INPUT);
+
+    expect(keyOf(fetchImpl.mock.calls[0])).toMatch(CORE_IDEMPOTENCY_KEY);
+  });
 });

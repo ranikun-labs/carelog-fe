@@ -7,6 +7,7 @@ import {
   type AuthPort,
   type AuthSignupFixture,
 } from '@/auth/authTypes';
+import { findSignupPasswordProblem } from '@/auth/signupPolicy';
 import {
   CarelogConfigurationError,
   CarelogHttpError,
@@ -351,6 +352,13 @@ export function createCarelogAuthRuntime({
         password: input.secret,
         name: input.name.trim(),
       };
+      if (findSignupPasswordProblem(payload.password)) {
+        // Fail closed locally; Core would answer 400 for the same input.
+        return {
+          ok: false,
+          failure: { kind: AUTH_ERROR_KIND.UNKNOWN, reason: 'invalid-registration' },
+        };
+      }
       try {
         await registerAccount(payload);
       } catch (error) {
@@ -422,6 +430,10 @@ function wait(ms: number): Promise<void> {
 }
 
 function registrationFailureFor(error: unknown): AuthFailure {
+  // Retryable errors reach this point only after the retry loop gave up.
+  if (isRetryableRegistrationError(error)) {
+    return { ...failureFor(error), reason: 'registration-retry-exhausted' };
+  }
   if (error instanceof CarelogHttpError) {
     if (error.status === 409) return { kind: AUTH_ERROR_KIND.UNKNOWN, reason: 'account-conflict' };
     if (error.status === 400)

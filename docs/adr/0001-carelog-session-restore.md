@@ -64,6 +64,24 @@ confirm the same data) cannot pass that way.
 - After 201 the adapter logs in with `POST /api/v1/auth/login`. If that login fails, the
   UI says the account was created and asks the user to log in.
 
+## Logout and tab edge cases
+
+- **Logout runs only when an access token is in memory.** `logout()` returns early
+  without calling `/api/v1/auth/logout` when there is no access token. A page that
+  holds only a refresh token (for example after a failed restore, or a reload that
+  has not refreshed yet) therefore clears local state while the server refresh
+  session stays valid until it expires or is rotated.
+- **Expired access token at logout.** The logout client has no refresh-recovery
+  path, so Core's 401 rejects `logout()` after local state is cleared. The server
+  refresh session again remains. The same local-clear-first order applies.
+- **Duplicated tab.** Browsers copy `sessionStorage` into a duplicated tab. Both tabs
+  then hold the same refresh token. The first refresh rotates it, and the other tab's
+  next refresh is rejected (401/404) and it returns to Anonymous. Logout in one tab
+  revokes the shared server session, so the other tab's next call fails the same way.
+- Mitigation is a follow-up, not part of this ADR: attempt a refresh before logout
+  when only a refresh token is present, and show a clear "signed out in another tab"
+  state instead of a generic failure.
+
 ## Open items
 
 - Product/auth owner approval of browser persistence before it is promised to users.

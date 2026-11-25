@@ -23,7 +23,10 @@ export type AuthErrorKind = (typeof AUTH_ERROR_KIND)[keyof typeof AUTH_ERROR_KIN
  * vocabulary; the reason only refines copy for the signup form.
  */
 export type AuthFailureReason =
-  'account-conflict' | 'invalid-registration' | 'registered-login-required';
+  | 'account-conflict'
+  | 'invalid-registration'
+  | 'registered-login-required'
+  | 'registration-retry-exhausted';
 
 export interface AuthFailure {
   kind: AuthErrorKind;
