@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { vi } from 'vitest';
 
@@ -33,6 +33,39 @@ function getTimeTexts() {
 }
 
 describe('EventDetail', () => {
+  it('does not cancel until the confirmation panel is confirmed, and closing returns focus', () => {
+    const onCancelEvent = vi.fn();
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <EventDetail
+            event={{
+              id: 'p',
+              customerId: 'customer-1',
+              status: 'PLANNED',
+              scheduledAt: '2026-08-12T09:00:00+09:00',
+            }}
+            customerName="박세입"
+            customerPath="/app/customers/customer-1"
+            now={now}
+            onCancelEvent={onCancelEvent}
+          />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const trigger = screen.getByRole('button', { name: '취소 처리' });
+    fireEvent.click(trigger);
+    expect(onCancelEvent).not.toHaveBeenCalled();
+    expect(screen.getByText(/되돌릴 수 없어요/)).toBeVisible();
+    expect(screen.getByRole('button', { name: '닫기' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+    expect(trigger).toHaveFocus();
+    expect(onCancelEvent).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: '취소 처리 확정' }));
+    expect(onCancelEvent).toHaveBeenCalledTimes(1);
+  });
+
   it('opens the occurrence confirmation at start when entered from the customer record action', () => {
     render(
       <MemoryRouter>
@@ -55,6 +88,44 @@ describe('EventDetail', () => {
     );
     expect(document.querySelector('[data-event-occurrence-confirmation]')).not.toBeNull();
     expect(screen.getByLabelText(/실제/)).toHaveFocus();
+  });
+
+  it('ignores a second confirm click dispatched in the same tick', async () => {
+    let resolveCancel: (value: undefined) => void = () => undefined;
+    const onCancelEvent = vi.fn(
+      () =>
+        new Promise<undefined>((resolve) => {
+          resolveCancel = resolve;
+        }),
+    );
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <EventDetail
+            event={{
+              id: 'double-click',
+              customerId: 'customer-1',
+              status: 'PLANNED',
+              scheduledAt: '2026-08-12T09:00:00+09:00',
+            }}
+            customerName="박세입"
+            customerPath="/app/customers/customer-1"
+            now={now}
+            onCancelEvent={onCancelEvent}
+          />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '취소 처리' }));
+    const confirm = screen.getByRole('button', { name: '취소 처리 확정' });
+    act(() => {
+      confirm.click();
+      confirm.click();
+    });
+    expect(onCancelEvent).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveCancel(undefined);
+    });
   });
 
   it.each(['2026-08-12T09:00:00+09:00', '2026-08-11T09:00:00+09:00'])(

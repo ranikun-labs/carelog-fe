@@ -279,6 +279,11 @@ export const en: Messages = {
     confirmOccurrence: 'Confirm the actual occurrence time',
     closeOccurrence: 'Close',
     confirmOccurrenceAction: 'Confirm',
+    cancelConfirmTitle: 'Cancel this event?',
+    cancelConfirmBody:
+      'This cannot be undone. The planned time ({{time}}) stays on the cancelled event.',
+    cancelConfirmClose: 'Close',
+    cancelConfirmAction: 'Confirm cancellation',
     scheduledTime: 'Scheduled',
     actualTime: 'Actual',
     time: 'Time',

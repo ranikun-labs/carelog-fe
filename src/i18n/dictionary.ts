@@ -257,6 +257,10 @@ export interface Messages {
     confirmOccurrence: string;
     closeOccurrence: string;
     confirmOccurrenceAction: string;
+    cancelConfirmTitle: string;
+    cancelConfirmBody: string;
+    cancelConfirmClose: string;
+    cancelConfirmAction: string;
     scheduledTime: string;
     actualTime: string;
     time: string;

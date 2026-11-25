@@ -164,6 +164,8 @@ describe('EventDetailPage with an injected event port', () => {
   it('cancels a planned event through the cancel transition and retains its planned coordinate', async () => {
     const { port } = renderPage();
     fireEvent.click(screen.getByRole('button', { name: '취소 처리' }));
+    expect(port.cancel).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '취소 처리 확정' }));
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: '일정 테스트 화면' })).toBeVisible(),

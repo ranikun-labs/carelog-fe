@@ -272,6 +272,11 @@ export const ko: Messages = {
     confirmOccurrence: '실제 발생 시각을 확인해 주세요',
     closeOccurrence: '닫기',
     confirmOccurrenceAction: '확인',
+    cancelConfirmTitle: '이 일정을 취소 처리할까요?',
+    cancelConfirmBody:
+      '취소 처리하면 되돌릴 수 없어요. 예정 시각({{time}})은 취소됨 일정에 그대로 남아요.',
+    cancelConfirmClose: '닫기',
+    cancelConfirmAction: '취소 처리 확정',
     scheduledTime: '예정',
     actualTime: '실제',
     time: '시간',
