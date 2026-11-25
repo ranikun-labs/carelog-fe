@@ -2,7 +2,8 @@ import { Link } from 'react-router';
 
 import { buildAppCustomerDetailPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
-import { cn, formatDate } from '@/lib/utils';
+import { formatDisplayDate } from '@/components/schedule/agendaModel';
+import { cn } from '@/lib/utils';
 import type { CustomerRecord } from '@/types/customer';
 
 interface CustomerCardProps {
@@ -17,7 +18,7 @@ interface CustomerCardProps {
  * 이름은 한글 어절 단위로 줄바꿈하되 긴 무공백 이름은 넘치지 않게 끊는다.
  */
 export function CustomerCard({ customer, isSelected = false, onSelect }: CustomerCardProps) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   return (
     <div data-customer-card data-customer-id={customer.id} className="rounded-control">
       <Link
@@ -53,7 +54,7 @@ export function CustomerCard({ customer, isSelected = false, onSelect }: Custome
           <p className="type-supporting shrink-0 break-keep xl:whitespace-nowrap">
             {t('customers.recentContact')}:{' '}
             <time dateTime={customer.interaction.occurredAt}>
-              {formatDate(customer.interaction.occurredAt)}
+              {formatDisplayDate(customer.interaction.occurredAt, locale)}
             </time>
           </p>
         ) : null}

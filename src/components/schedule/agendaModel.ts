@@ -195,25 +195,47 @@ export function formatAgendaWeekday(dateKey: string, locale: string): string {
   }).format(date);
 }
 
+/** ko는 24시간제 `HH:mm`(F1-G9). 저장 값·시간대(실행 환경 로컬)는 그대로 두고 표시만 바꾼다. */
+function formatKoClock(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function formatAgendaTime(timestamp: string, locale: string): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return timestamp;
-  return new Intl.DateTimeFormat(locale === 'ko' ? 'ko-KR' : 'en-US', {
+  if (locale === 'ko') return formatKoClock(date);
+  return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);
 }
 
+/** ko: `M월 D일 (요일) HH:mm` 24시간제(F1-G9). en은 별도 형식을 유지한다. */
 export function formatAgendaDateTime(timestamp: string, locale: string): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return timestamp;
-  return new Intl.DateTimeFormat(locale === 'ko' ? 'ko-KR' : 'en-US', {
+  if (locale === 'ko') {
+    const weekday = new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(date);
+    return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekday}) ${formatKoClock(date)}`;
+  }
+  return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);
+}
+
+/**
+ * ISO 타임스탬프의 날짜 부분(`formatDate`와 같은 시간대 무변환 slice)을 화면용으로 표시한다.
+ * ko: `M월 D일 (요일)`(F1-G9), en: 기존 `YYYY-MM-DD` 유지. 파싱 불가하면 원문 slice를 그대로 쓴다.
+ */
+export function formatDisplayDate(isoTimestamp: string, locale: string): string {
+  const dateKey = formatDate(isoTimestamp);
+  if (locale !== 'ko') return dateKey;
+  return formatAgendaDate(dateKey, locale);
 }
 
 function compareDateKeys(first: string, second: string): number {

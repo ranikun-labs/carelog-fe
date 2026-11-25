@@ -1,5 +1,8 @@
 import {
   buildAgendaSections,
+  formatAgendaDateTime,
+  formatAgendaTime,
+  formatDisplayDate,
   formatOverdueCount,
   getAgendaCoordinate,
   getAgendaStatusPresentation,
@@ -125,5 +128,40 @@ describe('agenda model', () => {
     );
 
     expect(sections.map((section) => section.dateKey)).toEqual(['2026-08-12', 'invalid']);
+  });
+});
+
+describe('24-hour display format (F1-G9)', () => {
+  // 실행 환경 시간대와 무관하게 로컬 시각을 만든 뒤 ISO(UTC)로 저장 값 형태를 흉내 낸다.
+  const at = (hour: number, minute: number) => new Date(2026, 7, 15, hour, minute).toISOString();
+
+  it('shows ko times as HH:mm without a meridiem marker', () => {
+    expect(formatAgendaTime(at(10, 45), 'ko')).toBe('10:45');
+    expect(formatAgendaTime(at(9, 5), 'ko')).toBe('09:05');
+    expect(formatAgendaTime(at(14, 30), 'ko')).toBe('14:30');
+    expect(formatAgendaTime(at(0, 0), 'ko')).toBe('00:00');
+    expect(formatAgendaTime(at(23, 59), 'ko')).toBe('23:59');
+    expect(formatAgendaTime(at(14, 30), 'ko')).not.toMatch(/오전|오후/);
+  });
+
+  it('shows ko date-times as "M월 D일 (요일) HH:mm" without year', () => {
+    expect(formatAgendaDateTime(at(10, 0), 'ko')).toBe('8월 15일 (토) 10:00');
+    expect(formatAgendaDateTime(at(18, 5), 'ko')).toBe('8월 15일 (토) 18:05');
+  });
+
+  it('keeps en as its own 12-hour format', () => {
+    expect(formatAgendaTime(at(14, 30), 'en')).toMatch(/2:30\s?PM/);
+    expect(formatAgendaDateTime(at(14, 30), 'en')).toMatch(/August 15, 2026.*2:30\s?PM/);
+  });
+
+  it('returns the original text for an unparseable timestamp', () => {
+    expect(formatAgendaTime('not-a-date', 'ko')).toBe('not-a-date');
+    expect(formatAgendaDateTime('not-a-date', 'ko')).toBe('not-a-date');
+  });
+
+  it('shows ko dates as "M월 D일 (요일)" from the stored date part, en keeps YYYY-MM-DD', () => {
+    // 날짜 부분은 시간대 변환 없이 slice한다(기존 formatDate 계약).
+    expect(formatDisplayDate('2026-07-20T09:00:00+09:00', 'ko')).toBe('7월 20일 (월)');
+    expect(formatDisplayDate('2026-07-20T09:00:00+09:00', 'en')).toBe('2026-07-20');
   });
 });
