@@ -300,6 +300,7 @@ export const en: Messages = {
     note: 'Memo',
     notePlaceholder: 'Leave any useful context.',
     scheduledRequired: 'Enter a scheduled time.',
+    scheduledInPast: 'A new scheduled event cannot be saved for a past time. Choose a new time.',
     occurredRequired: 'Enter a recorded time.',
     cancel: 'Close',
     create: 'Add event',

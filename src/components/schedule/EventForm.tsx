@@ -76,7 +76,7 @@ export function EventForm({
       : toDateTimeLocalValue(initialValues?.occurredAt ?? now.toISOString()),
   );
   const [error, setError] = useState<string | null>(null);
-  const [timeRequiredError, setTimeRequiredError] = useState(false);
+  const [timeErrorKind, setTimeErrorKind] = useState<'required' | 'past' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const isEdit = mode === 'edit';
@@ -93,7 +93,7 @@ export function EventForm({
     const time = status === 'PLANNED' ? scheduledAt : occurredAt;
     if (!time) {
       onValidationFailure?.();
-      setTimeRequiredError(true);
+      setTimeErrorKind('required');
       // noValidate라 브라우저가 첫 오류 입력으로 포커스를 옮겨 주지 않는다. 같은 동작을 직접 이어 준다.
       formEvent.currentTarget
         .querySelector<HTMLInputElement>(
@@ -105,8 +105,19 @@ export function EventForm({
       return;
     }
 
+    // 새 예정 일정만 제출 시점의 현재 시각과 비교한다. 오래 열어 둔 폼이나 복원된 초안은 여기서 걸러진다.
+    // 편집은 기존 계약대로 과거 시각을 허용한다.
+    if (!isEdit && status === 'PLANNED' && isBeforeNow(scheduledAt)) {
+      onValidationFailure?.();
+      setTimeErrorKind('past');
+      formEvent.currentTarget
+        .querySelector<HTMLInputElement>('[data-event-field="scheduledAt"]')
+        ?.focus();
+      return;
+    }
+
     setError(null);
-    setTimeRequiredError(false);
+    setTimeErrorKind(null);
     submitLockRef.current = true;
     setIsSubmitting(true);
     void Promise.resolve()
@@ -129,11 +140,14 @@ export function EventForm({
 
   const timeLabel =
     status === 'PLANNED' ? t('eventForm.scheduledTime') : t('eventForm.occurredTime');
-  const timeError = timeRequiredError
-    ? status === 'PLANNED'
-      ? t('eventForm.scheduledRequired')
-      : t('eventForm.occurredRequired')
-    : undefined;
+  const timeError =
+    timeErrorKind === 'past'
+      ? t('eventForm.scheduledInPast')
+      : timeErrorKind === 'required'
+        ? status === 'PLANNED'
+          ? t('eventForm.scheduledRequired')
+          : t('eventForm.occurredRequired')
+        : undefined;
 
   return (
     <form
@@ -193,7 +207,7 @@ export function EventForm({
                   disabled={isSubmitting}
                   onChange={() => {
                     setStatus(value);
-                    setTimeRequiredError(false);
+                    setTimeErrorKind(null);
                   }}
                   className="accent-primary size-5 shrink-0"
                 />
@@ -227,7 +241,7 @@ export function EventForm({
             const next = inputEvent.target.value;
             if (status === 'PLANNED') setScheduledAt(next);
             else setOccurredAt(next);
-            if (next) setTimeRequiredError(false);
+            if (next) setTimeErrorKind(null);
           }}
           required
           hint={
@@ -296,4 +310,10 @@ export function toCanonicalTimestamp(value: string): string {
   const pad = (number: number) => String(number).padStart(2, '0');
   const offset = `${sign}${pad(Math.floor(absoluteOffset / 60))}:${pad(absoluteOffset % 60)}`;
   return `${value.length === 16 ? `${value}:00` : value}${offset}`;
+}
+
+/** 입력된 로컬 시각이 제출 시점보다 이른지. 파싱할 수 없으면 과거로 막지 않는다(필수 검사가 따로 잡는다). */
+function isBeforeNow(localValue: string): boolean {
+  const at = new Date(toCanonicalTimestamp(localValue)).getTime();
+  return Number.isFinite(at) && at < Date.now();
 }

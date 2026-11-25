@@ -6,6 +6,16 @@ import { CarelogHttpError } from '@/integrations/carelog/errors';
 
 const now = new Date(2026, 7, 11, 12, 0, 0);
 
+beforeEach(() => {
+  // 픽스처 시각을 기준 시각으로 고정한다. 과거 시각 검사가 실제 현재 시각(Date.now)을 보기 때문이다.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(now);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 function renderForm(onSubmit = vi.fn(), props: Partial<Parameters<typeof EventForm>[0]> = {}) {
   render(
     <I18nProvider locale="ko">
@@ -94,5 +104,59 @@ describe('EventForm Field contract (F1)', () => {
     fireEvent.click(screen.getByLabelText('지금 기록'));
     expect(screen.getByLabelText('제목')).toHaveValue('유지');
     expect(screen.getByLabelText('기록 시각')).toBeInTheDocument();
+  });
+});
+
+describe('EventForm past time at submit (F3 C-03)', () => {
+  it('blocks a new PLANNED event whose time passed while the form stayed open, with focus on the field', () => {
+    const onSubmit = renderForm();
+    const time = screen.getByLabelText('예정 시각');
+    fireEvent.change(time, { target: { value: '2026-08-11T13:00' } });
+
+    // 폼을 열어 둔 채 시간이 흘러 제출 시점에는 같은 입력값이 과거가 된다.
+    vi.setSystemTime(new Date(2026, 7, 11, 13, 30, 0));
+    fireEvent.submit(document.querySelector('[data-event-form]')!);
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('지난 시각으로는 새 일정을 저장할 수 없어요');
+    expect(time).toHaveAttribute('aria-invalid', 'true');
+    expect(time).toHaveFocus();
+  });
+
+  it('clears the past-time error once a new time is entered', () => {
+    const onSubmit = renderForm();
+    const time = screen.getByLabelText('예정 시각');
+    fireEvent.change(time, { target: { value: '2026-08-11T11:00' } });
+    fireEvent.submit(document.querySelector('[data-event-form]')!);
+    expect(screen.getByRole('alert')).toBeVisible();
+
+    fireEvent.change(time, { target: { value: '2026-08-11T15:00' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.submit(document.querySelector('[data-event-form]')!);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('keeps accepting a past scheduled time when editing an existing PLANNED event', async () => {
+    const onSubmit = vi.fn();
+    render(
+      <I18nProvider locale="ko">
+        <EventForm
+          mode="edit"
+          customerName="박세입"
+          now={now}
+          event={{
+            id: 'past-planned',
+            customerId: 'customer-1',
+            status: 'PLANNED',
+            scheduledAt: '2026-08-10T09:00:00+09:00',
+          }}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.submit(document.querySelector('[data-event-form]')!);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

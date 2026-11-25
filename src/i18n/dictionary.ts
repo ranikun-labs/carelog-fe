@@ -278,6 +278,7 @@ export interface Messages {
     note: string;
     notePlaceholder: string;
     scheduledRequired: string;
+    scheduledInPast: string;
     occurredRequired: string;
     cancel: string;
     create: string;

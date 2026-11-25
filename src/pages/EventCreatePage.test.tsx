@@ -14,6 +14,16 @@ import type { CustomerRecord } from '@/types/customer';
 import { CarelogHttpError } from '@/integrations/carelog/errors';
 
 const now = new Date(2026, 7, 11, 12, 0, 0);
+
+beforeEach(() => {
+  // 픽스처 시각을 기준 시각으로 고정한다. 과거 시각 검사가 실제 현재 시각(Date.now)을 보기 때문이다.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(now);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 const customer: CustomerRecord = {
   id: 'customer-1',
   displayName: '박세입',

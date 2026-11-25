@@ -7,6 +7,16 @@ import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 
+beforeEach(() => {
+  // 픽스처의 기준 시각(2026-08-11)으로 고정한다. 새 일정 과거 시각 검사가 실제 현재 시각을 보기 때문이다.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-08-11T12:00:00+09:00'));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 it('shows a confirmed new event as partial when the first read and refresh fail', async () => {
   const customer = landlordTenantScenario.customer;
   const port = {
