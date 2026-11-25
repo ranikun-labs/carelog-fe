@@ -169,13 +169,33 @@ describe('SchedulePage', () => {
       }
     });
 
+    // 스크롤 한계에 닿은 상태: scrollTop + clientHeight >= scrollHeight - 1 → 맨 아래 보정이 작동하는 조건.
+    // 앵커가 잡히는 렌더 시점에 이미 같은 높이가 보여야 "레이아웃 높이 변화"가 아니라 순수 스크롤 이동만 시험한다.
+    const sizeOverrides = new Map<string, PropertyDescriptor | undefined>();
+    function stubSurfaceSize(name: 'clientHeight' | 'scrollHeight', value: number) {
+      if (!sizeOverrides.has(name)) {
+        sizeOverrides.set(name, Object.getOwnPropertyDescriptor(Element.prototype, name));
+      }
+      Object.defineProperty(Element.prototype, name, {
+        configurable: true,
+        get(this: Element) {
+          return this.hasAttribute('data-scroll-surface') ? value : 0;
+        },
+      });
+    }
+    afterEach(() => {
+      for (const [name, descriptor] of sizeOverrides) {
+        if (descriptor) Object.defineProperty(Element.prototype, name, descriptor);
+        else Reflect.deleteProperty(Element.prototype, name);
+      }
+      sizeOverrides.clear();
+    });
+
     function renderAnchored() {
+      stubSurfaceSize('clientHeight', 400);
+      stubSurfaceSize('scrollHeight', 1040);
       renderPage();
-      const surface = document.querySelector<HTMLElement>('[data-scroll-surface]')!;
-      // 스크롤 한계에 닿은 상태: scrollTop + clientHeight >= scrollHeight - 1 → 맨 아래 보정이 작동하는 조건.
-      Object.defineProperty(surface, 'clientHeight', { configurable: true, value: 400 });
-      Object.defineProperty(surface, 'scrollHeight', { configurable: true, value: 1040 });
-      return surface;
+      return document.querySelector<HTMLElement>('[data-scroll-surface]')!;
     }
 
     const selectedDateKey = () =>
@@ -206,6 +226,19 @@ describe('SchedulePage', () => {
       fireEvent.scroll(surface);
 
       expect(selectedDateKey()).toBe('2026-08-12');
+    });
+
+    it('treats a scroll that comes with a layout height change as settling, not as the user', () => {
+      const surface = renderAnchored();
+      fireEvent.scroll(surface);
+
+      // 글꼴·스켈레톤이 자리 잡아 스크롤 높이가 줄고 위치도 4px보다 크게 밀린다(375x856 재현 조건).
+      clock += 200;
+      stubSurfaceSize('scrollHeight', 1000);
+      surface.scrollTop = ANCHOR_TOP + 20;
+      fireEvent.scroll(surface);
+
+      expect(selectedDateKey()).toBe('2026-08-11');
     });
 
     it('stops ignoring scroll events after the one-second settling window', () => {
