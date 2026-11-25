@@ -27,7 +27,8 @@
     "verify:leakage": "node scripts/verify-leakage.mjs",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm verify:leakage",
     "verify:full": "node scripts/verify-full.mjs",
-    "cap:sync": "pnpm build && cap sync"
+    "cap:sync": "pnpm build && cap sync",
+    "test:e2e:same-origin": "playwright test -c playwright.same-origin.config.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",

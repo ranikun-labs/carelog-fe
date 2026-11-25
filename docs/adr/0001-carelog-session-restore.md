@@ -26,6 +26,12 @@ confirm the same data) cannot pass that way.
 - Credentials stay `omit`. Nothing is sent as a cookie, so no CORS credentials or CSRF
   surface is added.
 
+## Deployment note
+
+The DEV frontend is served same-origin by a Worker (`docs/adr/0002-same-origin-dev-worker.md`).
+That does not change this decision: the refresh token is still in `sessionStorage`, and
+the access token is still memory-only.
+
 ## Alternatives considered
 
 1. **Memory only (previous state).** Safest for XSS, but a reload logs the user out, so

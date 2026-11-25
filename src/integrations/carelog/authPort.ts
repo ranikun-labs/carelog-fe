@@ -183,7 +183,12 @@ export function createCarelogAuthRuntime({
     if (!apiBaseUrl.trim()) {
       throw new CarelogConfigurationError('VITE_CARELOG_API_BASE_URL is required.');
     }
-    if (import.meta.env.PROD && new URL(apiBaseUrl).protocol !== 'https:') {
+    // '/' is the same-origin edge (HTTPS by construction); only absolute bases need the check.
+    if (
+      import.meta.env.PROD &&
+      apiBaseUrl.trim() !== '/' &&
+      new URL(apiBaseUrl).protocol !== 'https:'
+    ) {
       throw new CarelogConfigurationError('The production Carelog API must use HTTPS.');
     }
     client = createCarelogHttpClient({

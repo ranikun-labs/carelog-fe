@@ -933,3 +933,29 @@ describe('Carelog signup idempotency key fallback', () => {
     expect(keyOf(fetchImpl.mock.calls[0])).toMatch(CORE_IDEMPOTENCY_KEY);
   });
 });
+
+describe('Carelog same-origin API base', () => {
+  it('uses relative paths when the base is "/" so the DEV edge Worker answers them', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(response(200, { accessToken: 'a', refreshToken: 'r' }));
+    const runtime = createCarelogAuthRuntime({ apiBaseUrl: '/', fetchImpl });
+
+    await expect(
+      runtime.authPort.login({ account: 'therapist-7', secret: 'secret-value' }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(fetchImpl.mock.calls[0][0]).toBe('/api/v1/auth/login');
+    expect(fetchImpl.mock.calls[0][1]).toMatchObject({ credentials: 'omit' });
+  });
+
+  it('still refuses an empty base URL so a missing setting fails closed', async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const runtime = createCarelogAuthRuntime({ apiBaseUrl: '', fetchImpl });
+
+    await expect(
+      runtime.authPort.login({ account: 'therapist-7', secret: 'secret-value' }),
+    ).resolves.toEqual({ ok: false, failure: { kind: AUTH_ERROR_KIND.UNKNOWN } });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});

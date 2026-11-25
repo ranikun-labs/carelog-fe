@@ -12,8 +12,8 @@ open and must be confirmed before enabling the affected flows.
 `PLATFORM_GATEWAY_AUTH_URI = http://<prefix>-core.<namespace>:8081`. Production
 is not confirmed in these repositories and must be verified by the runtime owner
 before release. The FE must set `VITE_CARELOG_API_BASE_URL` to the HTTPS shared
-Gateway origin, without a path suffix (or use the same-origin Worker, see the
-ADR's deployment note).
+Gateway origin, without a path suffix (or use the same-origin DEV Worker,
+see `docs/adr/0002-same-origin-dev-worker.md`).
 
 ## Browser token lifetime
 

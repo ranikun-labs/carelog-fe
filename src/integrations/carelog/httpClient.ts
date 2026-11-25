@@ -159,6 +159,8 @@ export function createCarelogHttpClient({
 
 function normalizeBaseUrl(value: string): string {
   if (!value.trim()) throw new CarelogConfigurationError('The Carelog API base URL is required.');
+  // '/' means same-origin relative paths, served by the DEV edge Worker.
+  if (value.trim() === '/') return '';
   let url: URL;
   try {
     url = new URL(value);
