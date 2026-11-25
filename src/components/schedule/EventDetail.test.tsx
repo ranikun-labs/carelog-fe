@@ -33,6 +33,39 @@ function getTimeTexts() {
 }
 
 describe('EventDetail', () => {
+  it('does not cancel until the confirmation panel is confirmed, and closing returns focus', () => {
+    const onCancelEvent = vi.fn();
+    render(
+      <MemoryRouter>
+        <I18nProvider locale="ko">
+          <EventDetail
+            event={{
+              id: 'p',
+              customerId: 'customer-1',
+              status: 'PLANNED',
+              scheduledAt: '2026-08-12T09:00:00+09:00',
+            }}
+            customerName="박세입"
+            customerPath="/app/customers/customer-1"
+            now={now}
+            onCancelEvent={onCancelEvent}
+          />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const trigger = screen.getByRole('button', { name: '취소 처리' });
+    fireEvent.click(trigger);
+    expect(onCancelEvent).not.toHaveBeenCalled();
+    expect(screen.getByText(/되돌릴 수 없어요/)).toBeVisible();
+    expect(screen.getByRole('button', { name: '닫기' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+    expect(trigger).toHaveFocus();
+    expect(onCancelEvent).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: '취소 처리 확정' }));
+    expect(onCancelEvent).toHaveBeenCalledTimes(1);
+  });
+
   it.each(['2026-08-12T09:00:00+09:00', '2026-08-11T09:00:00+09:00'])(
     'returns focus to the occurrence trigger after closing confirmation for %s',
     (scheduledAt) => {

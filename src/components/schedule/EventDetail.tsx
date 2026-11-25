@@ -49,6 +49,9 @@ export function EventDetail({
 }: EventDetailProps) {
   const { locale, t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
+  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
+  const cancelTriggerRef = useRef<HTMLButtonElement>(null);
+  const cancelCloseRef = useRef<HTMLButtonElement>(null);
   const [isConfirmingOccurrence, setIsConfirmingOccurrence] = useState(false);
   const occurrenceTriggerRef = useRef<HTMLButtonElement>(null);
   const occurrenceInputRef = useRef<HTMLInputElement>(null);
@@ -70,8 +73,14 @@ export function EventDetail({
     if (isConfirmingOccurrence) occurrenceInputRef.current?.focus();
   }, [isConfirmingOccurrence]);
 
+  // 취소 확인 패널이 열리면 안전한 쪽(닫기)에 포커스를 둔다. Enter 한 번에 취소되지 않게 한다.
+  useEffect(() => {
+    if (isConfirmingCancel) cancelCloseRef.current?.focus();
+  }, [isConfirmingCancel]);
+
   function openOccurrenceConfirmation() {
     if (event.status !== 'PLANNED') return;
+    setIsConfirmingCancel(false);
     setOccurrenceTime(toDateTimeLocalValue(event.scheduledAt));
     setIsConfirmingOccurrence(true);
   }
@@ -241,11 +250,18 @@ export function EventDetail({
           ) : null}
           {event.status === 'PLANNED' && onCancelEvent ? (
             <Button
+              ref={cancelTriggerRef}
               type="button"
               variant="text-neutral"
               size="sm"
+              className="ml-auto"
+              aria-expanded={isConfirmingCancel}
               data-event-action="cancel"
-              onClick={() => void cancelEvent()}
+              onClick={() => {
+                setIsConfirmingOccurrence(false);
+                setActionError(null);
+                setIsConfirmingCancel(true);
+              }}
               disabled={isActionPending}
             >
               {t('eventDetail.cancel')}
@@ -258,6 +274,49 @@ export function EventDetail({
         <p role="alert" className="bg-warning-bg text-warning rounded-inset type-label px-3 py-2">
           {actionError}
         </p>
+      ) : null}
+
+      {isConfirmingCancel && event.status === 'PLANNED' && onCancelEvent ? (
+        <section
+          data-event-cancel-confirmation
+          className="bg-inset rounded-card flex flex-col gap-3 p-4"
+        >
+          <h2 className="type-content-title text-foreground">
+            {t('eventDetail.cancelConfirmTitle')}
+          </h2>
+          <p className="type-body text-text-secondary break-keep">
+            {t('eventDetail.cancelConfirmBody', {
+              time: formatAgendaDateTime(getAgendaCoordinate(event), locale),
+            })}
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              ref={cancelCloseRef}
+              type="button"
+              variant="neutral"
+              size="sm"
+              data-event-cancel-close
+              onClick={() => {
+                setIsConfirmingCancel(false);
+                cancelTriggerRef.current?.focus();
+              }}
+              disabled={isActionPending}
+            >
+              {t('eventDetail.cancelConfirmClose')}
+            </Button>
+            {/* 확정만 위험색. 확정 전에는 상태가 바뀌지 않는다. */}
+            <Button
+              type="button"
+              variant="danger-strong"
+              size="sm"
+              data-event-cancel-confirm
+              onClick={() => void cancelEvent()}
+              disabled={isActionPending}
+            >
+              {t('eventDetail.cancelConfirmAction')}
+            </Button>
+          </div>
+        </section>
       ) : null}
 
       {isConfirmingOccurrence && event.status === 'PLANNED' && onOccurEvent ? (

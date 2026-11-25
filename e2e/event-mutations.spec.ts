@@ -358,6 +358,7 @@ test('planned cancel keeps the same record in Customer History and out of Upcomi
 }) => {
   await page.goto(`/app/events/${FOLLOWUP_EVENT_ID}`);
   await page.getByRole('button', { name: '취소 처리' }).click();
+  await page.getByRole('button', { name: '취소 처리 확정' }).click();
 
   await expect(page).toHaveURL('/app/schedule');
   const cancelledRow = page.locator(`[data-event-id="${FOLLOWUP_EVENT_ID}"]`);
@@ -374,4 +375,40 @@ test('planned cancel keeps the same record in Customer History and out of Upcomi
     page.locator(`[data-customer-history-item][data-event-id="${FOLLOWUP_EVENT_ID}"]`),
   ).toHaveAttribute('data-event-status', 'CANCELLED');
   await expect(page.locator('[data-upcoming-primary]')).toHaveCount(0);
+});
+
+test('cancel needs a confirmation panel: close keeps PLANNED, confirm cancels', async ({
+  page,
+}) => {
+  await page.goto(`/app/events/${FOLLOWUP_EVENT_ID}`);
+  const detail = page.locator('[data-event-detail]');
+
+  // "취소 처리"는 "수정"과 떨어져 오른쪽 끝에 있다.
+  const edit = await detail.locator('[data-event-action="edit"]').boundingBox();
+  const cancel = await detail.locator('[data-event-action="cancel"]').boundingBox();
+  expect(edit).not.toBeNull();
+  expect(cancel).not.toBeNull();
+  expect(cancel!.x - (edit!.x + edit!.width)).toBeGreaterThanOrEqual(24);
+
+  await page.getByRole('button', { name: '취소 처리' }).click();
+  const panel = page.locator('[data-event-cancel-confirmation]');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('되돌릴 수 없어요');
+  await expect(panel).toContainText('예정 시각');
+  await expect(panel.getByRole('button', { name: '닫기' })).toBeFocused();
+  await expect(detail).toHaveAttribute('data-event-status', 'PLANNED');
+
+  await panel.getByRole('button', { name: '닫기' }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(detail).toHaveAttribute('data-event-status', 'PLANNED');
+  await expect(page).toHaveURL(`/app/events/${FOLLOWUP_EVENT_ID}`);
+  await expect(page.locator('[data-event-action="cancel"]')).toBeFocused();
+
+  await page.getByRole('button', { name: '취소 처리' }).click();
+  await page.getByRole('button', { name: '취소 처리 확정' }).click();
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(page.locator(`[data-event-id="${FOLLOWUP_EVENT_ID}"]`)).toHaveAttribute(
+    'data-event-status',
+    'CANCELLED',
+  );
 });
