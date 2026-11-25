@@ -5,7 +5,10 @@ import { CustomerContextSection } from '@/components/customers/CustomerContextSe
 import { CustomerMemo } from '@/components/customers/CustomerMemo';
 import { CustomerTimeline } from '@/components/customers/CustomerTimeline';
 import { CustomerUpcoming } from '@/components/customers/CustomerUpcoming';
-import { getUpcomingCustomerEvents } from '@/components/customers/customerDetailModel';
+import {
+  getOverdueCustomerEvents,
+  getUpcomingCustomerEvents,
+} from '@/components/customers/customerDetailModel';
 import { PageHeader } from '@/components/common/PageHeader';
 import {
   AdaptiveSurface,
@@ -187,7 +190,8 @@ export function CustomerDetailPage({
   const explicitMemo = memo ?? currentCustomer.customerMemo;
 
   const openEvent = adaptiveHost
-    ? (event: CustomerEvent) => adaptiveHost.selectCustomerEvent(currentCustomer.id, event.id)
+    ? (event: CustomerEvent, options?: { openOccurrence?: boolean }) =>
+        adaptiveHost.selectCustomerEvent(currentCustomer.id, event.id, options)
     : undefined;
 
   const assistantNavigation: AssistantNavigationState = {
@@ -375,7 +379,11 @@ export function CustomerDetailPage({
             now={now}
             onOpenEvent={openEvent}
             action={addEventButton}
-            ready={hasDetailData || getUpcomingCustomerEvents(knownEvents, now).length > 0}
+            ready={
+              hasDetailData ||
+              getUpcomingCustomerEvents(knownEvents, now).length > 0 ||
+              getOverdueCustomerEvents(knownEvents, now).length > 0
+            }
           />
 
           {isCreating && createEvent ? (

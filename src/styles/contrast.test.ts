@@ -108,8 +108,8 @@ describe.each(['light', 'dark'] as const)('Foundation v1 %s theme contrast (>= 4
     },
   );
 
-  it('focus ring (brand strong) is at least 3:1 on card, page and brand-subtle', () => {
-    for (const surface of ['card', 'page', 'brand-subtle']) {
+  it('focus ring (brand strong) is at least 3:1 on every surface a focusable control sits on', () => {
+    for (const surface of ['card', 'page', 'inset', 'control', 'brand-subtle']) {
       expect(
         contrastRatio(token(theme, 'ring'), token(theme, surface)),
         `ring on ${surface}`,

@@ -466,6 +466,7 @@ export function AdaptiveHost() {
           adaptiveRoot: 'customers',
           adaptiveCustomerId: customerId,
           adaptiveEventId: eventId,
+          ...(options.openOccurrence ? { openOccurrence: true } : {}),
         } satisfies AdaptiveNavigationState,
       });
       return;
@@ -495,8 +496,12 @@ export function AdaptiveHost() {
     });
   }
 
-  function selectCustomerEvent(customerId: string, eventId: string) {
-    selectEvent(eventId, { root: 'customers', customerId });
+  function selectCustomerEvent(
+    customerId: string,
+    eventId: string,
+    options: Pick<SelectEventOptions, 'openOccurrence'> = {},
+  ) {
+    selectEvent(eventId, { ...options, root: 'customers', customerId });
   }
 
   function openCustomerFromEvent(customerId: string) {
