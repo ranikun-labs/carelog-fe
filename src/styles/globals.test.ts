@@ -74,13 +74,26 @@ describe('Carelog semantic design tokens (Foundation v1.0.0)', () => {
     expect(rootToken('--radius-pane')).toBe('var(--radius-card)');
   });
 
-  it('loads the Compact density without inventing unspecified line heights', () => {
+  it('loads the Compact density with every size and line height from the Foundation', () => {
     expect(rootToken('--control-h')).toBe('44px');
     expect(rootToken('--touch-min')).toBe('44px');
     expect(rootToken('--type-page-title-size')).toBe('22px');
     expect(rootToken('--type-body-size')).toBe('14px');
-    expect(rootToken('--type-body-lh')).toBe('21px');
-    expect(rootToken('--type-reading-lh')).toBe('24px');
+    // 줄 높이 9개 전부 정본 density.compact 값(F1-G1).
+    const lineHeights = {
+      'page-title': '30px',
+      'section-title': '26px',
+      'content-title': '22px',
+      'key-value': '28px',
+      reading: '24px',
+      body: '21px',
+      supporting: '19px',
+      meta: '17px',
+      label: '17px',
+    };
+    for (const [role, lh] of Object.entries(lineHeights)) {
+      expect(rootToken(`--type-${role}-lh`)).toBe(lh);
+    }
     // 12px 미만 텍스트 금지
     for (const match of globalsCss.matchAll(/--type-[a-z-]+-size:\s*(\d+)px/g)) {
       expect(Number(match[1])).toBeGreaterThanOrEqual(12);

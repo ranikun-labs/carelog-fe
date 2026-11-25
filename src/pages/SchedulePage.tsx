@@ -102,7 +102,7 @@ export function SchedulePage({
   const scrollSurfaceRef = useRef<HTMLElement>(null);
   const didInitialAnchor = useRef(false);
   const didSkipInitialScroll = useRef(false);
-  const initialAnchor = useRef<{ top: number; at: number } | null>(null);
+  const initialAnchor = useRef<{ top: number; height: number; at: number } | null>(null);
   const pendingAgendaTargetId = useRef<string | null>(initialAgendaTargetId);
   const shouldScrollToSelection = useRef(!(initialScrollTop > 0 && !initialAgendaTargetId));
   const explicitlySelectedDateKey = useRef<string | null>(null);
@@ -176,7 +176,11 @@ export function SchedulePage({
       block: targetEventId || !didInitialAnchor.current ? 'center' : 'start',
     });
     if (isInitialAnchor) {
-      initialAnchor.current = { top: scrollSurface.scrollTop, at: performance.now() };
+      initialAnchor.current = {
+        top: scrollSurface.scrollTop,
+        height: scrollSurface.scrollHeight,
+        at: performance.now(),
+      };
     }
     pendingAgendaTargetId.current = null;
     didInitialAnchor.current = true;
@@ -200,15 +204,21 @@ export function SchedulePage({
         return;
       }
 
-      // 첫 앵커 직후 글꼴·레이아웃이 자리 잡으며 스크롤 한계가 몇 px 바뀌면 브라우저가 scroll 이벤트를 한 번 더 낸다.
-      // 사용자가 움직인 게 아니므로 무시한다 — 안 그러면 맨 아래 보정으로 마지막 날짜가 선택돼 오늘이 풀린다.
+      // 첫 앵커 직후 글꼴·레이아웃이 자리 잡으며 스크롤 높이가 바뀌면 브라우저가 scroll 이벤트를 더 낸다.
+      // 사용자가 움직인 게 아니므로 무시한다 — 안 그러면 가운데 정렬된 오늘이 위 날짜로 밀리거나
+      // 맨 아래 보정으로 마지막 날짜가 선택돼 오늘이 풀린다. 이동량이 4px 이내이거나 높이 변화량으로
+      // 설명되면 정착 이벤트로 보고 기준 위치를 새로 잡는다(높이 변화보다 크게 움직인 사용자 스크롤은 통과).
       const anchor = initialAnchor.current;
-      if (
-        anchor &&
-        performance.now() - anchor.at < 1000 &&
-        Math.abs(scrollSurface.scrollTop - anchor.top) <= 4
-      ) {
-        return;
+      if (anchor && performance.now() - anchor.at < 1000) {
+        const settleTolerance = Math.max(4, Math.abs(scrollSurface.scrollHeight - anchor.height));
+        if (Math.abs(scrollSurface.scrollTop - anchor.top) <= settleTolerance) {
+          initialAnchor.current = {
+            ...anchor,
+            top: scrollSurface.scrollTop,
+            height: scrollSurface.scrollHeight,
+          };
+          return;
+        }
       }
 
       const surfaceRect = scrollSurface.getBoundingClientRect();

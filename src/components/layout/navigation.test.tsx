@@ -47,6 +47,25 @@ describe.each([
   });
 });
 
+describe('BottomNavigation single row (F1-G4)', () => {
+  it('puts schedule, customers and account in one row of three cells without a second row', () => {
+    const { container } = renderAt('/app/schedule', <BottomNavigation />);
+    const nav = container.querySelector('[data-bottom-navigation]')!;
+    expect(nav.querySelectorAll('ul')).toHaveLength(1);
+    expect(nav.querySelector('ul')).toHaveClass('grid-cols-3');
+    const links = screen.getAllByRole('link');
+    expect(links.map((l) => [l.textContent, l.getAttribute('href')])).toEqual([
+      ['일정', '/app/schedule'],
+      ['고객', '/app/customers'],
+      ['계정', '/app/settings'],
+    ]);
+    // 별도 계정 줄(border-t 링크)이 없어야 한다.
+    expect(nav.querySelectorAll(':scope > a')).toHaveLength(0);
+    // 하단 safe area는 nav가 맡는다.
+    expect(nav.className).toContain('pb-[env(safe-area-inset-bottom)]');
+  });
+});
+
 describe('SideNavigationRail width contract', () => {
   it('stays 80px (w-20): it defines the AdaptiveHost availableWidth threshold (1180 viewport = 1100 available)', () => {
     const { container } = renderAt('/app', <SideNavigationRail />);
