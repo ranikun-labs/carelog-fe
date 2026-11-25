@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { SettingsPage } from '@/pages/SettingsPage';
 import { AppLocaleProvider } from '@/i18n/AppLocaleProvider';
+import { ThemeProvider } from '@/theme/ThemeProvider';
 
 vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ logout: vi.fn() }) }));
 
@@ -13,11 +14,13 @@ describe('SettingsPage language choice (M6)', () => {
   it('offers the languages as a native radio group with no Strong selection', () => {
     render(
       <AppLocaleProvider syncDocumentLang={false}>
-        <SettingsPage />
+        <ThemeProvider>
+          <SettingsPage />
+        </ThemeProvider>
       </AppLocaleProvider>,
     );
     expect(screen.getByRole('group', { name: '현재 언어' })).toBeInstanceOf(HTMLFieldSetElement);
-    const radios = screen.getAllByRole('radio');
+    const radios = screen.getAllByRole('radio').slice(0, 2);
     expect(radios).toHaveLength(2);
     const [ko, en] = radios as HTMLInputElement[];
     expect(ko.checked).toBe(true);

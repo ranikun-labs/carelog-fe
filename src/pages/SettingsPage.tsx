@@ -6,11 +6,19 @@ import { useAuth } from '@/auth/AuthProvider';
 import { useAppLocale } from '@/i18n/AppLocaleProvider';
 import { useTranslation } from '@/i18n/I18nContext';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/theme/ThemeProvider';
+import type { ThemePreference } from '@/theme/themePreference';
 
 export function SettingsPage() {
   const { locale, setLocale } = useAppLocale();
   const { t } = useTranslation();
   const { logout } = useAuth();
+  const { preference, setPreference } = useTheme();
+  const themeOptions: readonly [ThemePreference, string][] = [
+    ['system', t('settings.themeSystem')],
+    ['light', t('settings.themeLight')],
+    ['dark', t('settings.themeDark')],
+  ];
   const options: readonly [Locale, string][] = [
     ['ko', t('settings.korean')],
     ['en', t('settings.english')],
@@ -48,6 +56,37 @@ export function SettingsPage() {
                   value={value}
                   checked={selected}
                   onChange={() => setLocale(value)}
+                  className="sr-only"
+                />
+                <span className="min-w-0 wrap-anywhere break-keep">{label}</span>
+                {selected ? <Check aria-hidden="true" className="size-5 shrink-0" /> : null}
+              </label>
+            );
+          })}
+        </fieldset>
+      </section>
+      <section className="grid gap-4">
+        <h2 className="type-section-title text-foreground">{t('settings.themeTitle')}</h2>
+        <fieldset className="grid min-w-0 gap-2">
+          <legend className="sr-only">{t('settings.themeTitle')}</legend>
+          {themeOptions.map(([value, label]) => {
+            const selected = preference === value;
+            return (
+              <label
+                key={value}
+                data-theme-option={value}
+                className={cn(
+                  'rounded-control type-body flex min-h-12 cursor-pointer items-center justify-between gap-3 px-4 font-semibold',
+                  'has-[:focus-visible]:outline-ring has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2',
+                  selected ? 'bg-brand-subtle text-brand-deep' : 'bg-inset text-foreground',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="app-theme"
+                  value={value}
+                  checked={selected}
+                  onChange={() => setPreference(value)}
                   className="sr-only"
                 />
                 <span className="min-w-0 wrap-anywhere break-keep">{label}</span>

@@ -2,7 +2,7 @@ import { expect, test, useAssistantAdapter, useAuthAdapterScenario, type Page } 
 
 /**
  * Dark 면 보정(F1-05 PR-C7, F1-01 C-1) 회귀 가드.
- * Dark는 사용자에게 노출하지 않는다(F1-G2 대기). 노출 코드를 추가하지 않고, 테스트가 `.dark`를 직접 붙여
+ * Dark는 설정 > 화면 모드로 노출된다(G2). 이 테스트는 선택 UI와 무관하게 `.dark`를 직접 붙여
  * 실제 렌더 색을 잰다: 글자 4.5:1(큰 글자 3:1), 입력 외곽선 3:1.
  */
 

@@ -292,6 +292,10 @@ export interface Messages {
     title: string;
     description: string;
     currentLanguage: string;
+    themeTitle: string;
+    themeSystem: string;
+    themeLight: string;
+    themeDark: string;
     korean: string;
     english: string;
   };
