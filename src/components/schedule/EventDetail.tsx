@@ -34,6 +34,8 @@ interface EventDetailProps {
   onOccurEvent?: (
     occurredAt: string,
   ) => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
+  /** 고객 상세의 "기록 완료"로 들어왔을 때, 실제 시각 확인 패널을 열고 시작한다. */
+  startWithOccurrenceConfirmation?: boolean;
 }
 
 export function EventDetail({
@@ -46,10 +48,13 @@ export function EventDetail({
   onEdit,
   onCancelEvent,
   onOccurEvent,
+  startWithOccurrenceConfirmation = false,
 }: EventDetailProps) {
   const { locale, t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
-  const [isConfirmingOccurrence, setIsConfirmingOccurrence] = useState(false);
+  const [isConfirmingOccurrence, setIsConfirmingOccurrence] = useState(
+    startWithOccurrenceConfirmation && event.status === 'PLANNED' && Boolean(onOccurEvent),
+  );
   const occurrenceTriggerRef = useRef<HTMLButtonElement>(null);
   const occurrenceInputRef = useRef<HTMLInputElement>(null);
   const [isActionPending, setIsActionPending] = useState(false);
