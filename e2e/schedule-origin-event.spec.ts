@@ -454,10 +454,12 @@ test('a saved notice does not change the sticky header height or move the agenda
   page,
 }) => {
   const width = page.viewportSize()?.width;
-  // 데스크톱 두 화면: 저장 뒤 일정 화면이 다시 마운트되어 알림 문장이 사라진다(별도 결함, PR 본문 참고). 이 테스트 범위는 한 화면이다.
-  test.skip(
+  // 데스크톱 두 화면(1180 이상): 저장 뒤 일정 화면 루트가 다시 마운트된다. 이 재마운트는 #50 이전 base(fa3b61c)에서도 5/5로 재현된다.
+  // 저장 알림은 표시된 뒤 재마운트에 사라지고(0f7a812·082b98a에서 1~2프레임), 4c67766에서는 남았다. 알림 생명주기 결정이 필요해 fixme로 둔다.
+  // 근거: PR 본문 "데스크톱 대조표". 제거 조건: 데스크톱에서도 문장이 한 번 보이고 레이아웃 불변이 확인될 때.
+  test.fixme(
     (width ?? 0) >= 1180,
-    'desktop two-pane remounts the schedule after save; see PR body finding',
+    'desktop two-pane: notice lost after schedule remount (see PR body)',
   );
   const descriptor = `Schedule notice layout ${width}`;
   const sticky = page.locator('[data-schedule-sticky]');
