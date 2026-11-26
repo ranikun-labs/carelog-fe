@@ -272,10 +272,21 @@ export const ko: Messages = {
     confirmOccurrence: '실제 발생 시각을 확인해 주세요',
     closeOccurrence: '닫기',
     confirmOccurrenceAction: '확인',
+    cancelConfirmTitle: '이 일정을 취소 처리할까요?',
+    cancelConfirmBody:
+      '취소 처리하면 되돌릴 수 없어요. 예정 시각({{time}})은 취소됨 일정에 그대로 남아요.',
+    cancelConfirmClose: '닫기',
+    cancelConfirmAction: '취소 처리 확정',
     scheduledTime: '예정',
     actualTime: '실제',
     time: '시간',
     memo: '메모',
+  },
+  leaveGuard: {
+    title: '작성 중인 내용이 사라져요',
+    description: '지금 나가면 입력한 내용을 잃어요.',
+    stay: '계속 작성',
+    leave: '나가기',
   },
   eventForm: {
     savedNotice: '{{when}} 일정을 저장했어요.',

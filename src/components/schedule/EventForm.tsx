@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
+import { LeaveGuard } from '@/components/common/LeaveGuard';
 import { getDefaultPlannedDateTimeLocal } from '@/components/schedule/agendaModel';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
@@ -37,9 +38,13 @@ interface EventFormProps {
   initialValues?: EventFormInitialValues;
   fixedCreateStatus?: 'PLANNED';
   onDraftChange?: (draft: EventFormDraft) => void;
+  /** "나가기"를 확정하면 호출된다. 부모가 들고 있는 임시 초안을 버리는 데 쓴다. */
+  onDiscard?: () => void;
   onSubmit: (values: EventFormSubmitValues) => void | Promise<void>;
   onValidationFailure?: () => void;
   onCancel: () => void;
+  /** 새 예정 일정의 과거 시각 검사 기준 시각. 테스트는 주입하고, 생략하면 제출 시점의 현재 시각을 쓴다. */
+  getNow?: () => Date;
 }
 
 export function EventForm({
@@ -50,9 +55,11 @@ export function EventForm({
   initialValues,
   fixedCreateStatus,
   onDraftChange,
+  onDiscard,
   onSubmit,
   onValidationFailure,
   onCancel,
+  getNow = () => new Date(),
 }: EventFormProps) {
   const { t } = useTranslation();
   const initialStatus =
@@ -79,6 +86,7 @@ export function EventForm({
   const [timeErrorKind, setTimeErrorKind] = useState<'required' | 'past' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
+  const lastFieldRef = useRef<HTMLElement | null>(null);
   const isEdit = mode === 'edit';
   const isOccurredEdit = event?.status === 'OCCURRED';
   const isFixedCreateStatus = !isEdit && fixedCreateStatus !== undefined;
@@ -86,6 +94,18 @@ export function EventForm({
   useEffect(() => {
     onDraftChange?.({ descriptor, note, scheduledAt, status, occurredAt });
   }, [descriptor, note, occurredAt, onDraftChange, scheduledAt, status]);
+
+  // 만들기: 제목·메모가 비어 있지 않을 때. 수정: 원래 값과 달라졌을 때. 저장 중에는 놓아준다.
+  const hasUnsavedInput = () => {
+    if (submitLockRef.current) return false;
+    if (!isEdit) return descriptor.trim() !== '' || note.trim() !== '';
+    return (
+      descriptor !== (event?.descriptor ?? '') ||
+      note !== (event?.note ?? '') ||
+      (event?.status === 'PLANNED' && scheduledAt !== toDateTimeLocalValue(event.scheduledAt)) ||
+      (event?.status === 'OCCURRED' && occurredAt !== toDateTimeLocalValue(event.occurredAt))
+    );
+  };
 
   function submit(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -105,9 +125,9 @@ export function EventForm({
       return;
     }
 
-    // 새 예정 일정만 제출 시점의 현재 시각과 비교한다. 오래 열어 둔 폼이나 복원된 초안은 여기서 걸러진다.
-    // 편집은 기존 계약대로 과거 시각을 허용한다.
-    if (!isEdit && status === 'PLANNED' && isBeforeNow(scheduledAt)) {
+    // 새 예정 일정만 제출 시점 기준으로 검사한다(현재 시각과 같은 분도 차단). 기본값은 항상 미래다.
+    // 편집·즉시 기록(OCCURRED)은 과거 시각을 그대로 허용한다.
+    if (!isEdit && status === 'PLANNED' && isNotAfterNow(scheduledAt, getNow())) {
       onValidationFailure?.();
       setTimeErrorKind('past');
       formEvent.currentTarget
@@ -150,141 +170,153 @@ export function EventForm({
         : undefined;
 
   return (
-    <form
-      data-event-form
-      data-event-form-mode={mode}
-      aria-busy={isSubmitting}
-      noValidate
-      onSubmit={submit}
-      className="bg-card rounded-card mt-4 min-w-0 p-4 sm:p-6"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="type-section-title text-foreground">
-            {isEdit ? t('eventForm.editTitle') : t('eventForm.createTitle')}
-          </h2>
-          <p className="type-supporting text-text-secondary mt-1 wrap-anywhere break-keep">
-            {t('eventForm.customer', { customer: customerName })}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="text-neutral"
-          size="sm"
-          onClick={onCancel}
-          disabled={isSubmitting}
-          data-event-form-cancel
-        >
-          {t('eventForm.cancel')}
-        </Button>
-      </div>
-
-      {!isEdit && !isFixedCreateStatus ? (
-        <fieldset className="mt-4 min-w-0">
-          <legend className="type-content-title text-foreground">{t('eventForm.kindLabel')}</legend>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {(
-              [
-                ['PLANNED', t('eventForm.planned')],
-                ['OCCURRED', t('eventForm.immediateOccurred')],
-              ] as const
-            ).map(([value, label]) => (
-              <label
-                key={value}
-                className={cn(
-                  'rounded-control type-body flex min-h-11 cursor-pointer items-center gap-2 px-3 font-semibold',
-                  'has-[:disabled]:cursor-default has-[:disabled]:opacity-50',
-                  status === value
-                    ? 'bg-brand-subtle text-brand-deep'
-                    : 'bg-control text-foreground',
-                )}
-              >
-                <input
-                  type="radio"
-                  name="event-kind"
-                  value={value}
-                  checked={status === value}
-                  disabled={isSubmitting}
-                  onChange={() => {
-                    setStatus(value);
-                    setTimeErrorKind(null);
-                  }}
-                  className="accent-primary size-5 shrink-0"
-                />
-                <span className="min-w-0 wrap-anywhere break-keep">{label}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      ) : null}
-
-      <div className="mt-5 grid gap-5">
-        <TextField
-          id="event-descriptor"
-          name="descriptor"
-          data-event-field="descriptor"
-          label={t('eventForm.descriptor')}
-          value={descriptor}
-          onChange={(inputEvent) => setDescriptor(inputEvent.target.value)}
-          placeholder={t('eventForm.descriptorPlaceholder')}
-        />
-
-        <TextField
-          key={status}
-          id={status === 'PLANNED' ? 'event-scheduled-at' : 'event-occurred-at'}
-          name={status === 'PLANNED' ? 'scheduledAt' : 'occurredAt'}
-          data-event-field={status === 'PLANNED' ? 'scheduledAt' : 'occurredAt'}
-          type="datetime-local"
-          label={timeLabel}
-          value={status === 'PLANNED' ? scheduledAt : occurredAt}
-          onChange={(inputEvent) => {
-            const next = inputEvent.target.value;
-            if (status === 'PLANNED') setScheduledAt(next);
-            else setOccurredAt(next);
-            if (next) setTimeErrorKind(null);
-          }}
-          required
-          hint={
-            isOccurredEdit && event?.scheduledAt
-              ? t('eventForm.originalScheduledPreserved')
-              : undefined
-          }
-          error={timeError}
-        />
-
-        <TextField
-          multiline
-          id="event-note"
-          name="note"
-          data-event-field="note"
-          label={t('eventForm.note')}
-          value={note}
-          onChange={(inputEvent) => setNote(inputEvent.target.value)}
-          rows={3}
-          placeholder={t('eventForm.notePlaceholder')}
-        />
-      </div>
-
-      {error ? (
-        <Notice tone="danger" className="mt-4" data-event-form-error>
-          {error}
-        </Notice>
-      ) : null}
-
-      <div
-        className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
-        data-event-form-actions
+    <>
+      <form
+        data-event-form
+        data-event-form-mode={mode}
+        aria-busy={isSubmitting}
+        noValidate
+        onSubmit={submit}
+        onFocusCapture={(focusEvent) => {
+          if (focusEvent.target instanceof HTMLElement) lastFieldRef.current = focusEvent.target;
+        }}
+        className="bg-card rounded-card mt-4 min-w-0 p-4 sm:p-6"
       >
-        <Button
-          type="submit"
-          className="w-full sm:w-auto"
-          data-event-form-submit
-          disabled={isSubmitting}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="type-section-title text-foreground">
+              {isEdit ? t('eventForm.editTitle') : t('eventForm.createTitle')}
+            </h2>
+            <p className="type-supporting text-text-secondary mt-1 wrap-anywhere break-keep">
+              {t('eventForm.customer', { customer: customerName })}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="text-neutral"
+            size="sm"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            data-event-form-cancel
+          >
+            {t('eventForm.cancel')}
+          </Button>
+        </div>
+
+        {!isEdit && !isFixedCreateStatus ? (
+          <fieldset className="mt-4 min-w-0">
+            <legend className="type-content-title text-foreground">
+              {t('eventForm.kindLabel')}
+            </legend>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(
+                [
+                  ['PLANNED', t('eventForm.planned')],
+                  ['OCCURRED', t('eventForm.immediateOccurred')],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className={cn(
+                    'rounded-control type-body flex min-h-11 cursor-pointer items-center gap-2 px-3 font-semibold',
+                    'has-[:disabled]:cursor-default has-[:disabled]:opacity-50',
+                    status === value
+                      ? 'bg-brand-subtle text-brand-deep'
+                      : 'bg-control text-foreground',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="event-kind"
+                    value={value}
+                    checked={status === value}
+                    disabled={isSubmitting}
+                    onChange={() => {
+                      setStatus(value);
+                      setTimeErrorKind(null);
+                    }}
+                    className="accent-primary size-5 shrink-0"
+                  />
+                  <span className="min-w-0 wrap-anywhere break-keep">{label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+
+        <div className="mt-5 grid gap-5">
+          <TextField
+            id="event-descriptor"
+            name="descriptor"
+            data-event-field="descriptor"
+            label={t('eventForm.descriptor')}
+            value={descriptor}
+            onChange={(inputEvent) => setDescriptor(inputEvent.target.value)}
+            placeholder={t('eventForm.descriptorPlaceholder')}
+          />
+
+          <TextField
+            key={status}
+            id={status === 'PLANNED' ? 'event-scheduled-at' : 'event-occurred-at'}
+            name={status === 'PLANNED' ? 'scheduledAt' : 'occurredAt'}
+            data-event-field={status === 'PLANNED' ? 'scheduledAt' : 'occurredAt'}
+            type="datetime-local"
+            label={timeLabel}
+            value={status === 'PLANNED' ? scheduledAt : occurredAt}
+            onChange={(inputEvent) => {
+              const next = inputEvent.target.value;
+              if (status === 'PLANNED') setScheduledAt(next);
+              else setOccurredAt(next);
+              if (next) setTimeErrorKind(null);
+            }}
+            required
+            hint={
+              isOccurredEdit && event?.scheduledAt
+                ? t('eventForm.originalScheduledPreserved')
+                : undefined
+            }
+            error={timeError}
+          />
+
+          <TextField
+            multiline
+            id="event-note"
+            name="note"
+            data-event-field="note"
+            label={t('eventForm.note')}
+            value={note}
+            onChange={(inputEvent) => setNote(inputEvent.target.value)}
+            rows={3}
+            placeholder={t('eventForm.notePlaceholder')}
+          />
+        </div>
+
+        {error ? (
+          <Notice tone="danger" className="mt-4" data-event-form-error>
+            {error}
+          </Notice>
+        ) : null}
+
+        <div
+          className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+          data-event-form-actions
         >
-          {isEdit ? t('eventForm.save') : t('eventForm.create')}
-        </Button>
-      </div>
-    </form>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            data-event-form-submit
+            disabled={isSubmitting}
+          >
+            {isEdit ? t('eventForm.save') : t('eventForm.create')}
+          </Button>
+        </div>
+      </form>
+      <LeaveGuard
+        shouldBlock={hasUnsavedInput}
+        onLeave={onDiscard}
+        restoreFocusTo={() => lastFieldRef.current}
+      />
+    </>
   );
 }
 
@@ -312,8 +344,8 @@ export function toCanonicalTimestamp(value: string): string {
   return `${value.length === 16 ? `${value}:00` : value}${offset}`;
 }
 
-/** 입력된 로컬 시각이 제출 시점보다 이른지. 파싱할 수 없으면 과거로 막지 않는다(필수 검사가 따로 잡는다). */
-function isBeforeNow(localValue: string): boolean {
+/** 입력된 로컬 시각이 기준 시각 이하인지(같은 분 포함). 파싱할 수 없으면 막지 않는다(필수 검사가 따로 잡는다). */
+function isNotAfterNow(localValue: string, now: Date): boolean {
   const at = new Date(toCanonicalTimestamp(localValue)).getTime();
-  return Number.isFinite(at) && at < Date.now();
+  return Number.isFinite(at) && at <= now.getTime();
 }

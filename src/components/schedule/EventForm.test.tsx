@@ -5,15 +5,12 @@ import { I18nProvider } from '@/i18n/I18nContext';
 import { CarelogHttpError } from '@/integrations/carelog/errors';
 
 const now = new Date(2026, 7, 11, 12, 0, 0);
+// 기준 시각을 테스트가 직접 바꾼다(시계 전체 고정 대신 주입). 제출 검사는 이 값을 읽는다.
+let clockNow = now;
+const getNow = () => clockNow;
 
 beforeEach(() => {
-  // 픽스처 시각을 기준 시각으로 고정한다. 과거 시각 검사가 실제 현재 시각(Date.now)을 보기 때문이다.
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(now);
-});
-
-afterEach(() => {
-  vi.useRealTimers();
+  clockNow = now;
 });
 
 function renderForm(onSubmit = vi.fn(), props: Partial<Parameters<typeof EventForm>[0]> = {}) {
@@ -26,6 +23,7 @@ function renderForm(onSubmit = vi.fn(), props: Partial<Parameters<typeof EventFo
         fixedCreateStatus="PLANNED"
         onSubmit={onSubmit}
         onCancel={vi.fn()}
+        getNow={getNow}
         {...props}
       />
     </I18nProvider>,
@@ -107,36 +105,102 @@ describe('EventForm Field contract (F1)', () => {
   });
 });
 
-describe('EventForm past time at submit (F3 C-03)', () => {
-  it('blocks a new PLANNED event whose time passed while the form stayed open, with focus on the field', () => {
+function setTime(value: string) {
+  fireEvent.change(screen.getByLabelText('예정 시각'), { target: { value } });
+}
+
+function submitForm() {
+  fireEvent.submit(document.querySelector('[data-event-form]')!);
+}
+
+describe('EventForm past or current scheduled time for a new PLANNED event (Owner 2026-11-26)', () => {
+  it.each([
+    ['same minute as now', '2026-08-11T12:00', true],
+    ['one minute before now', '2026-08-11T11:59', true],
+    ['one minute after now', '2026-08-11T12:01', false],
+  ])('%s is blocked=%s', async (_label, value, blocked) => {
     const onSubmit = renderForm();
-    const time = screen.getByLabelText('예정 시각');
-    fireEvent.change(time, { target: { value: '2026-08-11T13:00' } });
-
-    // 폼을 열어 둔 채 시간이 흘러 제출 시점에는 같은 입력값이 과거가 된다.
-    vi.setSystemTime(new Date(2026, 7, 11, 13, 30, 0));
-    fireEvent.submit(document.querySelector('[data-event-form]')!);
-
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('지난 시각으로는 새 일정을 저장할 수 없어요');
-    expect(time).toHaveAttribute('aria-invalid', 'true');
-    expect(time).toHaveFocus();
+    setTime(value);
+    submitForm();
+    if (blocked) {
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent('지난 시각으로는 새 일정을 저장할 수 없어요');
+    } else {
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      expect(screen.queryByRole('alert')).toBeNull();
+    }
   });
 
-  it('clears the past-time error once a new time is entered', () => {
+  it('compares by minute: a now with seconds still blocks the same minute and allows the next', async () => {
+    clockNow = new Date(2026, 7, 11, 12, 0, 30);
     const onSubmit = renderForm();
-    const time = screen.getByLabelText('예정 시각');
-    fireEvent.change(time, { target: { value: '2026-08-11T11:00' } });
-    fireEvent.submit(document.querySelector('[data-event-form]')!);
+    setTime('2026-08-11T12:00');
+    submitForm();
+    expect(onSubmit).not.toHaveBeenCalled();
+    setTime('2026-08-11T12:01');
+    submitForm();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  });
+
+  it('handles the date boundary at midnight: the minute before is blocked, the next day 00:00 is allowed once it is later', async () => {
+    clockNow = new Date(2026, 7, 11, 23, 59, 30);
+    const onSubmit = renderForm();
+    setTime('2026-08-11T23:59');
+    submitForm();
+    expect(onSubmit).not.toHaveBeenCalled();
+    setTime('2026-08-12T00:00');
+    submitForm();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  });
+
+  it('blocks exactly the midnight minute when it is the current time', () => {
+    clockNow = new Date(2026, 7, 12, 0, 0, 0);
+    const onSubmit = renderForm();
+    setTime('2026-08-12T00:00');
+    submitForm();
+    expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toBeVisible();
-
-    fireEvent.change(time, { target: { value: '2026-08-11T15:00' } });
-    expect(screen.queryByRole('alert')).toBeNull();
-    fireEvent.submit(document.querySelector('[data-event-form]')!);
-    expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('keeps accepting a past scheduled time when editing an existing PLANNED event', async () => {
+  it('blocks a time that was in the future when the form opened but passed before submit', () => {
+    const onSubmit = renderForm();
+    setTime('2026-08-11T13:00');
+    clockNow = new Date(2026, 7, 11, 13, 0, 0);
+    submitForm();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('예정 시각')).toHaveFocus();
+    expect(screen.getByLabelText('예정 시각')).toHaveValue('2026-08-11T13:00');
+  });
+
+  it('keeps the typed input and focus after a past-time block, then allows a corrected time', async () => {
+    const onSubmit = renderForm();
+    fireEvent.change(screen.getByLabelText('제목'), { target: { value: '계약 확인' } });
+    setTime('2026-08-11T11:00');
+    submitForm();
+    expect(screen.getByLabelText('제목')).toHaveValue('계약 확인');
+    setTime('2026-08-11T14:00');
+    submitForm();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps the input when the save itself fails after the time passed the check', async () => {
+    const onSubmit = vi.fn().mockRejectedValueOnce(new CarelogHttpError(500));
+    renderForm(onSubmit);
+    fireEvent.change(screen.getByLabelText('제목'), { target: { value: '저장 실패 일정' } });
+    setTime('2026-08-11T15:00');
+    submitForm();
+    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(screen.getByLabelText('제목')).toHaveValue('저장 실패 일정');
+    expect(screen.getByLabelText('예정 시각')).toHaveValue('2026-08-11T15:00');
+  });
+
+  it('defaults to a future time even when opened late in the day', () => {
+    clockNow = new Date(2026, 7, 11, 23, 30, 0);
+    renderForm(vi.fn(), { now: clockNow });
+    expect(screen.getByLabelText('예정 시각')).toHaveValue('2026-08-12T00:00');
+  });
+
+  it('keeps allowing a past scheduled time when editing an existing PLANNED event', async () => {
     const onSubmit = vi.fn();
     render(
       <I18nProvider locale="ko">
@@ -144,6 +208,7 @@ describe('EventForm past time at submit (F3 C-03)', () => {
           mode="edit"
           customerName="박세입"
           now={now}
+          getNow={getNow}
           event={{
             id: 'past-planned',
             customerId: 'customer-1',
@@ -155,7 +220,19 @@ describe('EventForm past time at submit (F3 C-03)', () => {
         />
       </I18nProvider>,
     );
-    fireEvent.submit(document.querySelector('[data-event-form]')!);
+    submitForm();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('keeps allowing a past occurred time for an immediate record (OCCURRED)', async () => {
+    const onSubmit = renderForm(vi.fn(), { fixedCreateStatus: undefined });
+    const occurred = document.querySelector<HTMLInputElement>('input[name="event-kind"][value="OCCURRED"]');
+    fireEvent.click(occurred!);
+    fireEvent.change(document.querySelector('[data-event-field="occurredAt"]')!, {
+      target: { value: '2026-08-01T09:00' },
+    });
+    submitForm();
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('alert')).toBeNull();
   });

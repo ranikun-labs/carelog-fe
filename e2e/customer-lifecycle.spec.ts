@@ -171,6 +171,8 @@ test('customer edit draft survives adaptive remounts and cancel leaves canonical
   await expect(page.locator('[data-customer-field="customerMemo"]')).toHaveValue('적응형 새 메모');
 
   await page.getByRole('button', { name: '취소' }).click();
+  // 입력이 있는 채로 취소하면 이탈 보호가 먼저 확인한다.
+  await page.getByRole('button', { name: '나가기' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/customers/${initialId}$`));
   await expect(page.getByRole('heading', { name: '적응형 이전 이름' })).toBeVisible();
   await expect(page.getByTestId('customer-memo-copy')).toHaveText('적응형 이전 메모');
@@ -195,6 +197,8 @@ test('customer create draft survives adaptive remounts and cancel creates no gho
   await expect(page.locator('[data-customer-field="customerMemo"]')).toHaveValue('취소할 메모');
 
   await page.getByRole('button', { name: '취소' }).click();
+  // 입력이 있는 채로 취소하면 이탈 보호가 먼저 확인한다.
+  await page.getByRole('button', { name: '나가기' }).click();
   await expect(page).toHaveURL('/app/customers');
   await expect(page.locator('[data-customers-empty]')).toBeVisible();
   await expect(page.locator('[data-customer-card]')).toHaveCount(0);

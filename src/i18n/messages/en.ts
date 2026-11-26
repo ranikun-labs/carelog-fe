@@ -279,10 +279,21 @@ export const en: Messages = {
     confirmOccurrence: 'Confirm the actual occurrence time',
     closeOccurrence: 'Close',
     confirmOccurrenceAction: 'Confirm',
+    cancelConfirmTitle: 'Cancel this event?',
+    cancelConfirmBody:
+      'This cannot be undone. The planned time ({{time}}) stays on the cancelled event.',
+    cancelConfirmClose: 'Close',
+    cancelConfirmAction: 'Confirm cancellation',
     scheduledTime: 'Scheduled',
     actualTime: 'Actual',
     time: 'Time',
     memo: 'Memo',
+  },
+  leaveGuard: {
+    title: 'Your entry will be lost',
+    description: 'If you leave now, what you typed is discarded.',
+    stay: 'Keep editing',
+    leave: 'Leave',
   },
   eventForm: {
     savedNotice: 'Saved the event for {{when}}.',
