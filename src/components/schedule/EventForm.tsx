@@ -10,6 +10,7 @@ import { TextField } from '@/components/ui/text-field';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 import { cn } from '@/lib/utils';
 import type { EventFormDraft } from '@/state/EventCreateDraftContext';
 
@@ -26,6 +27,8 @@ export interface EventFormSubmitValues {
 /** onSubmit 두 번째 인자. 성공 뒤 화면을 옮기는 부모는 navigate 전에 allowLeave()를 불러 저장 중 이탈 보호를 놓는다. */
 export interface EventFormSubmitOptions {
   allowLeave: () => void;
+  /** 저장 세션 소유권 확인. 세션 공급자가 없으면 없다(부모는 마운트 여부로 판단). */
+  isCurrent?: () => boolean;
 }
 
 export interface EventFormInitialValues {
@@ -52,6 +55,8 @@ interface EventFormProps {
   ) => void | Promise<void>;
   onValidationFailure?: () => void;
   onCancel: () => void;
+  /** 저장 세션 키(업무 대상). 재마운트·대상 변경에도 저장 중 잠금과 소유권을 유지한다. */
+  saveKey?: string;
   /** 새 예정 일정의 과거 시각 검사 기준 시각. 테스트는 주입하고, 생략하면 제출 시점의 현재 시각을 쓴다. */
   getNow?: () => Date;
 }
@@ -68,6 +73,7 @@ export function EventForm({
   onSubmit,
   onValidationFailure,
   onCancel,
+  saveKey,
   getNow = () => new Date(),
 }: EventFormProps) {
   const { t } = useTranslation();
@@ -96,6 +102,9 @@ export function EventForm({
     null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const session = useOptionalSaveSession();
+  const remoteSaving = Boolean(session && saveKey && session.isSaving(saveKey));
+  const saving = isSubmitting || remoteSaving;
   const submitLockRef = useRef(false);
   // 저장 진행 중(savingRef)과 이탈 허용(leaveAllowedRef). 이탈 보호는 (입력 있음 || 저장 중) && !허용 이다.
   const savingRef = useRef(false);
@@ -124,7 +133,7 @@ export function EventForm({
 
   function submit(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
-    if (submitLockRef.current) return;
+    if (submitLockRef.current || remoteSaving) return;
     const time = status === 'PLANNED' ? scheduledAt : occurredAt;
     if (!time) {
       onValidationFailure?.();
@@ -171,10 +180,17 @@ export function EventForm({
     savingRef.current = true;
     leaveAllowedRef.current = false;
     setIsSubmitting(true);
+    const gen = session && saveKey ? session.beginSave(saveKey) : null;
+    const endRemote = () => {
+      if (session && saveKey && gen !== null) session.endSave(saveKey, gen);
+    };
     const options: EventFormSubmitOptions = {
       allowLeave: () => {
         leaveAllowedRef.current = true;
       },
+      ...(session && saveKey && gen !== null
+        ? { isCurrent: () => session.isCurrent(saveKey, gen) }
+        : {}),
     };
     void Promise.resolve()
       .then(() =>
@@ -203,10 +219,12 @@ export function EventForm({
       .then(
         () => {
           savingRef.current = false;
+          endRemote();
           leaveAllowedRef.current = true;
         },
         (submitError: unknown) => {
           savingRef.current = false;
+          endRemote();
           setError(t(getCarelogMessageKey(submitError)));
           submitLockRef.current = false;
           setIsSubmitting(false);
@@ -232,7 +250,7 @@ export function EventForm({
       <form
         data-event-form
         data-event-form-mode={mode}
-        aria-busy={isSubmitting}
+        aria-busy={saving}
         noValidate
         onSubmit={submit}
         onFocusCapture={(focusEvent) => {
@@ -254,7 +272,7 @@ export function EventForm({
             variant="text-neutral"
             size="sm"
             onClick={onCancel}
-            disabled={isSubmitting}
+            disabled={saving}
             data-event-form-cancel
           >
             {t('eventForm.cancel')}
@@ -288,7 +306,7 @@ export function EventForm({
                     name="event-kind"
                     value={value}
                     checked={status === value}
-                    disabled={isSubmitting}
+                    disabled={saving}
                     onChange={() => {
                       setStatus(value);
                       setTimeErrorKind(null);
@@ -309,10 +327,10 @@ export function EventForm({
             data-event-field="descriptor"
             label={t('eventForm.descriptor')}
             value={descriptor}
-            readOnly={isSubmitting}
+            readOnly={saving}
             onChange={(inputEvent) => {
               // 저장 중에는 입력을 받지 않는다(저장 요청과 화면 값이 어긋나지 않게).
-              if (!isSubmitting) setDescriptor(inputEvent.target.value);
+              if (!saving) setDescriptor(inputEvent.target.value);
             }}
             placeholder={t('eventForm.descriptorPlaceholder')}
           />
@@ -325,9 +343,9 @@ export function EventForm({
             type="datetime-local"
             label={timeLabel}
             value={status === 'PLANNED' ? scheduledAt : occurredAt}
-            readOnly={isSubmitting}
+            readOnly={saving}
             onChange={(inputEvent) => {
-              if (isSubmitting) return;
+              if (saving) return;
               const next = inputEvent.target.value;
               if (status === 'PLANNED') setScheduledAt(next);
               else setOccurredAt(next);
@@ -349,9 +367,9 @@ export function EventForm({
             data-event-field="note"
             label={t('eventForm.note')}
             value={note}
-            readOnly={isSubmitting}
+            readOnly={saving}
             onChange={(inputEvent) => {
-              if (!isSubmitting) setNote(inputEvent.target.value);
+              if (!saving) setNote(inputEvent.target.value);
             }}
             rows={3}
             placeholder={t('eventForm.notePlaceholder')}
@@ -372,7 +390,7 @@ export function EventForm({
             type="submit"
             className="w-full sm:w-auto"
             data-event-form-submit
-            disabled={isSubmitting}
+            disabled={saving}
           >
             {isEdit ? t('eventForm.save') : t('eventForm.create')}
           </Button>

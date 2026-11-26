@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useEventCreateDraft, type EventFormDraft } from '@/state/EventCreateDraftContext';
 import { useOptionalEventCreateActivation } from '@/state/EventCreateActivationContext';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 import { useEventStore } from '@/state/EventStoreContext';
 
 export interface EventCreatePageProps {
@@ -119,6 +120,15 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
     [draft.descriptor, draft.note, draft.scheduledAt, now, selectedDateKey],
   );
 
+  // 저장 세션: 생성 화면이 지금 보이는 업무임을 등록한다(떠나면 해제). 같은 화면의 재마운트는 같은 키로 이어진다.
+  const saveSession = useOptionalSaveSession();
+  const setSaveActive = saveSession?.setActive;
+  useEffect(() => {
+    if (!setSaveActive) return;
+    setSaveActive('event-create', true);
+    return () => setSaveActive('event-create', false);
+  }, [setSaveActive]);
+
   const handleCreate = useCallback(
     async (values: EventFormSubmitValues, options: EventFormSubmitOptions) => {
       if (!selectedCustomer || values.status !== 'PLANNED' || !values.scheduledAt) {
@@ -140,7 +150,8 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
         throw error;
       }
       // 떠난 뒤 도착한 저장 응답은 화면 이동·초안·선택 상태를 건드리지 않는다(저장 자체는 스토어에 남는다).
-      if (!mountedRef.current) return;
+      const current = options.isCurrent ? options.isCurrent() : mountedRef.current;
+      if (!current) return;
       if (!createdEvent) {
         eventCreateActivation?.clearCreateReturnProvenance();
         return;
@@ -204,6 +215,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
                 fixedCreateStatus="PLANNED"
                 onDraftChange={onDraftChange}
                 onDiscard={clearDraft}
+                saveKey="event-create"
                 onSubmit={handleCreate}
                 onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
                 onCancel={returnToSchedule}

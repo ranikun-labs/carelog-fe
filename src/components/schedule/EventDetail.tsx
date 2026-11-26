@@ -33,6 +33,8 @@ interface EventDetailProps {
     values: EventFormSubmitValues,
     options: EventFormSubmitOptions,
   ) => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
+  /** 편집 폼의 저장 세션 키(업무 대상). */
+  saveKey?: string;
   onCancelEvent?: () => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
   onOccurEvent?: (
     occurredAt: string,
@@ -49,6 +51,7 @@ export function EventDetail({
   onOpenCustomer,
   onOpenAssistant,
   onEdit,
+  saveKey,
   onCancelEvent,
   onOccurEvent,
   startWithOccurrenceConfirmation = false,
@@ -408,6 +411,7 @@ export function EventDetail({
           event={event}
           customerName={customerName}
           now={now}
+          saveKey={saveKey}
           onSubmit={async (values, options) => {
             await onEdit(values, options);
             setIsEditing(false);

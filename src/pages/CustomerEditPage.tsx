@@ -13,6 +13,7 @@ import { useTranslation } from '@/i18n/I18nContext';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 
 export function CustomerEditPage() {
   const { customerId = '' } = useParams();
@@ -28,6 +29,15 @@ export function CustomerEditPage() {
       mountedRef.current = false;
     };
   }, []);
+  // 저장 세션: 지금 보이는 고객 대상을 등록한다. 대상이 바뀌면 이전 대상의 응답은 소유권을 잃는다.
+  const session = useOptionalSaveSession();
+  const setActive = session?.setActive;
+  const saveKey = `customer:${customerId}`;
+  useEffect(() => {
+    if (!setActive) return;
+    setActive(saveKey, true);
+    return () => setActive(saveKey, false);
+  }, [saveKey, setActive]);
 
   useEffect(() => {
     if (!customerStore.remoteReadsEnabled || customer || !customerId) return;
@@ -56,7 +66,8 @@ export function CustomerEditPage() {
 
   async function handleSubmit(values: CustomerFormValues, options: CustomerFormSubmitOptions) {
     const updatedCustomer = await customerStore.editCustomer(currentCustomer.id, values);
-    if (!mountedRef.current) return true;
+    const current = options.isCurrent ? options.isCurrent() : mountedRef.current;
+    if (!current) return true;
     // 저장 성공을 확인한 뒤 상세로 옮기므로 이탈 보호를 먼저 놓는다.
     options.allowLeave();
 
@@ -84,6 +95,7 @@ export function CustomerEditPage() {
       <div className="flex-1 scroll-pb-28 overflow-y-auto p-6">
         <CustomerForm
           mode="edit"
+          saveKey={saveKey}
           draftKey={`edit:${currentCustomer.id}`}
           initialValues={{
             displayName: currentCustomer.displayName,

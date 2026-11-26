@@ -11,6 +11,7 @@ import { AdaptiveSurface } from '@/components/layout/adaptiveHostContext';
 import { buildAppCustomerDetailPath, buildAppCustomersPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 
 export function CustomerCreatePage() {
   const { t } = useTranslation();
@@ -24,10 +25,19 @@ export function CustomerCreatePage() {
     };
   }, []);
   const customerStore = useCustomerStore();
+  // 저장 세션: 이 화면이 지금 보이는 업무 대상임을 공급자에 등록한다(떠나면 해제).
+  const session = useOptionalSaveSession();
+  const setActive = session?.setActive;
+  useEffect(() => {
+    if (!setActive) return;
+    setActive('customer-create', true);
+    return () => setActive('customer-create', false);
+  }, [setActive]);
 
   async function handleSubmit(values: CustomerFormValues, options: CustomerFormSubmitOptions) {
     const customer = await customerStore.createCustomer(values);
-    if (!mountedRef.current) return true;
+    const current = options.isCurrent ? options.isCurrent() : mountedRef.current;
+    if (!current) return true;
     // 저장 성공을 확인한 뒤 상세로 옮기므로 이탈 보호를 먼저 놓는다.
     options.allowLeave();
 
@@ -55,6 +65,7 @@ export function CustomerCreatePage() {
         <CustomerForm
           mode="create"
           draftKey="create"
+          saveKey="customer-create"
           onSubmit={handleSubmit}
           onCancel={() => navigate(buildAppCustomersPath())}
         />

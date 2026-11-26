@@ -27,6 +27,7 @@ import { useTranslation } from '@/i18n/I18nContext';
 import { AppNotFoundPage } from '@/pages/AppNotFoundPage';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 import type { ScheduleCustomer } from '@/types/customer';
 
 export interface EventDetailPageProps {
@@ -77,6 +78,15 @@ export function EventDetailPage({
       mountedRef.current = false;
     };
   }, []);
+  // 저장 세션: 지금 보이는 일정 대상을 등록한다. 다른 일정으로 바뀌면 이전 일정의 응답은 소유권을 잃는다.
+  const saveSession = useOptionalSaveSession();
+  const setSaveActive = saveSession?.setActive;
+  const editSaveKey = `event:${eventId}`;
+  useEffect(() => {
+    if (!setSaveActive) return;
+    setSaveActive(editSaveKey, true);
+    return () => setSaveActive(editSaveKey, false);
+  }, [editSaveKey, setSaveActive]);
   const sourceEvents = events ?? eventStore?.events ?? [];
   const sourceCustomers =
     customers ?? customerStore.customers.map(({ id, displayName }) => ({ id, displayName }));
@@ -176,8 +186,9 @@ export function EventDetailPage({
       ...(values.occurredAt ? { occurredAt: values.occurredAt } : {}),
     };
     const updatedEvent = await editEvent(currentEvent.id, changes);
-    // 저장 응답이 떠난 뒤 도착하면 일정 화면으로 되돌리지 않는다.
-    if (!mountedRef.current) return updatedEvent;
+    // 저장 응답이 떠난 뒤 도착하거나 다른 일정 대상이 된 뒤 도착하면 일정 화면으로 되돌리지 않는다.
+    const current = options?.isCurrent ? options.isCurrent() : mountedRef.current;
+    if (!current) return updatedEvent;
     // 저장 성공을 확인한 뒤 화면을 옮기므로 이탈 보호를 먼저 놓는다.
     options?.allowLeave();
     if (updatedEvent) returnToAgenda(updatedEvent);
@@ -256,6 +267,7 @@ export function EventDetailPage({
             customerPath={buildAppCustomerDetailPath(currentCustomer.id)}
             now={now}
             startWithOccurrenceConfirmation={startWithOccurrenceConfirmation}
+            saveKey={editSaveKey}
             onOpenAssistant={currentEvent.status === 'CANCELLED' ? undefined : openAssistant}
             onOpenCustomer={
               adaptiveHost
