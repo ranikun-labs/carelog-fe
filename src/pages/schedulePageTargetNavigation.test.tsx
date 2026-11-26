@@ -125,3 +125,92 @@ describe('schedule page target navigation without remount (MAJOR-02 regression)'
     expect(scrollTargets.length).toBe(count);
   });
 });
+
+describe('navigation target request lifecycle (#52 race)', () => {
+  let scrollTargets: string[];
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+
+  beforeEach(() => {
+    scrollTargets = [];
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: function (this: HTMLElement) {
+        scrollTargets.push(this.dataset.eventId ?? this.dataset.dateKey ?? '');
+      },
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: originalScrollIntoView,
+    });
+    vi.useRealTimers();
+  });
+
+  it('a request cancelled by a re-render before its frame still runs once the frame arrives', async () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
+    const target = {
+      to: '/app/schedule',
+      state: { adaptiveRoot: 'schedule', targetEventId: 'far', targetDateKey: '2026-08-20' },
+    };
+    const tree = (now: Date) => (
+      <MemoryRouter initialEntries={['/app/schedule']}>
+        <I18nProvider locale="ko">
+          <CustomerStoreProvider>
+            <Routes>
+              <Route
+                path="/app/schedule"
+                element={<SchedulePage now={now} customers={customers} events={events} />}
+              />
+            </Routes>
+            <Navigator to={target.to} state={target.state} />
+          </CustomerStoreProvider>
+        </I18nProvider>
+      </MemoryRouter>
+    );
+    const { rerender } = render(tree(new Date('2026-08-11T12:00:00+09:00')));
+    await act(async () => undefined);
+    // 프레임이 오기 전에 같은 화면이 다시 그려지며(오늘 날짜가 바뀜) 예약이 취소·재예약된다.
+    rerender(tree(new Date('2026-08-12T12:00:00+09:00')));
+    await act(async () => undefined);
+    act(() => {
+      vi.advanceTimersToNextFrame();
+    });
+    act(() => {
+      vi.advanceTimersToNextFrame();
+    });
+    expect(scrollTargets).toContain('far');
+  });
+
+  it('when two targets arrive in a row, the last target wins', async () => {
+    const { rerender } = renderWithTarget({
+      to: '/app/schedule',
+      state: { adaptiveRoot: 'schedule', targetEventId: 'today', targetDateKey: '2026-08-11' },
+    });
+    await waitFor(() => expect(scrollTargets).toContain('today'));
+    rerender(
+      <MemoryRouter initialEntries={['/app/schedule']}>
+        <I18nProvider locale="ko">
+          <CustomerStoreProvider>
+            <Routes>
+              <Route
+                path="/app/schedule"
+                element={<SchedulePage now={now} customers={customers} events={events} />}
+              />
+            </Routes>
+            <Navigator
+              to="/app/schedule"
+              state={{
+                adaptiveRoot: 'schedule',
+                targetEventId: 'near',
+                targetDateKey: '2026-08-11',
+              }}
+            />
+          </CustomerStoreProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(scrollTargets.at(-1)).toBe('near'));
+  });
+});
