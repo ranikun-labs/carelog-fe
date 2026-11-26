@@ -11,7 +11,10 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { ErrorState } from '@/components/ui/error-state';
 import { EventDetail } from '@/components/schedule/EventDetail';
 import { getAgendaDateKey, getEventTitle } from '@/components/schedule/agendaModel';
-import type { EventFormSubmitValues } from '@/components/schedule/EventForm';
+import type {
+  EventFormSubmitOptions,
+  EventFormSubmitValues,
+} from '@/components/schedule/EventForm';
 import {
   buildAppAssistantPath,
   buildAppCustomerDetailPath,
@@ -152,7 +155,10 @@ export function EventDetailPage({
     });
   }
 
-  async function handleEdit(values: EventFormSubmitValues): Promise<CustomerEvent | undefined> {
+  async function handleEdit(
+    values: EventFormSubmitValues,
+    options?: EventFormSubmitOptions,
+  ): Promise<CustomerEvent | undefined> {
     if (!editEvent) return undefined;
     const changes: CustomerEventEdit = {
       descriptor: values.descriptor,
@@ -161,6 +167,8 @@ export function EventDetailPage({
       ...(values.occurredAt ? { occurredAt: values.occurredAt } : {}),
     };
     const updatedEvent = await editEvent(currentEvent.id, changes);
+    // 저장 성공 뒤 화면을 옮기므로 이탈 보호를 먼저 놓는다(저장 중 보호는 navigate를 막기 때문).
+    options?.allowLeave();
     if (updatedEvent) returnToAgenda(updatedEvent);
     return updatedEvent;
   }

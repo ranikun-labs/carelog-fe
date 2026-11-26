@@ -86,7 +86,10 @@ describe('CustomerForm', () => {
     fireEvent.change(screen.getByLabelText('고객 이름'), { target: { value: '  새 고객  ' } });
     submitForm();
 
-    expect(onSubmit).toHaveBeenCalledWith({ displayName: '새 고객', customerMemo: '' });
+    expect(onSubmit).toHaveBeenCalledWith(
+      { displayName: '새 고객', customerMemo: '' },
+      expect.objectContaining({ allowLeave: expect.any(Function) }),
+    );
   });
 
   it('loads and submits edit fields without changing the customer identity', () => {
@@ -95,7 +98,10 @@ describe('CustomerForm', () => {
     fireEvent.change(screen.getByLabelText('고객 메모'), { target: { value: '' } });
     submitForm();
 
-    expect(onSubmit).toHaveBeenCalledWith({ displayName: '수정 고객', customerMemo: '' });
+    expect(onSubmit).toHaveBeenCalledWith(
+      { displayName: '수정 고객', customerMemo: '' },
+      expect.objectContaining({ allowLeave: expect.any(Function) }),
+    );
     expect(screen.getByRole('button', { name: '저장' })).toBeVisible();
   });
 
@@ -115,10 +121,11 @@ describe('CustomerForm', () => {
 
     submitForm();
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
-    expect(onSubmit).toHaveBeenNthCalledWith(1, {
-      displayName: '수정 고객',
-      customerMemo: '수정 메모',
-    });
+    expect(onSubmit).toHaveBeenNthCalledWith(
+      1,
+      { displayName: '수정 고객', customerMemo: '수정 메모' },
+      expect.objectContaining({ allowLeave: expect.any(Function) }),
+    );
   });
 
   it('executes create only once when submit events arrive back-to-back', () => {

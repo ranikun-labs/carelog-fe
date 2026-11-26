@@ -8,6 +8,7 @@ import {
   EventForm,
   toDateTimeLocalValue,
   toStoredTimestamp,
+  type EventFormSubmitOptions,
   type EventFormSubmitValues,
 } from '@/components/schedule/EventForm';
 import { parseExistingLocalDateTime } from '@/components/schedule/localDateTime';
@@ -30,6 +31,7 @@ interface EventDetailProps {
   onOpenAssistant?: () => void;
   onEdit?: (
     values: EventFormSubmitValues,
+    options: EventFormSubmitOptions,
   ) => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
   onCancelEvent?: () => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
   onOccurEvent?: (
@@ -406,8 +408,8 @@ export function EventDetail({
           event={event}
           customerName={customerName}
           now={now}
-          onSubmit={async (values) => {
-            await onEdit(values);
+          onSubmit={async (values, options) => {
+            await onEdit(values, options);
             setIsEditing(false);
           }}
           onCancel={() => setIsEditing(false)}

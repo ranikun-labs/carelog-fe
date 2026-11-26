@@ -19,11 +19,19 @@ export interface CustomerFormValues {
   customerMemo: string;
 }
 
+/** onSubmit 두 번째 인자. 성공 뒤 화면을 옮기는 부모는 navigate 전에 allowLeave()를 불러 저장 중 이탈 보호를 놓는다. */
+export interface CustomerFormSubmitOptions {
+  allowLeave: () => void;
+}
+
 interface CustomerFormProps {
   mode: CustomerFormMode;
   initialValues?: Partial<CustomerFormValues>;
   draftKey?: CustomerFormDraftKey;
-  onSubmit: (values: CustomerFormValues) => boolean | void | Promise<boolean | void>;
+  onSubmit: (
+    values: CustomerFormValues,
+    options: CustomerFormSubmitOptions,
+  ) => boolean | void | Promise<boolean | void>;
   onCancel: () => void;
 }
 
@@ -55,6 +63,9 @@ export function CustomerForm({
   const [nameRequiredError, setNameRequiredError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
+  // 저장 진행 중(savingRef)과 이탈 허용(leaveAllowedRef). 이탈 보호는 (입력 있음 || 저장 중) && !허용 이다.
+  const savingRef = useRef(false);
+  const leaveAllowedRef = useRef(false);
   const lastFieldRef = useRef<HTMLElement | null>(null);
   const guardAvailable = useLeaveGuardAvailable();
   const initializationRef = useRef({ draftKey, initialSignature });
@@ -75,6 +86,8 @@ export function CustomerForm({
     setNameRequiredError(false);
     setIsSubmitting(false);
     submitLockRef.current = false;
+    savingRef.current = false;
+    leaveAllowedRef.current = false;
   }, [draftKey, draftStore, initialSignature, initialValues]);
 
   function persistDraft(values: CustomerFormValues) {
@@ -96,37 +109,46 @@ export function CustomerForm({
     }
 
     submitLockRef.current = true;
+    savingRef.current = true;
+    leaveAllowedRef.current = false;
     setError(null);
     setNameRequiredError(false);
     setIsSubmitting(true);
-    let result: boolean | void | Promise<boolean | void>;
-    try {
-      result = onSubmit({
-        displayName: normalizedDisplayName,
-        customerMemo: customerMemo.trim(),
-      });
-    } catch (submitError: unknown) {
-      setError(t(getCarelogMessageKey(submitError)));
+    const fail = (submitError?: unknown) => {
+      savingRef.current = false;
+      if (submitError !== undefined) setError(t(getCarelogMessageKey(submitError)));
       submitLockRef.current = false;
       setIsSubmitting(false);
+    };
+    const options: CustomerFormSubmitOptions = {
+      allowLeave: () => {
+        leaveAllowedRef.current = true;
+      },
+    };
+    let result: boolean | void | Promise<boolean | void>;
+    try {
+      result = onSubmit(
+        {
+          displayName: normalizedDisplayName,
+          customerMemo: customerMemo.trim(),
+        },
+        options,
+      );
+    } catch (submitError: unknown) {
+      fail(submitError);
       return;
     }
     const settle = (outcome: boolean | void) => {
       if (outcome === false) {
-        submitLockRef.current = false;
-        setIsSubmitting(false);
+        fail();
         return;
       }
+      savingRef.current = false;
+      leaveAllowedRef.current = true;
       clearDraft();
     };
     if (result && typeof result === 'object' && 'then' in result) {
-      void Promise.resolve(result)
-        .then(settle)
-        .catch((submitError: unknown) => {
-          setError(t(getCarelogMessageKey(submitError)));
-          submitLockRef.current = false;
-          setIsSubmitting(false);
-        });
+      void Promise.resolve(result).then(settle, (submitError: unknown) => fail(submitError));
     } else {
       settle(result);
     }
@@ -140,10 +162,14 @@ export function CustomerForm({
   }
 
   // 저장 중(저장 뒤 이동 포함)에는 놓아주고, 처음 값과 다른 입력이 있을 때만 이탈을 막는다.
-  const hasUnsavedInput = () =>
-    !submitLockRef.current &&
-    (displayName !== (initialValues?.displayName ?? '') ||
-      customerMemo !== (initialValues?.customerMemo ?? ''));
+  const hasUnsavedInput = () => {
+    if (leaveAllowedRef.current) return false;
+    if (savingRef.current) return true;
+    return (
+      displayName !== (initialValues?.displayName ?? '') ||
+      customerMemo !== (initialValues?.customerMemo ?? '')
+    );
+  };
 
   return (
     <>

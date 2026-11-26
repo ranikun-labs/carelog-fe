@@ -23,6 +23,11 @@ export interface EventFormSubmitValues {
   occurredAt?: string;
 }
 
+/** onSubmit 두 번째 인자. 성공 뒤 화면을 옮기는 부모는 navigate 전에 allowLeave()를 불러 저장 중 이탈 보호를 놓는다. */
+export interface EventFormSubmitOptions {
+  allowLeave: () => void;
+}
+
 export interface EventFormInitialValues {
   status?: 'PLANNED' | 'OCCURRED';
   descriptor?: string;
@@ -41,7 +46,10 @@ interface EventFormProps {
   onDraftChange?: (draft: EventFormDraft) => void;
   /** "나가기"를 확정하면 호출된다. 부모가 들고 있는 임시 초안을 버리는 데 쓴다. */
   onDiscard?: () => void;
-  onSubmit: (values: EventFormSubmitValues) => void | Promise<void>;
+  onSubmit: (
+    values: EventFormSubmitValues,
+    options: EventFormSubmitOptions,
+  ) => void | Promise<void>;
   onValidationFailure?: () => void;
   onCancel: () => void;
   /** 새 예정 일정의 과거 시각 검사 기준 시각. 테스트는 주입하고, 생략하면 제출 시점의 현재 시각을 쓴다. */
@@ -89,6 +97,9 @@ export function EventForm({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
+  // 저장 진행 중(savingRef)과 이탈 허용(leaveAllowedRef). 이탈 보호는 (입력 있음 || 저장 중) && !허용 이다.
+  const savingRef = useRef(false);
+  const leaveAllowedRef = useRef(false);
   const lastFieldRef = useRef<HTMLElement | null>(null);
   const isEdit = mode === 'edit';
   const isOccurredEdit = event?.status === 'OCCURRED';
@@ -100,7 +111,8 @@ export function EventForm({
 
   // 만들기: 제목·메모가 비어 있지 않을 때. 수정: 원래 값과 달라졌을 때. 저장 중에는 놓아준다.
   const hasUnsavedInput = () => {
-    if (submitLockRef.current) return false;
+    if (leaveAllowedRef.current) return false;
+    if (savingRef.current) return true;
     if (!isEdit) return descriptor.trim() !== '' || note.trim() !== '';
     return (
       descriptor !== (event?.descriptor ?? '') ||
@@ -156,33 +168,50 @@ export function EventForm({
     setError(null);
     setTimeErrorKind(null);
     submitLockRef.current = true;
+    savingRef.current = true;
+    leaveAllowedRef.current = false;
     setIsSubmitting(true);
+    const options: EventFormSubmitOptions = {
+      allowLeave: () => {
+        leaveAllowedRef.current = true;
+      },
+    };
     void Promise.resolve()
       .then(() =>
-        onSubmit({
-          status,
-          descriptor: descriptor.trim(),
-          note: note.trim(),
-          ...(status === 'PLANNED'
-            ? {
-                scheduledAt: toStoredTimestamp(
-                  scheduledAt,
-                  event?.status === 'PLANNED' ? event.scheduledAt : undefined,
-                ),
-              }
-            : {
-                occurredAt: toStoredTimestamp(
-                  occurredAt,
-                  event?.status === 'OCCURRED' ? event.occurredAt : undefined,
-                ),
-              }),
-        }),
+        onSubmit(
+          {
+            status,
+            descriptor: descriptor.trim(),
+            note: note.trim(),
+            ...(status === 'PLANNED'
+              ? {
+                  scheduledAt: toStoredTimestamp(
+                    scheduledAt,
+                    event?.status === 'PLANNED' ? event.scheduledAt : undefined,
+                  ),
+                }
+              : {
+                  occurredAt: toStoredTimestamp(
+                    occurredAt,
+                    event?.status === 'OCCURRED' ? event.occurredAt : undefined,
+                  ),
+                }),
+          },
+          options,
+        ),
       )
-      .catch((submitError: unknown) => {
-        setError(t(getCarelogMessageKey(submitError)));
-        submitLockRef.current = false;
-        setIsSubmitting(false);
-      });
+      .then(
+        () => {
+          savingRef.current = false;
+          leaveAllowedRef.current = true;
+        },
+        (submitError: unknown) => {
+          savingRef.current = false;
+          setError(t(getCarelogMessageKey(submitError)));
+          submitLockRef.current = false;
+          setIsSubmitting(false);
+        },
+      );
   }
 
   const timeLabel =

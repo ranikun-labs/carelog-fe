@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
-import { CustomerForm, type CustomerFormValues } from '@/components/customers/CustomerForm';
+import {
+  CustomerForm,
+  type CustomerFormSubmitOptions,
+  type CustomerFormValues,
+} from '@/components/customers/CustomerForm';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AdaptiveSurface } from '@/components/layout/adaptiveHostContext';
 import { buildAppCustomerDetailPath } from '@/constants/routes';
@@ -42,8 +46,10 @@ export function CustomerEditPage() {
   }
   const currentCustomer = customer;
 
-  async function handleSubmit(values: CustomerFormValues) {
+  async function handleSubmit(values: CustomerFormValues, options: CustomerFormSubmitOptions) {
     const updatedCustomer = await customerStore.editCustomer(currentCustomer.id, values);
+    // 저장 성공 뒤 상세로 옮기므로 이탈 보호를 먼저 놓는다.
+    options.allowLeave();
 
     navigate(buildAppCustomerDetailPath(updatedCustomer.id), {
       state: {

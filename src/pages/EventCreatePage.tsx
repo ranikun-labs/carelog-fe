@@ -10,7 +10,11 @@ import {
   useOptionalAdaptiveHost,
   type AdaptiveNavigationState,
 } from '@/components/layout/adaptiveHostContext';
-import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
+import {
+  EventForm,
+  type EventFormSubmitOptions,
+  type EventFormSubmitValues,
+} from '@/components/schedule/EventForm';
 import { buttonVariants } from '@/components/ui/button';
 import { buildAppCustomerCreatePath, buildAppSchedulePath } from '@/constants/routes';
 import {
@@ -108,7 +112,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
   );
 
   const handleCreate = useCallback(
-    async (values: EventFormSubmitValues) => {
+    async (values: EventFormSubmitValues, options: EventFormSubmitOptions) => {
       if (!selectedCustomer || values.status !== 'PLANNED' || !values.scheduledAt) {
         eventCreateActivation?.clearCreateReturnProvenance();
         return;
@@ -131,6 +135,8 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
         eventCreateActivation?.clearCreateReturnProvenance();
         return;
       }
+      // 저장 성공 뒤 일정 화면으로 옮기므로 이탈 보호를 먼저 놓는다.
+      options.allowLeave();
       clearDraft();
 
       if (adaptiveHost) {
