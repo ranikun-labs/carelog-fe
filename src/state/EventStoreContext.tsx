@@ -36,14 +36,24 @@ export interface CustomerEventSnapshot {
   history: readonly CustomerEvent[];
 }
 
+/** 저장 알림 요청이 표시 대상 화면에 도달할 수 있는 최대 시간. 넘기면 스토어가 버린다. */
+export const SAVED_NOTICE_MAX_AGE_MS = 10_000;
+
+export interface SavedNoticeRequest {
+  eventId: string;
+  customerId: string;
+  seq: number;
+}
+
 export interface EventStoreValue {
   events: readonly CustomerEvent[];
   highlightedEventId: string | null;
   /**
-   * 방금 성공한 생성 한 건의 알림 요청. `seq`로 구분한다(연속 저장마다 증가).
-   * 알림 영역이 한 번 받아 표시한 뒤 `consumeSavedNotice(seq)`로 즉시 지운다. 그래서 이동·재진입 뒤 다시 뜨지 않는다.
+   * 방금 성공한 생성 한 건의 알림 요청. 저장 성공 때마다 새 `seq`(단조 증가, 데이터와 무관한 카운터)를 받는다.
+   * `customerId`는 표시 범위(고객 상세는 그 고객만). 수명은 `SAVED_NOTICE_MAX_AGE_MS` 타이머가 관리한다.
+   * 알림 영역이 표시하거나 수명이 다해 버릴 때 `consumeSavedNotice(seq)`로 지운다.
    */
-  savedNotice: { eventId: string; seq: number } | null;
+  savedNotice: SavedNoticeRequest | null;
   consumeSavedNotice: (seq: number) => void;
   remoteReadsEnabled: boolean;
   scheduleLoadState: EventLoadState;
@@ -90,7 +100,8 @@ export function EventStoreProvider({
   );
   const seed = initialEvents ?? [];
   const [state, dispatch] = useReducer(eventStoreReducer, seed, createEventStoreState);
-  const [savedNotice, setSavedNotice] = useState<{ eventId: string; seq: number } | null>(null);
+  const [savedNotice, setSavedNotice] = useState<SavedNoticeRequest | null>(null);
+  const savedNoticeSeqRef = useRef(0);
   const [scheduleLoadState, setScheduleLoadState] = useState<EventLoadState>(
     !isExplicitPort || initialEvents !== undefined ? 'ready' : 'loading',
   );
@@ -337,7 +348,17 @@ export function EventStoreProvider({
   const createEvent = useCallback(
     async (input: EventCreationInput) => {
       const created = await runMutation(() => port.create(input));
-      setSavedNotice((previous) => ({ eventId: created.id, seq: (previous?.seq ?? 0) + 1 }));
+      savedNoticeSeqRef.current += 1;
+      const seq = savedNoticeSeqRef.current;
+      setSavedNotice({
+        eventId: created.id,
+        customerId: created.customerId,
+        seq,
+      });
+      // 아무 화면도 받지 않은 요청은 수명이 지나면 버린다(다음 저장 전까지 남지 않게).
+      window.setTimeout(() => {
+        setSavedNotice((current) => (current?.seq === seq ? null : current));
+      }, SAVED_NOTICE_MAX_AGE_MS);
       return created;
     },
     [port, runMutation],

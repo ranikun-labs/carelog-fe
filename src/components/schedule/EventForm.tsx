@@ -164,8 +164,18 @@ export function EventForm({
           descriptor: descriptor.trim(),
           note: note.trim(),
           ...(status === 'PLANNED'
-            ? { scheduledAt: toCanonicalTimestamp(scheduledAt) }
-            : { occurredAt: toCanonicalTimestamp(occurredAt) }),
+            ? {
+                scheduledAt: toStoredTimestamp(
+                  scheduledAt,
+                  event?.status === 'PLANNED' ? event.scheduledAt : undefined,
+                ),
+              }
+            : {
+                occurredAt: toStoredTimestamp(
+                  occurredAt,
+                  event?.status === 'OCCURRED' ? event.occurredAt : undefined,
+                ),
+              }),
         }),
       )
       .catch((submitError: unknown) => {
@@ -183,10 +193,10 @@ export function EventForm({
       : timeErrorKind === 'nonexistent'
         ? t('eventForm.timeNonexistent')
         : timeErrorKind === 'required'
-        ? status === 'PLANNED'
-          ? t('eventForm.scheduledRequired')
-          : t('eventForm.occurredRequired')
-        : undefined;
+          ? status === 'PLANNED'
+            ? t('eventForm.scheduledRequired')
+            : t('eventForm.occurredRequired')
+          : undefined;
 
   return (
     <>
@@ -346,6 +356,17 @@ export function toDateTimeLocalValue(timestamp: string): string {
 
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * 폼 입력(로컬 벽시계)을 저장 timestamp로 바꾼다.
+ * 사용자가 시각을 바꾸지 않았으면(벽시계가 원래 값과 같으면) 원래 timestamp를 그대로 둔다.
+ * DST 중복 시각(예: 01:30-05:00)을 시각 변경 없이 저장해도 오프셋이 바뀌지 않게 하려는 규칙이다.
+ * 바꾼 값은 `toCanonicalTimestamp`(중복 시각은 먼저 오는 순간)로 해석한다.
+ */
+export function toStoredTimestamp(local: string, original?: string): string {
+  if (original && local === toDateTimeLocalValue(original)) return original;
+  return toCanonicalTimestamp(local);
 }
 
 export function toCanonicalTimestamp(value: string): string {

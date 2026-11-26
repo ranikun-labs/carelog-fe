@@ -124,7 +124,9 @@ describe('EventForm past or current scheduled time for a new PLANNED event (Owne
     submitForm();
     if (blocked) {
       expect(onSubmit).not.toHaveBeenCalled();
-      expect(screen.getByRole('alert')).toHaveTextContent('지난 시각으로는 새 일정을 저장할 수 없어요');
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '지난 시각으로는 새 일정을 저장할 수 없어요',
+      );
     } else {
       await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
       expect(screen.queryByRole('alert')).toBeNull();
@@ -227,7 +229,9 @@ describe('EventForm past or current scheduled time for a new PLANNED event (Owne
 
   it('keeps allowing a past occurred time for an immediate record (OCCURRED)', async () => {
     const onSubmit = renderForm(vi.fn(), { fixedCreateStatus: undefined });
-    const occurred = document.querySelector<HTMLInputElement>('input[name="event-kind"][value="OCCURRED"]');
+    const occurred = document.querySelector<HTMLInputElement>(
+      'input[name="event-kind"][value="OCCURRED"]',
+    );
     fireEvent.click(occurred!);
     fireEvent.change(document.querySelector('[data-event-field="occurredAt"]')!, {
       target: { value: '2026-08-01T09:00' },
@@ -257,7 +261,9 @@ describe.runIf(process.env.TZ === 'America/New_York')('EventForm DST (TZ=America
   it('rejects the gap time for an OCCURRED record', () => {
     clockNow = new Date(2026, 2, 7, 12, 0, 0);
     const onSubmit = renderForm(vi.fn(), { fixedCreateStatus: undefined });
-    fireEvent.click(document.querySelector<HTMLInputElement>('input[name="event-kind"][value="OCCURRED"]')!);
+    fireEvent.click(
+      document.querySelector<HTMLInputElement>('input[name="event-kind"][value="OCCURRED"]')!,
+    );
     fireEvent.change(document.querySelector('[data-event-field="occurredAt"]')!, {
       target: { value: '2026-03-08T02:00' },
     });
@@ -288,3 +294,36 @@ describe.runIf(process.env.TZ === 'America/New_York')('EventForm DST (TZ=America
     );
   });
 });
+
+describe.runIf(process.env.TZ === 'America/New_York')(
+  'EventForm DST edit preservation (TZ=America/New_York)',
+  () => {
+    it('keeps the original fall-back duplicate instant when an edit leaves the time unchanged', async () => {
+      const onSubmit = vi.fn();
+      render(
+        <I18nProvider locale="ko">
+          <EventForm
+            mode="edit"
+            customerName="박세입"
+            now={now}
+            getNow={getNow}
+            event={{
+              id: 'dup-edit',
+              customerId: 'customer-1',
+              status: 'PLANNED',
+              scheduledAt: '2026-11-01T06:30:00Z',
+            }}
+            onSubmit={onSubmit}
+            onCancel={vi.fn()}
+          />
+        </I18nProvider>,
+      );
+      fireEvent.change(screen.getByLabelText('제목'), { target: { value: '메모만 수정' } });
+      submitForm();
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ scheduledAt: '2026-11-01T06:30:00Z' }),
+      );
+    });
+  },
+);
