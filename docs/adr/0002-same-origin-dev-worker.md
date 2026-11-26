@@ -11,8 +11,11 @@
 - The Gateway's `CarelogRegistrationCorsConfiguration` (platform-services `f9adfd3`) rejects
   a non-allowlisted `Origin` with 403 on every request to that path, including the actual
   POST, not only the preflight. So the Origin the Worker sends must be in the allowlist.
-- No FE hosting definition (Wrangler, Pages, Worker) exists in `carelog-fe`, `platform-infra`
-  or the other workspace repositories. This ADR introduces the Worker. It does not extend an existing one.
+- Hosting definitions in `carelog-fe`. This branch's `worker/wrangler.toml` is the Worker
+  definition this ADR uses. A second, root-level `wrangler.jsonc` also exists on `origin/dev`,
+  `origin/claude/f3-*` and `origin/codex/carelog-*` branches. It names the Worker `carelog-fe-dev` with
+  `preview_urls: true` and no `run_worker_first`. Two definitions claim one Worker name. Resolve this
+  name collision before deploy. Those branches are not modified here. Checks in other repositories are outside this ADR.
 
 ## Decision
 
@@ -74,6 +77,18 @@
 | Build                                                     | CI or local                         | `VITE_CARELOG_API_BASE_URL=/ pnpm build:client` (outputs `dist/`)                                                                                                                                                                                                                                                                                                                                                             |
 | Deploy                                                    | `worker/`                           | `wrangler deploy` with the two secrets set. Not run here: no Cloudflare account access.                                                                                                                                                                                                                                                                                                                                       |
 
+## 배포 대상 정보 (미정)
+
+아래 값은 모두 아직 정해지지 않았다. 실제 값은 배포 환경에서만 설정하고 저장소에 커밋하지 않는다.
+
+- Worker 이름: 미정. `worker/wrangler.toml`의 `carelog-fe-dev`와 원격 `wrangler.jsonc`의 `carelog-fe-dev`가 충돌하므로 확정 전에는 잠정값으로만 본다.
+- routes / custom domain: 미정. `routes`는 배포 환경에서 지정하며 호스트명을 커밋하지 않는다.
+- `PUBLIC_ORIGIN` (Worker secret): 미정. 형식은 `https://<host>`이며 경로와 끝 슬래시를 붙이지 않는다.
+- `GATEWAY_ORIGIN` (Worker secret): 미정. 형식은 `https://<host>`이며 경로를 붙이지 않는다.
+- Cloudflare account / zone: 미정.
+- Gateway env `PLATFORM_GATEWAY_CARELOG_REGISTRATION_ALLOWED_ORIGINS`: 값은 `PUBLIC_ORIGIN`과 문자 단위로 정확히 같아야 한다(`https://host`, 끝 슬래시 없음). 다르면 등록 요청이 403으로 거부된다.
+- Gateway env `PLATFORM_GATEWAY_OAUTH_RATE_LIMIT_TRUSTED_PROXY_HOPS`: cloudflared가 `X-Forwarded-For`를 덧붙이지 않으면 `1`, 덧붙이면 `2`. 값은 추정하지 말고 checklist 3의 실측으로 정한다.
+
 ## Deploy checklist (must verify before the DEV URL is shared)
 
 1. Secrets and vars are set on the Worker: `GATEWAY_ORIGIN`, `PUBLIC_ORIGIN`. `UPSTREAM_TIMEOUT_MS` is
@@ -100,6 +115,8 @@
 9. **Plan limits (must verify).** Confirm the Cloudflare plan supports the rate-limit period and mitigation
    values in the table. Some plans may allow only a 10 s period; this has not been checked here. If the
    values are not supported, use a supported period with an equivalent threshold and record the values used.
+10. **Preview URL disabled (must verify).** `preview_urls = false` is in `worker/wrangler.toml`. The
+    `<version>-<name>.<subdomain>.workers.dev` preview address is not reachable publicly, so the custom domain is the only public entry (checklist 8).
 
 ## Verification
 
