@@ -385,7 +385,7 @@ export function SchedulePage({
             onSelect={selectDate}
           />
           {/* 저장 알림도 고정 영역에 둔다. 새 일정으로 스크롤돼도 문장이 화면 안에 남는다. */}
-          <EventSavedNotice className="mx-4 mb-2 md:mx-6" />
+          <EventSavedNotice className="mx-4 mt-1 md:mx-6" />
         </div>
 
         {effectiveLoadState === 'loading' ? (

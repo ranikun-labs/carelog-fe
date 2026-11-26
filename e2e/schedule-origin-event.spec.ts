@@ -449,3 +449,33 @@ test('Schedule-origin draft survives the single-to-two-pane transition', async (
   await expect(page.locator('[data-event-field="note"]')).toHaveValue('적응형 메모');
   await expect(page.locator('[data-event-field="note"]')).toBeFocused();
 });
+
+test('a saved notice does not change the sticky header height or move the agenda', async ({
+  page,
+}) => {
+  const width = page.viewportSize()?.width;
+  // 데스크톱 두 화면: 저장 뒤 일정 화면이 다시 마운트되어 알림 문장이 사라진다(별도 결함, PR 본문 참고). 이 테스트 범위는 한 화면이다.
+  test.skip(
+    (width ?? 0) >= 1180,
+    'desktop two-pane remounts the schedule after save; see PR body finding',
+  );
+  const descriptor = `Schedule notice layout ${width}`;
+  const sticky = page.locator('[data-schedule-sticky]');
+
+  // 알림 없는 고정 영역 높이: 새로 연 일정 화면(저장 알림 없음)에서 잰다.
+  await page.goto('/app/schedule');
+  await expect(sticky).toBeVisible();
+  const withoutNotice = await sticky.boundingBox();
+  if (!withoutNotice) throw new Error('Schedule sticky header has no bounding box.');
+
+  const savePoint = await prepareScheduleCreate(page, descriptor);
+  await page.mouse.click(savePoint.x, savePoint.y);
+  await expect(page).toHaveURL('/app/schedule');
+  await expect(page.locator('[data-event-saved-notice] p')).toContainText('일정을 저장했어요.');
+
+  // 알림 문장이 보이는 동안에도 고정 영역 높이는 그대로이고, 알림 영역 자체는 높이 0이다.
+  const withNotice = await sticky.boundingBox();
+  const region = await page.locator('[data-event-saved-notice]').boundingBox();
+  expect(withNotice?.height).toBe(withoutNotice.height);
+  expect(region?.height).toBe(0);
+});

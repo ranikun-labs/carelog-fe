@@ -34,7 +34,7 @@ function isExpired(notice: SavedNoticeRequest): boolean {
  * 6. 고객 전환: 같은 영역에서 고객이 바뀌면 이전 고객의 문장을 즉시 지운다.
  * 7·8. 수명: 스토어 타이머가 `SAVED_NOTICE_MAX_AGE_MS` 뒤 요청을 지우고, 표시 직전에도 한 번 더 확인한다.
  *
- * 컨테이너는 항상 렌더한다(내용이 없으면 높이 0). 라이브 영역이 나중에 생기면 스크린리더가 놓치기 때문이다.
+ * 컨테이너는 항상 렌더한다(높이 0). 라이브 영역이 나중에 생기면 스크린리더가 놓치기 때문이다.
  */
 export function EventSavedNotice({
   className,
@@ -90,12 +90,14 @@ export function EventSavedNotice({
   }, [shown]);
 
   return (
-    <div role="status" data-event-saved-notice>
+    // 컨테이너는 높이 0이다. 문장은 아래로 겹쳐 보이고(absolute) 클릭은 통과한다(pointer-events-none).
+    // 그래서 저장 직후 고정 영역이나 일정 행을 밀지 않는다. 밀면 방금 누른 자리의 행이 바뀌어 잘못 선택된다.
+    <div role="status" data-event-saved-notice className="relative h-0">
       {shown ? (
         <p
           key={shown.seq}
           className={cn(
-            'bg-success-bg text-success rounded-inset type-label px-3 py-2 break-keep',
+            'bg-success-bg text-success rounded-inset type-label pointer-events-none absolute inset-x-0 top-full z-30 px-3 py-2 break-keep',
             className,
           )}
         >
