@@ -811,7 +811,10 @@ export function AdaptiveHost() {
             hasSecondary && 'border-r',
           )}
         >
-          {routeInfo.kind === 'schedule' || routeInfo.kind === 'customers' ? (
+          {/* 일정 화면은 두 화면에서 항상 같은 자리(직접 렌더)에 둔다. Outlet으로 바꾸면 저장 뒤 재마운트되어 알림이 사라진다. */}
+          {twoPaneRoot === 'schedule' && routeInfo.kind === 'schedule' ? (
+            <SchedulePage />
+          ) : routeInfo.kind === 'schedule' || routeInfo.kind === 'customers' ? (
             children
           ) : routeInfo.kind === 'assistant' && navigationState.assistant ? (
             <AssistantReturnSurface navigation={navigationState.assistant} />

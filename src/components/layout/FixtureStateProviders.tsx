@@ -7,6 +7,7 @@ import { SCHEDULE_FIXTURE } from '@/fixtures/schedule';
 import { toAuthFailure } from '@/integrations/carelog/errorMapping';
 import { createFixtureProductPorts } from '@/integrations/carelog/fixtureComposition';
 import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
+import { customerFormDraftScopeKey } from '@/components/layout/customerFormDraftScope';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
@@ -43,7 +44,7 @@ export function FixtureStateProviders({
         port={ports.customerEventPort}
         onFailure={onFailure}
       >
-        <CustomerFormDraftProvider key={location.pathname}>
+        <CustomerFormDraftProvider key={customerFormDraftScopeKey(location.pathname)}>
           <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
         </CustomerFormDraftProvider>
       </EventStoreProvider>

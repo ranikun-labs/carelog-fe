@@ -454,15 +454,6 @@ test('a saved notice does not change the sticky header height or move the agenda
   page,
 }) => {
   const width = page.viewportSize()?.width;
-  // 데스크톱(1180 이상)은 fixme: 저장 뒤 일정 화면이 다시 마운트되어 알림이 1~2프레임만 보이거나 사라질 수 있다.
-  // 재마운트는 #50 이전 base(fa3b61c)부터 있다(저장 뒤 10/10). 원인 1: CustomerFormDraftProvider key={location.pathname}
-  // (ProductionStateProviders.tsx:106, FixtureStateProviders.tsx:46)가 라우트 트리 전체를 재마운트한다.
-  // 원인 2: AdaptiveHost.tsx:815-820이 마스터 패인에서 SchedulePage를 직접 렌더하는 경우와 Outlet(children)으로 렌더하는 경우를 바꾼다.
-  // 후속 PR에서 해소 예정. 제거 조건: 데스크톱에서도 문장이 한 번 보이고 레이아웃 불변이 확인될 때.
-  test.fixme(
-    (width ?? 0) >= 1180,
-    'desktop two-pane: notice lost after schedule remount (see PR body)',
-  );
   const descriptor = `Schedule notice layout ${width}`;
   const sticky = page.locator('[data-schedule-sticky]');
 
@@ -482,4 +473,19 @@ test('a saved notice does not change the sticky header height or move the agenda
   const region = await page.locator('[data-event-saved-notice]').boundingBox();
   expect(withNotice?.height).toBe(withoutNotice.height);
   expect(region?.height).toBe(0);
+});
+
+test('a saved notice stays visible for at least 2 seconds, including desktop two-pane', async ({
+  page,
+}) => {
+  const descriptor = `Schedule notice persists ${page.viewportSize()?.width}`;
+  const savePoint = await prepareScheduleCreate(page, descriptor);
+  await page.mouse.click(savePoint.x, savePoint.y);
+  await expect(page).toHaveURL('/app/schedule');
+  const sentence = page.locator('[data-event-saved-notice] p');
+  await expect(sentence).toContainText('일정을 저장했어요.');
+  // 관찰 구간: 표시 확정 뒤 2초 동안 문장이 남아 있어야 한다(데스크톱 재마운트로 사라지면 실패).
+  await page.waitForTimeout(2000);
+  await expect(sentence).toBeVisible();
+  await expect(sentence).toContainText('일정을 저장했어요.');
 });
