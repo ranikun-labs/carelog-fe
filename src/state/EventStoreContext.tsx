@@ -43,6 +43,8 @@ export interface SavedNoticeRequest {
   eventId: string;
   customerId: string;
   seq: number;
+  /** 저장 성공 시각(ms). 표시 직전 수명 확인에 쓴다. */
+  createdAt: number;
 }
 
 export interface EventStoreValue {
@@ -50,7 +52,7 @@ export interface EventStoreValue {
   highlightedEventId: string | null;
   /**
    * 방금 성공한 생성 한 건의 알림 요청. 저장 성공 때마다 새 `seq`(단조 증가, 데이터와 무관한 카운터)를 받는다.
-   * `customerId`는 표시 범위(고객 상세는 그 고객만). 수명은 `SAVED_NOTICE_MAX_AGE_MS` 타이머가 관리한다.
+   * `customerId`는 표시 범위(고객 상세는 그 고객만). 수명은 `SAVED_NOTICE_MAX_AGE_MS`(스토어 타이머 + 표시 직전 확인).
    * 알림 영역이 표시하거나 수명이 다해 버릴 때 `consumeSavedNotice(seq)`로 지운다.
    */
   savedNotice: SavedNoticeRequest | null;
@@ -102,6 +104,7 @@ export function EventStoreProvider({
   const [state, dispatch] = useReducer(eventStoreReducer, seed, createEventStoreState);
   const [savedNotice, setSavedNotice] = useState<SavedNoticeRequest | null>(null);
   const savedNoticeSeqRef = useRef(0);
+  const savedNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scheduleLoadState, setScheduleLoadState] = useState<EventLoadState>(
     !isExplicitPort || initialEvents !== undefined ? 'ready' : 'loading',
   );
@@ -113,6 +116,13 @@ export function EventStoreProvider({
   const [errorCode, setErrorCode] = useState<ReturnType<typeof classifyCarelogError> | null>(null);
   const [snapshots, setSnapshots] = useState<Record<string, CustomerEventSnapshot>>({});
   const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      // Provider가 사라지면 대기 중인 수명 타이머를 지운다.
+      if (savedNoticeTimerRef.current !== null) clearTimeout(savedNoticeTimerRef.current);
+    },
+    [],
+  );
   const scheduleReadGenerationRef = useRef(0);
   const detailReadGenerationRef = useRef(0);
   const eventReadGenerationRef = useRef(0);
@@ -354,9 +364,12 @@ export function EventStoreProvider({
         eventId: created.id,
         customerId: created.customerId,
         seq,
+        createdAt: Date.now(),
       });
-      // 아무 화면도 받지 않은 요청은 수명이 지나면 버린다(다음 저장 전까지 남지 않게).
-      window.setTimeout(() => {
+      // 아무 화면도 받지 않은 요청은 수명이 지나면 버린다. 이전 요청의 타이머는 지운다(최신 요청을 건드리지 않게).
+      if (savedNoticeTimerRef.current !== null) clearTimeout(savedNoticeTimerRef.current);
+      savedNoticeTimerRef.current = setTimeout(() => {
+        savedNoticeTimerRef.current = null;
         setSavedNotice((current) => (current?.seq === seq ? null : current));
       }, SAVED_NOTICE_MAX_AGE_MS);
       return created;
