@@ -489,3 +489,15 @@ test('a saved notice stays visible for at least 2 seconds, including desktop two
   await expect(sentence).toBeVisible();
   await expect(sentence).toContainText('일정을 저장했어요.');
 });
+
+test('after saving on another date, the saved row is scrolled into view without a remount', async ({
+  page,
+}) => {
+  const descriptor = `Schedule target scroll ${page.viewportSize()?.width}`;
+  const savePoint = await prepareScheduleCreate(page, descriptor);
+  await page.mouse.click(savePoint.x, savePoint.y);
+  await expect(page).toHaveURL('/app/schedule');
+  const row = page.locator('[data-agenda-row]').filter({ hasText: descriptor });
+  await expect(row).toHaveCount(1);
+  await expect(row).toBeInViewport();
+});

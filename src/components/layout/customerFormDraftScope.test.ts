@@ -28,4 +28,13 @@ describe('customerFormDraftScopeKey (draft reset contract)', () => {
       customerFormDraftScopeKey('/app/customers/new'),
     );
   });
+
+  it('keeps the assistant question draft reset on every entry to and exit from the assistant route', () => {
+    expect(customerFormDraftScopeKey('/app/assistant')).not.toBe(
+      customerFormDraftScopeKey('/app/schedule'),
+    );
+    expect(customerFormDraftScopeKey('/app/schedule')).not.toBe(
+      customerFormDraftScopeKey('/app/assistant'),
+    );
+  });
 });
