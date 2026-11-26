@@ -273,6 +273,7 @@ export interface Messages {
     leave: string;
   };
   eventForm: {
+    savedNotice: string;
     createTitle: string;
     editTitle: string;
     customer: string;
@@ -287,6 +288,8 @@ export interface Messages {
     note: string;
     notePlaceholder: string;
     scheduledRequired: string;
+    scheduledInPast: string;
+    timeNonexistent: string;
     occurredRequired: string;
     cancel: string;
     create: string;

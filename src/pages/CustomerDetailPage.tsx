@@ -15,6 +15,7 @@ import {
   AdaptiveSurfaceContent,
   useOptionalAdaptiveHost,
 } from '@/components/layout/adaptiveHostContext';
+import { EventSavedNotice } from '@/components/schedule/EventSavedNotice';
 import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
@@ -371,6 +372,7 @@ export function CustomerDetailPage({
               </Button>
             </div>
           ) : null}
+          <EventSavedNotice className="mt-4" customerId={customerId} />
           {/* 로딩·실패로 다음 일정을 못 그려도 "일정 추가"는 같은 자리(같은 DOM)에 남는다. */}
           <CustomerUpcoming
             events={customerEvents}

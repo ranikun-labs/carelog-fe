@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { LeaveGuard } from '@/components/common/LeaveGuard';
+import { getDefaultPlannedDateTimeLocal } from '@/components/schedule/agendaModel';
+import { parseExistingLocalDateTime } from '@/components/schedule/localDateTime';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { TextField } from '@/components/ui/text-field';
@@ -42,6 +44,8 @@ interface EventFormProps {
   onSubmit: (values: EventFormSubmitValues) => void | Promise<void>;
   onValidationFailure?: () => void;
   onCancel: () => void;
+  /** 새 예정 일정의 과거 시각 검사 기준 시각. 테스트는 주입하고, 생략하면 제출 시점의 현재 시각을 쓴다. */
+  getNow?: () => Date;
 }
 
 export function EventForm({
@@ -56,6 +60,7 @@ export function EventForm({
   onSubmit,
   onValidationFailure,
   onCancel,
+  getNow = () => new Date(),
 }: EventFormProps) {
   const { t } = useTranslation();
   const initialStatus =
@@ -71,7 +76,7 @@ export function EventForm({
     event?.status === 'PLANNED'
       ? toDateTimeLocalValue(event.scheduledAt)
       : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
-          toDateTimeLocalValue(now.toISOString()),
+          getDefaultPlannedDateTimeLocal(undefined, now),
   );
   const [occurredAt, setOccurredAt] = useState(
     event?.status === 'OCCURRED'
@@ -79,7 +84,9 @@ export function EventForm({
       : toDateTimeLocalValue(initialValues?.occurredAt ?? now.toISOString()),
   );
   const [error, setError] = useState<string | null>(null);
-  const [timeRequiredError, setTimeRequiredError] = useState(false);
+  const [timeErrorKind, setTimeErrorKind] = useState<'required' | 'past' | 'nonexistent' | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const lastFieldRef = useRef<HTMLElement | null>(null);
@@ -109,7 +116,7 @@ export function EventForm({
     const time = status === 'PLANNED' ? scheduledAt : occurredAt;
     if (!time) {
       onValidationFailure?.();
-      setTimeRequiredError(true);
+      setTimeErrorKind('required');
       // noValidate라 브라우저가 첫 오류 입력으로 포커스를 옮겨 주지 않는다. 같은 동작을 직접 이어 준다.
       formEvent.currentTarget
         .querySelector<HTMLInputElement>(
@@ -121,8 +128,33 @@ export function EventForm({
       return;
     }
 
+    // 이 기기 시간대에 없는 시각(DST 건너뛴 구간)은 어떤 상태든 저장하지 않는다. 입력한 벽시계 값이 되돌아와야 한다.
+    const parsedTime = parseExistingLocalDateTime(time);
+    if (!parsedTime) {
+      onValidationFailure?.();
+      setTimeErrorKind('nonexistent');
+      formEvent.currentTarget
+        .querySelector<HTMLInputElement>(
+          status === 'PLANNED'
+            ? '[data-event-field="scheduledAt"]'
+            : '[data-event-field="occurredAt"]',
+        )
+        ?.focus();
+      return;
+    }
+    // 새 예정 일정만 제출 시점 기준으로 검사한다(현재 시각과 같은 분도 차단). 기본값은 항상 미래다.
+    // 편집·즉시 기록(OCCURRED)은 과거 시각을 그대로 허용한다.
+    if (!isEdit && status === 'PLANNED' && parsedTime.getTime() <= getNow().getTime()) {
+      onValidationFailure?.();
+      setTimeErrorKind('past');
+      formEvent.currentTarget
+        .querySelector<HTMLInputElement>('[data-event-field="scheduledAt"]')
+        ?.focus();
+      return;
+    }
+
     setError(null);
-    setTimeRequiredError(false);
+    setTimeErrorKind(null);
     submitLockRef.current = true;
     setIsSubmitting(true);
     void Promise.resolve()
@@ -132,8 +164,18 @@ export function EventForm({
           descriptor: descriptor.trim(),
           note: note.trim(),
           ...(status === 'PLANNED'
-            ? { scheduledAt: toCanonicalTimestamp(scheduledAt) }
-            : { occurredAt: toCanonicalTimestamp(occurredAt) }),
+            ? {
+                scheduledAt: toStoredTimestamp(
+                  scheduledAt,
+                  event?.status === 'PLANNED' ? event.scheduledAt : undefined,
+                ),
+              }
+            : {
+                occurredAt: toStoredTimestamp(
+                  occurredAt,
+                  event?.status === 'OCCURRED' ? event.occurredAt : undefined,
+                ),
+              }),
         }),
       )
       .catch((submitError: unknown) => {
@@ -145,11 +187,16 @@ export function EventForm({
 
   const timeLabel =
     status === 'PLANNED' ? t('eventForm.scheduledTime') : t('eventForm.occurredTime');
-  const timeError = timeRequiredError
-    ? status === 'PLANNED'
-      ? t('eventForm.scheduledRequired')
-      : t('eventForm.occurredRequired')
-    : undefined;
+  const timeError =
+    timeErrorKind === 'past'
+      ? t('eventForm.scheduledInPast')
+      : timeErrorKind === 'nonexistent'
+        ? t('eventForm.timeNonexistent')
+        : timeErrorKind === 'required'
+          ? status === 'PLANNED'
+            ? t('eventForm.scheduledRequired')
+            : t('eventForm.occurredRequired')
+          : undefined;
 
   return (
     <>
@@ -215,7 +262,7 @@ export function EventForm({
                     disabled={isSubmitting}
                     onChange={() => {
                       setStatus(value);
-                      setTimeRequiredError(false);
+                      setTimeErrorKind(null);
                     }}
                     className="accent-primary size-5 shrink-0"
                   />
@@ -249,7 +296,7 @@ export function EventForm({
               const next = inputEvent.target.value;
               if (status === 'PLANNED') setScheduledAt(next);
               else setOccurredAt(next);
-              if (next) setTimeRequiredError(false);
+              if (next) setTimeErrorKind(null);
             }}
             required
             hint={
@@ -309,6 +356,17 @@ export function toDateTimeLocalValue(timestamp: string): string {
 
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * 폼 입력(로컬 벽시계)을 저장 timestamp로 바꾼다.
+ * 사용자가 시각을 바꾸지 않았으면(벽시계가 원래 값과 같으면) 원래 timestamp를 그대로 둔다.
+ * DST 중복 시각(예: 01:30-05:00)을 시각 변경 없이 저장해도 오프셋이 바뀌지 않게 하려는 규칙이다.
+ * 바꾼 값은 `toCanonicalTimestamp`(중복 시각은 먼저 오는 순간)로 해석한다.
+ */
+export function toStoredTimestamp(local: string, original?: string): string {
+  if (original && local === toDateTimeLocalValue(original)) return original;
+  return toCanonicalTimestamp(local);
 }
 
 export function toCanonicalTimestamp(value: string): string {

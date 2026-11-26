@@ -382,6 +382,8 @@ test('cancel needs a confirmation panel: close keeps PLANNED, confirm cancels', 
 }) => {
   await page.goto(`/app/events/${FOLLOWUP_EVENT_ID}`);
   const detail = page.locator('[data-event-detail]');
+  // 웹폰트가 로드되기 전에 재면 폴백 폰트 폭으로 간격이 달라진다. 로딩 완료를 기다린 뒤 잰다(고정 대기 아님).
+  await page.evaluate(() => document.fonts.ready);
 
   // "취소 처리"는 "수정"과 떨어져 오른쪽 끝에 있다.
   const edit = await detail.locator('[data-event-action="edit"]').boundingBox();

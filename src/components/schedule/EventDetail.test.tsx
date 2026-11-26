@@ -375,3 +375,55 @@ describe('EventDetail', () => {
     });
   });
 });
+
+// DST: TZ=America/New_York에서만 의미가 있다.
+// 실행: TZ=America/New_York pnpm exec vitest run src/components/schedule/EventDetail.test.tsx
+describe.runIf(process.env.TZ === 'America/New_York')(
+  'EventDetail DST occurrence (TZ=America/New_York)',
+  () => {
+    it('rejects a spring-forward gap time for 기록 완료, keeps the input and focuses the field', () => {
+      const onOccurEvent = vi.fn();
+      renderDetail(
+        {
+          id: 'gap-occur',
+          customerId: 'customer-1',
+          status: 'PLANNED',
+          scheduledAt: new Date(2026, 2, 7, 12, 0, 0).toISOString(),
+        },
+        onOccurEvent,
+      );
+      fireEvent.click(screen.getByRole('button', { name: '기록 완료' }));
+      const input = screen.getByLabelText(/실제/);
+      fireEvent.change(input, { target: { value: '2026-03-08T02:30' } });
+      fireEvent.click(screen.getByRole('button', { name: '확인' }));
+      expect(onOccurEvent).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent('이 기기 시간대에는 없는 시각');
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(input).toHaveFocus();
+      expect(input).toHaveValue('2026-03-08T02:30');
+    });
+
+    it('keeps the original instant when 기록 완료 is confirmed without changing the time (fall-back duplicate)', () => {
+      const onOccurEvent = vi.fn((occurredAt: string) => ({
+        id: 'dup-occur',
+        customerId: 'customer-1',
+        status: 'OCCURRED' as const,
+        scheduledAt: '2026-11-01T06:30:00Z',
+        occurredAt,
+      }));
+      renderDetail(
+        {
+          id: 'dup-occur',
+          customerId: 'customer-1',
+          status: 'PLANNED',
+          scheduledAt: '2026-11-01T06:30:00Z',
+        },
+        onOccurEvent,
+      );
+      fireEvent.click(screen.getByRole('button', { name: '기록 완료' }));
+      fireEvent.click(screen.getByRole('button', { name: '확인' }));
+      // 01:30-05:00(06:30Z)을 01:30-04:00으로 바꾸면 안 된다.
+      expect(onOccurEvent).toHaveBeenCalledWith('2026-11-01T06:30:00Z');
+    });
+  },
+);

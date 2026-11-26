@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import {
   EventForm,
-  toCanonicalTimestamp,
   toDateTimeLocalValue,
+  toStoredTimestamp,
   type EventFormSubmitValues,
 } from '@/components/schedule/EventForm';
+import { parseExistingLocalDateTime } from '@/components/schedule/localDateTime';
 import {
   formatAgendaDateTime,
   getAgendaCoordinate,
@@ -64,6 +65,7 @@ export function EventDetail({
   const occurrenceInputRef = useRef<HTMLInputElement>(null);
   const [isActionPending, setIsActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [occurrenceFieldError, setOccurrenceFieldError] = useState<string | null>(null);
   const [occurrenceTime, setOccurrenceTime] = useState(
     event.status === 'PLANNED' ? toDateTimeLocalValue(event.scheduledAt) : '',
   );
@@ -94,10 +96,18 @@ export function EventDetail({
 
   async function confirmOccurrence() {
     if (!onOccurEvent || !occurrenceTime || isActionPending) return;
+    // 이 기기 시간대에 없는 시각(DST 건너뛴 구간)은 저장하지 않는다. 입력은 유지하고 필드에 오류를 보인다.
+    if (!parseExistingLocalDateTime(occurrenceTime)) {
+      setOccurrenceFieldError(t('eventForm.timeNonexistent'));
+      occurrenceInputRef.current?.focus();
+      return;
+    }
+    setOccurrenceFieldError(null);
     setIsActionPending(true);
     setActionError(null);
     try {
-      const updatedEvent = await onOccurEvent(toCanonicalTimestamp(occurrenceTime));
+      // 시각을 바꾸지 않았으면 원래 timestamp(DST 중복 오프셋 포함)를 그대로 보낸다.
+      const updatedEvent = await onOccurEvent(toStoredTimestamp(occurrenceTime, event.scheduledAt));
       if (updatedEvent) setIsConfirmingOccurrence(false);
     } catch (error: unknown) {
       setActionError(t(getCarelogMessageKey(error)));
@@ -347,11 +357,21 @@ export function EventDetail({
               data-event-occurrence-time
               type="datetime-local"
               value={occurrenceTime}
-              onChange={(inputEvent) => setOccurrenceTime(inputEvent.target.value)}
+              onChange={(inputEvent) => {
+                setOccurrenceTime(inputEvent.target.value);
+                setOccurrenceFieldError(null);
+              }}
               required
+              aria-invalid={occurrenceFieldError ? true : undefined}
+              aria-describedby={occurrenceFieldError ? 'event-occurrence-time-error' : undefined}
               className="border-input bg-card type-body text-foreground rounded-control min-h-11 w-full min-w-0 border px-3 font-normal"
             />
           </label>
+          {occurrenceFieldError ? (
+            <p id="event-occurrence-time-error" role="alert" className="type-label text-warning">
+              {occurrenceFieldError}
+            </p>
+          ) : null}
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               type="button"

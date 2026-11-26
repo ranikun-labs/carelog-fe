@@ -14,6 +14,16 @@ import type { CustomerRecord } from '@/types/customer';
 import { CarelogHttpError } from '@/integrations/carelog/errors';
 
 const now = new Date(2026, 7, 11, 12, 0, 0);
+
+beforeEach(() => {
+  // 픽스처 시각을 기준 시각으로 고정한다. 과거 시각 검사가 실제 현재 시각(Date.now)을 보기 때문이다.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(now);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 const customer: CustomerRecord = {
   id: 'customer-1',
   displayName: '박세입',
@@ -27,13 +37,17 @@ const initialEvent: CustomerEvent = {
   descriptor: '기존 일정',
 };
 
-function renderPage({ customers = [customer], events = [initialEvent] } = {}) {
+function renderPage({
+  customers = [customer],
+  events = [initialEvent],
+  targetDateKey = '2026-08-15',
+} = {}) {
   return render(
     <MemoryRouter
       initialEntries={[
         {
           pathname: '/app/events/new',
-          state: { adaptiveRoot: 'schedule', targetDateKey: '2026-08-15' },
+          state: { adaptiveRoot: 'schedule', targetDateKey },
         },
       ]}
     >
@@ -76,9 +90,21 @@ describe('EventCreatePage', () => {
     );
     expect(screen.getByText('박세입 고객')).toBeVisible();
     expect(screen.queryByDisplayValue('OCCURRED')).not.toBeInTheDocument();
-    const localTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    expect(screen.getByLabelText('예정 시각')).toHaveValue(`2026-08-15T${localTime}`);
+    // 선택 날짜(8/15)가 오늘(8/11) 이후면 그 날짜, 시각은 다음 정시(미래).
+    expect(screen.getByLabelText('예정 시각')).toHaveValue('2026-08-15T13:00');
   });
+
+  it.each([
+    ['today selected', '2026-08-11', '2026-08-11T13:00'],
+    ['a past date selected', '2026-07-05', '2026-08-11T13:00'],
+  ])(
+    'defaults the planned time to the next full hour today when %s',
+    (_label, dateKey, expected) => {
+      renderPage({ targetDateKey: dateKey });
+      fireEvent.click(screen.getByRole('button', { name: '박세입' }));
+      expect(screen.getByLabelText('예정 시각')).toHaveValue(expected);
+    },
+  );
 
   it('creates exactly one PLANNED event and returns it to the selected agenda date', async () => {
     renderPage();

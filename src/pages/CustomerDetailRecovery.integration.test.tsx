@@ -7,6 +7,21 @@ import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 
+// 저장 알림 영역도 role=status(항상 렌더)라서, 로딩·복구 상태 영역만 골라 본다.
+function loadingStatus() {
+  return screen.getAllByRole('status').find((el) => !el.hasAttribute('data-event-saved-notice'))!;
+}
+
+beforeEach(() => {
+  // 픽스처의 기준 시각(2026-08-11)으로 고정한다. 새 일정 과거 시각 검사가 실제 현재 시각을 보기 때문이다.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-08-11T12:00:00+09:00'));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 it('shows a confirmed new event as partial when the first read and refresh fail', async () => {
   const customer = landlordTenantScenario.customer;
   const port = {
@@ -151,7 +166,7 @@ it('moves focus from retry to the loading status while a retry is pending', asyn
   );
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-  await waitFor(() => expect(screen.getByRole('status')).toHaveFocus());
+  await waitFor(() => expect(loadingStatus()).toHaveFocus());
 });
 
 it.each([false, true])(
@@ -188,12 +203,12 @@ it.each([false, true])(
     );
     await screen.findByRole('alert');
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-    await waitFor(() => expect(screen.getByRole('status')).toHaveFocus());
+    await waitFor(() => expect(loadingStatus()).toHaveFocus());
     const add = screen.getByRole('button', { name: '일정 추가' });
     if (moved) add.focus();
     finishRetry([]);
     await screen.findByText('일정을 다시 불러왔습니다.');
     if (moved) expect(add).toHaveFocus();
-    else expect(screen.getByRole('status')).toHaveFocus();
+    else expect(loadingStatus()).toHaveFocus();
   },
 );

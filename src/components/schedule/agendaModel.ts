@@ -3,6 +3,7 @@ import {
   type CustomerEvent,
   type PlannedCustomerEvent,
 } from '@/domain/customerEvent';
+import { parseExistingLocalDateTime } from '@/components/schedule/localDateTime';
 import type { ScheduleCustomer } from '@/types/customer';
 import { formatDate } from '@/lib/utils';
 
@@ -280,4 +281,33 @@ function parseDateKey(dateKey: string): Date | undefined {
     return undefined;
   }
   return date;
+}
+
+/**
+ * 새 "예정으로 추가"의 기본 예정 시각(datetime-local 값). 항상 지금보다 미래다.
+ * 선택 날짜가 오늘 이후면 그 날짜, 아니면(오늘이거나 지난 날짜) 오늘의 다음 정시다.
+ * 기본값 그대로 저장해도 곧바로 "정리 필요"가 되지 않게 하려는 규칙이다.
+ */
+export function getDefaultPlannedDateTimeLocal(
+  selectedDateKey: string | undefined,
+  now: Date,
+): string {
+  const nextHour = new Date(now);
+  nextHour.setMinutes(0, 0, 0);
+  nextHour.setHours(nextHour.getHours() + 1);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const todayKey = getDateKeyFromDate(now);
+  const useSelected =
+    Boolean(selectedDateKey) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(selectedDateKey ?? '') &&
+    (selectedDateKey ?? '') > todayKey;
+  const dateKey = useSelected && selectedDateKey ? selectedDateKey : getDateKeyFromDate(nextHour);
+  // 선택 날짜에 그 정시가 DST 공백(존재하지 않는 시각)이면 다음 정시로 넘긴다. 기본값은 저장 가능해야 한다.
+  let hour = nextHour.getHours();
+  let candidate = `${dateKey}T${pad(hour)}:00`;
+  while (!parseExistingLocalDateTime(candidate) && hour < 23) {
+    hour += 1;
+    candidate = `${dateKey}T${pad(hour)}:00`;
+  }
+  return candidate;
 }

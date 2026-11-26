@@ -296,6 +296,7 @@ export const en: Messages = {
     leave: 'Leave',
   },
   eventForm: {
+    savedNotice: 'Saved the event for {{when}}.',
     createTitle: 'Add event',
     editTitle: 'Edit event',
     customer: '{{customer}} customer',
@@ -310,6 +311,8 @@ export const en: Messages = {
     note: 'Memo',
     notePlaceholder: 'Leave any useful context.',
     scheduledRequired: 'Enter a scheduled time.',
+    scheduledInPast: 'A new scheduled event cannot be saved for a past time. Choose a new time.',
+    timeNonexistent: 'This time does not exist on this device (daylight saving change). Choose another time.',
     occurredRequired: 'Enter a recorded time.',
     cancel: 'Close',
     create: 'Add event',

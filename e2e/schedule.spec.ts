@@ -12,8 +12,53 @@ test('schedule agenda exposes the canonical week, overdue cue, and event rows', 
 
   const overdueCue = page.locator('[data-overdue-cue]');
   await expect(overdueCue).toBeVisible();
-  await expect(overdueCue).not.toHaveClass(/sticky/);
+  // 정리 필요 안내는 주간 띠와 같은 고정 영역에 있다(F3 C-03).
+  await expect(page.locator('[data-schedule-sticky] [data-overdue-cue]')).toHaveCount(1);
   await expect(overdueCue.getByText('정리 필요')).toBeVisible();
+});
+
+test('"+ 일정" and the overdue cue are inside the viewport right after landing', async ({
+  page,
+}) => {
+  await page.goto('/app/schedule');
+  const viewport = page.viewportSize()!;
+  const add = page.locator('[data-schedule-add-event]');
+  const cue = page.locator('[data-overdue-cue] button');
+  await expect(add).toBeVisible();
+  await expect(cue).toBeVisible();
+  // 오늘로 자동 스크롤이 끝난 뒤에도 같은 자리에 남는다.
+  await page.waitForTimeout(600);
+  for (const locator of [add, cue]) {
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+  }
+  const weekStrip = await page.locator('[data-week-strip]').boundingBox();
+  expect(weekStrip!.y).toBeGreaterThanOrEqual(0);
+});
+
+test('saving a new event with its default time lands in the upcoming list with a status sentence', async ({
+  page,
+}) => {
+  await page.goto('/app/customers/customer-tenant-1');
+  await page.getByRole('button', { name: '일정 추가' }).click();
+  const form = page.locator('[data-event-form]');
+  const time = form.locator('[data-event-field="scheduledAt"]');
+  // 고정 시계 2026-08-11 12:00 KST 기준, 기본값은 항상 미래(다음 정시).
+  await expect(time).toHaveValue('2026-08-11T13:00');
+  await form.locator('[data-event-field="descriptor"]').fill('기본 시각으로 추가한 일정');
+  await form.locator('[data-event-form-submit], button[type="submit"]').first().click();
+
+  const notice = page.locator('[data-event-saved-notice]');
+  await expect(notice).toHaveAttribute('role', 'status');
+  await expect(notice).toContainText('일정을 저장했어요.');
+  await expect(
+    page.locator('[data-customer-upcoming]').getByText('기본 시각으로 추가한 일정').first(),
+  ).toBeVisible();
+  await expect(page.locator('[data-customer-upcoming]').getByText('정리 필요')).toHaveCount(0);
 });
 
 test('agenda row and customer target open their separate destinations', async ({ page }) => {
