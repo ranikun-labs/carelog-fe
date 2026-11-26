@@ -192,7 +192,10 @@ export function CustomerForm({
             data-customer-field="displayName"
             label={t('customers.form.displayName')}
             value={displayName}
+            readOnly={isSubmitting}
             onChange={(inputEvent) => {
+              // 저장 중에는 입력을 받지 않는다(값과 초안이 저장 요청과 어긋나지 않게).
+              if (isSubmitting) return;
               const nextDisplayName = inputEvent.target.value;
               setDisplayName(nextDisplayName);
               if (nextDisplayName.trim()) setNameRequiredError(false);
@@ -210,7 +213,9 @@ export function CustomerForm({
             data-customer-field="customerMemo"
             label={t('customers.form.memo')}
             value={customerMemo}
+            readOnly={isSubmitting}
             onChange={(inputEvent) => {
+              if (isSubmitting) return;
               const nextCustomerMemo = inputEvent.target.value;
               setCustomerMemo(nextCustomerMemo);
               persistDraft({ displayName, customerMemo: nextCustomerMemo });

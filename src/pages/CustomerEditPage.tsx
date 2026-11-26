@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import {
@@ -20,6 +20,14 @@ export function CustomerEditPage() {
   const navigate = useNavigate();
   const customerStore = useCustomerStore();
   const customer = customerStore.getCustomer(customerId);
+  // 저장 응답이 떠난 뒤 도착할 수 있다. 떠난 화면은 상세로 되돌리지 않는다.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!customerStore.remoteReadsEnabled || customer || !customerId) return;
@@ -48,7 +56,8 @@ export function CustomerEditPage() {
 
   async function handleSubmit(values: CustomerFormValues, options: CustomerFormSubmitOptions) {
     const updatedCustomer = await customerStore.editCustomer(currentCustomer.id, values);
-    // 저장 성공 뒤 상세로 옮기므로 이탈 보호를 먼저 놓는다.
+    if (!mountedRef.current) return true;
+    // 저장 성공을 확인한 뒤 상세로 옮기므로 이탈 보호를 먼저 놓는다.
     options.allowLeave();
 
     navigate(buildAppCustomerDetailPath(updatedCustomer.id), {

@@ -309,7 +309,11 @@ export function EventForm({
             data-event-field="descriptor"
             label={t('eventForm.descriptor')}
             value={descriptor}
-            onChange={(inputEvent) => setDescriptor(inputEvent.target.value)}
+            readOnly={isSubmitting}
+            onChange={(inputEvent) => {
+              // 저장 중에는 입력을 받지 않는다(저장 요청과 화면 값이 어긋나지 않게).
+              if (!isSubmitting) setDescriptor(inputEvent.target.value);
+            }}
             placeholder={t('eventForm.descriptorPlaceholder')}
           />
 
@@ -321,7 +325,9 @@ export function EventForm({
             type="datetime-local"
             label={timeLabel}
             value={status === 'PLANNED' ? scheduledAt : occurredAt}
+            readOnly={isSubmitting}
             onChange={(inputEvent) => {
+              if (isSubmitting) return;
               const next = inputEvent.target.value;
               if (status === 'PLANNED') setScheduledAt(next);
               else setOccurredAt(next);
@@ -343,7 +349,10 @@ export function EventForm({
             data-event-field="note"
             label={t('eventForm.note')}
             value={note}
-            onChange={(inputEvent) => setNote(inputEvent.target.value)}
+            readOnly={isSubmitting}
+            onChange={(inputEvent) => {
+              if (!isSubmitting) setNote(inputEvent.target.value);
+            }}
             rows={3}
             placeholder={t('eventForm.notePlaceholder')}
           />

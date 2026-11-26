@@ -69,6 +69,14 @@ export function EventDetailPage({
   const remoteReadsEnabled = eventStore?.remoteReadsEnabled ?? false;
   const loadCustomer = customerStore.loadCustomer;
   const scrollSurfaceRef = useRef<HTMLDivElement>(null);
+  // 저장 응답이 떠난 뒤 도착할 수 있다(handleEdit 참고). 훅은 early return보다 앞에 둔다.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const sourceEvents = events ?? eventStore?.events ?? [];
   const sourceCustomers =
     customers ?? customerStore.customers.map(({ id, displayName }) => ({ id, displayName }));
@@ -130,6 +138,7 @@ export function EventDetailPage({
     return <AppNotFoundPage />;
   }
 
+  // 저장 응답이 떠난 뒤 도착할 수 있다(handleEdit 참고). 훅은 early return보다 앞에 둔다.
   const currentEvent = event;
   const currentCustomer = customer;
 
@@ -167,7 +176,9 @@ export function EventDetailPage({
       ...(values.occurredAt ? { occurredAt: values.occurredAt } : {}),
     };
     const updatedEvent = await editEvent(currentEvent.id, changes);
-    // 저장 성공 뒤 화면을 옮기므로 이탈 보호를 먼저 놓는다(저장 중 보호는 navigate를 막기 때문).
+    // 저장 응답이 떠난 뒤 도착하면 일정 화면으로 되돌리지 않는다.
+    if (!mountedRef.current) return updatedEvent;
+    // 저장 성공을 확인한 뒤 화면을 옮기므로 이탈 보호를 먼저 놓는다.
     options?.allowLeave();
     if (updatedEvent) returnToAgenda(updatedEvent);
     return updatedEvent;

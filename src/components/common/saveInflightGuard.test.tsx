@@ -166,4 +166,61 @@ describe('leave guard while a save is in flight (save-inflight)', () => {
     expect(router.state.location.pathname).toBe('/form');
     expect(screen.getByText('작성 중인 내용이 사라져요')).toBeInTheDocument();
   });
+
+  it('CustomerForm: fields cannot be changed while the save is in flight', async () => {
+    const pending = new Promise<void>(() => undefined);
+    renderInRouter(customerForm(vi.fn(() => pending)));
+    fireEvent.change(document.querySelector('[data-customer-field="displayName"]')!, {
+      target: { value: '저장 중 고객' },
+    });
+    fireEvent.click(document.querySelector('[data-customer-form-submit]')!);
+    await flush();
+    const name = document.querySelector('[data-customer-field="displayName"]') as HTMLInputElement;
+    fireEvent.change(name, { target: { value: '저장 중에 바꾼 값' } });
+    expect(name).toHaveValue('저장 중 고객');
+  });
+
+  it('EventForm: fields cannot be changed while the save is in flight', async () => {
+    const pending = new Promise<void>(() => undefined);
+    renderInRouter(eventForm(vi.fn(() => pending)));
+    fireEvent.change(document.querySelector('[data-event-field="descriptor"]')!, {
+      target: { value: '저장 중 일정' },
+    });
+    fireEvent.submit(document.querySelector('[data-event-form]')!);
+    await flush();
+    const descriptor = document.querySelector(
+      '[data-event-field="descriptor"]',
+    ) as HTMLInputElement;
+    fireEvent.change(descriptor, { target: { value: '저장 중에 바꾼 값' } });
+    expect(descriptor).toHaveValue('저장 중 일정');
+  });
+
+  it('a second submit while the save is in flight does not send a second request', async () => {
+    const pending = new Promise<void>(() => undefined);
+    const onSubmit = vi.fn(() => pending);
+    renderInRouter(customerForm(onSubmit));
+    fireEvent.change(document.querySelector('[data-customer-field="displayName"]')!, {
+      target: { value: '중복 제출 고객' },
+    });
+    const form = document.querySelector('[data-customer-form-submit]')!.closest('form')!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await flush();
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('after a failed save the fields are editable again and the input is kept', async () => {
+    const onSubmit = vi.fn(() => Promise.reject(new Error('save failed')));
+    renderInRouter(customerForm(onSubmit));
+    fireEvent.change(document.querySelector('[data-customer-field="displayName"]')!, {
+      target: { value: '실패 후 고객' },
+    });
+    fireEvent.click(document.querySelector('[data-customer-form-submit]')!);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const name = document.querySelector('[data-customer-field="displayName"]') as HTMLInputElement;
+    fireEvent.change(name, { target: { value: '실패 후 고칩' } });
+    expect(name).toHaveValue('실패 후 고칩');
+  });
 });

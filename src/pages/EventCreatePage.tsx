@@ -37,6 +37,14 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  // 저장 응답이 떠난 뒤 도착할 수 있다. 마운트 여부로 떠난 화면의 후속 처리를 막는다(CustomerDetailPage와 같은 방식).
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const adaptiveHost = useOptionalAdaptiveHost();
   const eventCreateActivation = useOptionalEventCreateActivation();
   const customerStore = useCustomerStore();
@@ -128,14 +136,16 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
           ...(values.note ? { note: values.note } : {}),
         });
       } catch (error) {
-        eventCreateActivation?.clearCreateReturnProvenance();
+        if (mountedRef.current) eventCreateActivation?.clearCreateReturnProvenance();
         throw error;
       }
+      // 떠난 뒤 도착한 저장 응답은 화면 이동·초안·선택 상태를 건드리지 않는다(저장 자체는 스토어에 남는다).
+      if (!mountedRef.current) return;
       if (!createdEvent) {
         eventCreateActivation?.clearCreateReturnProvenance();
         return;
       }
-      // 저장 성공 뒤 일정 화면으로 옮기므로 이탈 보호를 먼저 놓는다.
+      // 저장 성공을 확인한 뒤 일정 화면으로 옮기므로 이탈 보호를 먼저 놓는다.
       options.allowLeave();
       clearDraft();
 
