@@ -305,6 +305,7 @@ export const ko: Messages = {
     notePlaceholder: '필요한 내용을 남겨 주세요.',
     scheduledRequired: '예정 시각을 입력해 주세요.',
     scheduledInPast: '지난 시각으로는 새 일정을 저장할 수 없어요. 예정 시각을 다시 골라 주세요.',
+    timeNonexistent: '이 기기 시간대에는 없는 시각이에요(서머타임 전환 시각). 다른 시각을 골라 주세요.',
     occurredRequired: '기록 시각을 입력해 주세요.',
     cancel: '닫기',
     create: '일정 추가',

@@ -372,7 +372,7 @@ export function CustomerDetailPage({
               </Button>
             </div>
           ) : null}
-          <EventSavedNotice className="mt-4 empty:hidden" />
+          <EventSavedNotice className="mt-4" />
           {/* 로딩·실패로 다음 일정을 못 그려도 "일정 추가"는 같은 자리(같은 DOM)에 남는다. */}
           <CustomerUpcoming
             events={customerEvents}

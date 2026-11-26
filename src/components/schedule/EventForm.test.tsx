@@ -237,3 +237,54 @@ describe('EventForm past or current scheduled time for a new PLANNED event (Owne
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });
+
+// DST 경계는 TZ=America/New_York에서만 의미가 있다.
+// 실행: TZ=America/New_York pnpm exec vitest run src/components/schedule/EventForm.test.tsx
+describe.runIf(process.env.TZ === 'America/New_York')('EventForm DST (TZ=America/New_York)', () => {
+  it('rejects a spring-forward gap time for a new PLANNED event, keeps input and focus', () => {
+    clockNow = new Date(2026, 2, 7, 12, 0, 0);
+    const onSubmit = renderForm();
+    fireEvent.change(screen.getByLabelText('제목'), { target: { value: 'DST 공백' } });
+    setTime('2026-03-08T02:30');
+    submitForm();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('이 기기 시간대에는 없는 시각');
+    expect(screen.getByLabelText('예정 시각')).toHaveValue('2026-03-08T02:30');
+    expect(screen.getByLabelText('예정 시각')).toHaveFocus();
+    expect(screen.getByLabelText('제목')).toHaveValue('DST 공백');
+  });
+
+  it('rejects the gap time for an OCCURRED record', () => {
+    clockNow = new Date(2026, 2, 7, 12, 0, 0);
+    const onSubmit = renderForm(vi.fn(), { fixedCreateStatus: undefined });
+    fireEvent.click(document.querySelector<HTMLInputElement>('input[name="event-kind"][value="OCCURRED"]')!);
+    fireEvent.change(document.querySelector('[data-event-field="occurredAt"]')!, {
+      target: { value: '2026-03-08T02:00' },
+    });
+    submitForm();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('이 기기 시간대에는 없는 시각');
+  });
+
+  it('accepts the first 03:00 after the gap for a new event', async () => {
+    clockNow = new Date(2026, 2, 7, 12, 0, 0);
+    const onSubmit = renderForm();
+    setTime('2026-03-08T03:00');
+    submitForm();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduledAt: '2026-03-08T03:00:00-04:00' }),
+    );
+  });
+
+  it('fall back: the ambiguous 01:30 is saved once, as the earlier instant (-04:00)', async () => {
+    clockNow = new Date(2026, 9, 31, 12, 0, 0);
+    const onSubmit = renderForm();
+    setTime('2026-11-01T01:30');
+    submitForm();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduledAt: '2026-11-01T01:30:00-04:00' }),
+    );
+  });
+});

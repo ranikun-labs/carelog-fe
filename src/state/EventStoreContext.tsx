@@ -39,9 +39,12 @@ export interface CustomerEventSnapshot {
 export interface EventStoreValue {
   events: readonly CustomerEvent[];
   highlightedEventId: string | null;
-  /** 방금 저장한 일정. 화면이 `role=status` 한 문장으로 알리고 지운다. */
-  savedNoticeEventId: string | null;
-  clearSavedNotice: (eventId?: string) => void;
+  /**
+   * 방금 성공한 생성 한 건의 알림 요청. `seq`로 구분한다(연속 저장마다 증가).
+   * 알림 영역이 한 번 받아 표시한 뒤 `consumeSavedNotice(seq)`로 즉시 지운다. 그래서 이동·재진입 뒤 다시 뜨지 않는다.
+   */
+  savedNotice: { eventId: string; seq: number } | null;
+  consumeSavedNotice: (seq: number) => void;
   remoteReadsEnabled: boolean;
   scheduleLoadState: EventLoadState;
   detailLoadState: EventLoadState;
@@ -87,7 +90,7 @@ export function EventStoreProvider({
   );
   const seed = initialEvents ?? [];
   const [state, dispatch] = useReducer(eventStoreReducer, seed, createEventStoreState);
-  const [savedNoticeEventId, setSavedNoticeEventId] = useState<string | null>(null);
+  const [savedNotice, setSavedNotice] = useState<{ eventId: string; seq: number } | null>(null);
   const [scheduleLoadState, setScheduleLoadState] = useState<EventLoadState>(
     !isExplicitPort || initialEvents !== undefined ? 'ready' : 'loading',
   );
@@ -334,7 +337,7 @@ export function EventStoreProvider({
   const createEvent = useCallback(
     async (input: EventCreationInput) => {
       const created = await runMutation(() => port.create(input));
-      setSavedNoticeEventId(created.id);
+      setSavedNotice((previous) => ({ eventId: created.id, seq: (previous?.seq ?? 0) + 1 }));
       return created;
     },
     [port, runMutation],
@@ -371,10 +374,8 @@ export function EventStoreProvider({
     dispatch({ type: 'clear-highlight', eventId });
   }, []);
 
-  const clearSavedNotice = useCallback((eventId?: string) => {
-    setSavedNoticeEventId((current) =>
-      eventId === undefined || current === eventId ? null : current,
-    );
+  const consumeSavedNotice = useCallback((seq: number) => {
+    setSavedNotice((current) => (current?.seq === seq ? null : current));
   }, []);
 
   const clearError = useCallback(() => {
@@ -386,8 +387,8 @@ export function EventStoreProvider({
     () => ({
       events: state.events,
       highlightedEventId: state.highlightedEventId,
-      savedNoticeEventId,
-      clearSavedNotice,
+      savedNotice,
+      consumeSavedNotice,
       remoteReadsEnabled,
       scheduleLoadState,
       detailLoadState,
@@ -412,7 +413,7 @@ export function EventStoreProvider({
       cancelEvent,
       clearError,
       clearHighlight,
-      clearSavedNotice,
+      consumeSavedNotice,
       createEvent,
       detailLoadState,
       detailCustomerId,
@@ -428,7 +429,7 @@ export function EventStoreProvider({
       mutationPending,
       occurEvent,
       remoteReadsEnabled,
-      savedNoticeEventId,
+      savedNotice,
       scheduleLoadState,
       state.events,
       state.highlightedEventId,

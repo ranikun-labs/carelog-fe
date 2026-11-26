@@ -9,6 +9,11 @@ import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventStoreProvider, type EventStoreValue, useEventStore } from '@/state/EventStoreContext';
 
+// 저장 알림 영역도 role=status(항상 렌더)라서, 로딩·복구 상태 영역만 골라 본다.
+function loadingStatus() {
+  return screen.getAllByRole('status').find((el) => !el.hasAttribute('data-event-saved-notice'))!;
+}
+
 function pendingValue<T>() {
   let finish!: (value: T) => void;
   let fail!: (reason: Error) => void;
@@ -72,7 +77,7 @@ it.each(['success', 'failure'] as const)(
       </MemoryRouter>,
     );
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
-    expect(screen.getByRole('status')).toHaveTextContent('일정을 불러오는 중');
+    expect(loadingStatus()).toHaveTextContent('일정을 불러오는 중');
     fireEvent.click(document.querySelector('[data-add-event]')!);
     fireEvent.change(document.querySelector('[data-event-field="descriptor"]')!, {
       target: { value: confirmed.descriptor },

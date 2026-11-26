@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { LeaveGuard } from '@/components/common/LeaveGuard';
 import { getDefaultPlannedDateTimeLocal } from '@/components/schedule/agendaModel';
+import { parseExistingLocalDateTime } from '@/components/schedule/localDateTime';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { TextField } from '@/components/ui/text-field';
@@ -83,7 +84,9 @@ export function EventForm({
       : toDateTimeLocalValue(initialValues?.occurredAt ?? now.toISOString()),
   );
   const [error, setError] = useState<string | null>(null);
-  const [timeErrorKind, setTimeErrorKind] = useState<'required' | 'past' | null>(null);
+  const [timeErrorKind, setTimeErrorKind] = useState<'required' | 'past' | 'nonexistent' | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const lastFieldRef = useRef<HTMLElement | null>(null);
@@ -125,9 +128,23 @@ export function EventForm({
       return;
     }
 
+    // 이 기기 시간대에 없는 시각(DST 건너뛴 구간)은 어떤 상태든 저장하지 않는다. 입력한 벽시계 값이 되돌아와야 한다.
+    const parsedTime = parseExistingLocalDateTime(time);
+    if (!parsedTime) {
+      onValidationFailure?.();
+      setTimeErrorKind('nonexistent');
+      formEvent.currentTarget
+        .querySelector<HTMLInputElement>(
+          status === 'PLANNED'
+            ? '[data-event-field="scheduledAt"]'
+            : '[data-event-field="occurredAt"]',
+        )
+        ?.focus();
+      return;
+    }
     // 새 예정 일정만 제출 시점 기준으로 검사한다(현재 시각과 같은 분도 차단). 기본값은 항상 미래다.
     // 편집·즉시 기록(OCCURRED)은 과거 시각을 그대로 허용한다.
-    if (!isEdit && status === 'PLANNED' && isNotAfterNow(scheduledAt, getNow())) {
+    if (!isEdit && status === 'PLANNED' && parsedTime.getTime() <= getNow().getTime()) {
       onValidationFailure?.();
       setTimeErrorKind('past');
       formEvent.currentTarget
@@ -163,7 +180,9 @@ export function EventForm({
   const timeError =
     timeErrorKind === 'past'
       ? t('eventForm.scheduledInPast')
-      : timeErrorKind === 'required'
+      : timeErrorKind === 'nonexistent'
+        ? t('eventForm.timeNonexistent')
+        : timeErrorKind === 'required'
         ? status === 'PLANNED'
           ? t('eventForm.scheduledRequired')
           : t('eventForm.occurredRequired')
@@ -342,10 +361,4 @@ export function toCanonicalTimestamp(value: string): string {
   const pad = (number: number) => String(number).padStart(2, '0');
   const offset = `${sign}${pad(Math.floor(absoluteOffset / 60))}:${pad(absoluteOffset % 60)}`;
   return `${value.length === 16 ? `${value}:00` : value}${offset}`;
-}
-
-/** 입력된 로컬 시각이 기준 시각 이하인지(같은 분 포함). 파싱할 수 없으면 막지 않는다(필수 검사가 따로 잡는다). */
-function isNotAfterNow(localValue: string, now: Date): boolean {
-  const at = new Date(toCanonicalTimestamp(localValue)).getTime();
-  return Number.isFinite(at) && at <= now.getTime();
 }

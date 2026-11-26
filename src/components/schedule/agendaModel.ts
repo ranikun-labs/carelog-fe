@@ -3,6 +3,7 @@ import {
   type CustomerEvent,
   type PlannedCustomerEvent,
 } from '@/domain/customerEvent';
+import { parseExistingLocalDateTime } from '@/components/schedule/localDateTime';
 import type { ScheduleCustomer } from '@/types/customer';
 import { formatDate } from '@/lib/utils';
 
@@ -295,14 +296,18 @@ export function getDefaultPlannedDateTimeLocal(
   nextHour.setMinutes(0, 0, 0);
   nextHour.setHours(nextHour.getHours() + 1);
   const pad = (value: number) => String(value).padStart(2, '0');
-  const time = `${pad(nextHour.getHours())}:00`;
   const todayKey = getDateKeyFromDate(now);
-  if (
-    selectedDateKey &&
-    /^\d{4}-\d{2}-\d{2}$/.test(selectedDateKey) &&
-    selectedDateKey > todayKey
-  ) {
-    return `${selectedDateKey}T${time}`;
+  const useSelected =
+    Boolean(selectedDateKey) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(selectedDateKey ?? '') &&
+    (selectedDateKey ?? '') > todayKey;
+  const dateKey = useSelected && selectedDateKey ? selectedDateKey : getDateKeyFromDate(nextHour);
+  // 선택 날짜에 그 정시가 DST 공백(존재하지 않는 시각)이면 다음 정시로 넘긴다. 기본값은 저장 가능해야 한다.
+  let hour = nextHour.getHours();
+  let candidate = `${dateKey}T${pad(hour)}:00`;
+  while (!parseExistingLocalDateTime(candidate) && hour < 23) {
+    hour += 1;
+    candidate = `${dateKey}T${pad(hour)}:00`;
   }
-  return `${getDateKeyFromDate(nextHour)}T${time}`;
+  return candidate;
 }

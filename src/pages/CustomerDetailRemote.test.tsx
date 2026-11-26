@@ -7,6 +7,11 @@ import { I18nProvider } from '@/i18n/I18nContext';
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 
+// 저장 알림 영역도 role=status(항상 렌더)라서, 로딩·복구 상태 영역만 골라 본다.
+function loadingStatus() {
+  return screen.getAllByRole('status').find((el) => !el.hasAttribute('data-event-saved-notice'))!;
+}
+
 const { eventState } = vi.hoisted(() => ({
   eventState: {
     detailLoadState: 'error',
@@ -72,7 +77,7 @@ describe('customer event loading states', () => {
   it('does not describe a pending initial lookup as empty', () => {
     eventState.detailLoadState = 'loading';
     renderDetail();
-    expect(screen.getByRole('status')).toBeVisible();
+    expect(loadingStatus()).toBeVisible();
     expect(screen.queryByText('다음 일정 없음')).not.toBeInTheDocument();
   });
 
@@ -80,7 +85,7 @@ describe('customer event loading states', () => {
     eventState.detailCustomerId = 'different-customer';
     renderDetail();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.getByRole('status')).toBeVisible();
+    expect(loadingStatus()).toBeVisible();
   });
 
   it('shows known saved events as partial after an unsuccessful lookup', () => {
