@@ -15,6 +15,7 @@ import {
   createInMemoryCustomerPort,
 } from '@/integrations/carelog/inMemoryPorts';
 import { CustomerCreatePage } from '@/pages/CustomerCreatePage';
+import { CustomerDetailPage } from '@/pages/CustomerDetailPage';
 import { CustomerEditPage } from '@/pages/CustomerEditPage';
 import { EventCreatePage } from '@/pages/EventCreatePage';
 import { EventDetailPage } from '@/pages/EventDetailPage';
@@ -156,7 +157,14 @@ function build(
             element: <Holder>{(key) => <CustomerCreatePage key={key} />}</Holder>,
           },
           { path: 'customers/:customerId/edit', element: <CustomerEditPage /> },
-          { path: 'events/:eventId', element: <EventDetailPage now={now} /> },
+          {
+            path: 'events/:eventId',
+            element: <Holder>{(key) => <EventDetailPage key={key} now={now} />}</Holder>,
+          },
+          {
+            path: 'customers/:customerId',
+            element: <Holder>{(key) => <CustomerDetailPage key={key} now={now} />}</Holder>,
+          },
           { path: 'schedule', element: <p>일정 화면</p> },
           { path: 'other', element: <p>다른 화면</p> },
         ],
@@ -390,5 +398,153 @@ describe('save session acceptance (#53 Delta MAJOR-01)', () => {
       expect(after).not.toBeNull();
       expect(after).toHaveValue('수정 B');
     });
+  });
+});
+
+describe('regression pins for independent review findings (#53 HEAD 09a1df3)', () => {
+  it('R1 POP return after an in-flight leave: the old save success must not navigate the re-entered screen', async () => {
+    const ports = { customer: delayedCustomerPort(), event: delayedEventPort() };
+    const { router } = build(ports, '/app/customers/new');
+    render(<RouterProvider router={router} />);
+    fireEvent.change(document.querySelector('[data-customer-field="displayName"]')!, {
+      target: { value: 'POP 고객' },
+    });
+    fireEvent.click(document.querySelector('[data-customer-form-submit]')!);
+    await flush();
+    fireEvent.click(screen.getByRole('link', { name: '다른 화면' }));
+    await flush();
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }));
+    await flush();
+    expect(router.state.location.pathname).toBe('/app/other');
+    // 히스토리 뒤로가기 = 같은 location.key로 같은 화면 복귀.
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await flush();
+    expect(router.state.location.pathname).toBe('/app/customers/new');
+    await act(async () => {
+      ports.customer.create.resolve({ id: 'pop-one', displayName: 'POP 고객', workspace });
+    });
+    await flush();
+    await flush();
+    expect(router.state.location.pathname).toBe('/app/customers/new');
+  });
+
+  it('R2 after a successful save, a POP return must not reuse the old leave permission', async () => {
+    const ports = { customer: delayedCustomerPort(), event: delayedEventPort() };
+    const { router } = build(ports, '/app/customers/new');
+    render(<RouterProvider router={router} />);
+    fireEvent.change(document.querySelector('[data-customer-field="displayName"]')!, {
+      target: { value: '재진입 고객' },
+    });
+    fireEvent.click(document.querySelector('[data-customer-form-submit]')!);
+    await flush();
+    await act(async () => {
+      ports.customer.create.resolve({ id: 'reenter-one', displayName: '재진입 고객', workspace });
+    });
+    await flush();
+    await flush();
+    expect(router.state.location.pathname).toBe('/app/customers/reenter-one');
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await flush();
+    expect(router.state.location.pathname).toBe('/app/customers/new');
+    fireEvent.change(document.querySelector('[data-customer-field="displayName"]')!, {
+      target: { value: '다시 쓰는 중' },
+    });
+    fireEvent.click(screen.getByRole('link', { name: '다른 화면' }));
+    await flush();
+    expect(screen.getByText('작성 중인 내용이 사라져요')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/app/customers/new');
+  });
+
+  it('R3 a disposed save session must not let an old customer-create response navigate the router', async () => {
+    const ports = { customer: delayedCustomerPort(), event: delayedEventPort() };
+    const { router } = build(ports, '/app/customers/new');
+    const view = render(<RouterProvider router={router} />);
+    fireEvent.change(document.querySelector('[data-customer-field="displayName"]')!, {
+      target: { value: '폐기 고객' },
+    });
+    fireEvent.click(document.querySelector('[data-customer-form-submit]')!);
+    await flush();
+    view.unmount();
+    await act(async () => {
+      ports.customer.create.resolve({ id: 'disposed-one', displayName: '폐기 고객', workspace });
+    });
+    await flush();
+    await flush();
+    expect(router.state.location.pathname).toBe('/app/customers/new');
+  });
+
+  it('R4 a failed customer save after a re-mount shows the failure message on the new screen', async () => {
+    const ports = { customer: delayedCustomerPort(), event: delayedEventPort() };
+    const { router, remount } = build(ports, '/app/customers/new');
+    render(<RouterProvider router={router} />);
+    fireEvent.change(document.querySelector('[data-customer-field="displayName"]')!, {
+      target: { value: '에러 고객' },
+    });
+    fireEvent.click(document.querySelector('[data-customer-form-submit]')!);
+    await flush();
+    remount();
+    await flush();
+    await act(async () => {
+      ports.customer.create.reject(new Error('save failed'));
+    });
+    await flush();
+    expect(document.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it('R5 a failed event edit after a re-mount keeps the editor open with the typed value', async () => {
+    const ports = { customer: delayedCustomerPort(), event: delayedEventPort() };
+    const { router, remount } = build(ports, '/app/events/event-a');
+    render(<RouterProvider router={router} />);
+    fireEvent.click(await screen.findByRole('button', { name: /수정/ }));
+    fireEvent.change(document.querySelector('[data-event-field="descriptor"]')!, {
+      target: { value: '수정 A' },
+    });
+    fireEvent.submit(document.querySelector('[data-event-form]')!);
+    await flush();
+    expect(ports.event.edit.fn).toHaveBeenCalledTimes(1);
+    remount();
+    await flush();
+    await act(async () => {
+      ports.event.edit.reject(new Error('edit failed'));
+    });
+    await flush();
+    expect(document.querySelector('[data-event-form]')).not.toBeNull();
+    expect(document.querySelector('[data-event-field="descriptor"]')).toHaveValue('수정 A');
+  });
+
+  it('R6 an inline event create that succeeds on a re-mounted screen is created once and the form is not offered again', async () => {
+    const ports = { customer: delayedCustomerPort(), event: delayedEventPort() };
+    const { router, remount } = build(ports, '/app/customers/customer-a');
+    render(<RouterProvider router={router} />);
+    fireEvent.click(await screen.findByRole('button', { name: /일정 추가|\+ Event|\+ 일정/ }));
+    fireEvent.change(document.querySelector('[data-event-field="descriptor"]')!, {
+      target: { value: '인라인 일정' },
+    });
+    fireEvent.change(document.querySelector('[data-event-field="scheduledAt"]')!, {
+      target: { value: '2026-12-03T10:00' },
+    });
+    fireEvent.submit(document.querySelector('[data-event-form]')!);
+    await flush();
+    expect(ports.event.create.fn).toHaveBeenCalledTimes(1);
+    remount();
+    await flush();
+    await act(async () => {
+      ports.event.create.resolve({
+        id: 'inline-created',
+        customerId: 'customer-a',
+        status: 'PLANNED',
+        scheduledAt: '2026-12-03T10:00:00+09:00',
+        descriptor: '인라인 일정',
+      });
+    });
+    await flush();
+    await flush();
+    // 성공한 입력의 폼은 다시 열리지 않는다(재제출 경로 없음).
+    expect(document.querySelector('[data-event-form]')).toBeNull();
+    expect(ports.event.create.fn).toHaveBeenCalledTimes(1);
   });
 });

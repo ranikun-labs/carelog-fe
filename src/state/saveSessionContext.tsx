@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -33,15 +34,38 @@ export interface SaveRequestToken {
   requestId: number;
 }
 
+/**
+ * 이 대상의 현재 방문에서 저장의 상태. "saving" 저장 중, "failed" 실패(메시지와 제출 스냅샷),
+ * "completed" 성공(재마운트된 폼이 같은 입력을 다시 내지 않도록 기록).
+ * 스냅샷은 화면이 제출한 입력값이다(저장 중에는 입력이 잠기므로 제출값 = 사용자 입력). 재마운트된 화면이 복구에 쓴다.
+ */
+export interface SaveRecord {
+  status: 'saving' | 'failed' | 'completed';
+  message: string | null;
+  snapshot: unknown;
+}
+
+export interface SaveFailure {
+  message: string;
+  snapshot?: unknown;
+}
+
 export interface SaveSessionValue {
   /** 지금 보이는 업무 대상을 등록한다(true) 또는 해제한다(false, 같은 대상일 때만). */
   setActive(target: string, active: boolean): void;
   /** 이 대상의 현재 방문에 진행 중인 저장이 있는지(재마운트 뒤에도 유지). */
   isSaving(target: string): boolean;
-  /** 저장 요청을 시작한다. 같은 방문에 진행 중인 요청이 있으면 null. */
-  beginRequest(target: string): SaveRequestToken | null;
-  /** 요청을 끝낸다(성공 또는 실패). 현재 요청일 때만 상태를 바꾼다. */
-  finishRequest(token: SaveRequestToken): void;
+  /** 저장 요청을 시작한다. 같은 방문에 진행 중인 요청이 있으면 null. snapshot은 제출 입력값. */
+  beginRequest(target: string, snapshot?: unknown): SaveRequestToken | null;
+  /**
+   * 요청을 끝낸다. 현재 요청일 때만 상태를 바꾼다. 성공(failure 없음)이면 기록을 지우고,
+   * 실패면 메시지와 스냅샷을 남겨 재마운트된 화면도 읽게 한다.
+   */
+  finishRequest(token: SaveRequestToken, failure?: SaveFailure): void;
+  /** 이 대상의 현재 방문 저장 상태를 읽는다. 없으면 null. */
+  saveRecordFor(target: string): SaveRecord | null;
+  /** 이 대상의 완료·실패 기록을 지운다(진행 중인 저장은 건드리지 않는다). 새 입력을 시작할 때 쓴다. */
+  clearRecord(target: string): void;
   /** 응답이 돌아왔을 때 이 요청이 지금 방문·대상의 현재 요청인지. */
   isCurrent(token: SaveRequestToken): boolean;
   /** 성공을 확인한 현재 요청에 대해 이 방문의 이탈을 허용한다(이동 전에 호출). */
@@ -52,6 +76,14 @@ export interface SaveSessionValue {
 
 const SaveSessionContext = createContext<SaveSessionValue | null>(null);
 
+interface Record {
+  visitKey: string;
+  target: string;
+  status: 'saving' | 'failed' | 'completed';
+  message: string | null;
+  snapshot: unknown;
+}
+
 interface CoreProps {
   visitKey: string;
   children: ReactNode;
@@ -59,22 +91,32 @@ interface CoreProps {
 
 function SaveSessionCore({ visitKey, children }: CoreProps) {
   const [current, setCurrent] = useState<SaveRequestToken | null>(null);
+  const [record, setRecord] = useState<Record | null>(null);
   const visitKeyRef = useRef(visitKey);
   const currentRef = useRef<SaveRequestToken | null>(null);
   const activeRef = useRef<string | null>(null);
   const allowedRef = useRef<string | null>(null);
+  const disposedRef = useRef(false);
   const seqRef = useRef(0);
 
   useLayoutEffect(() => {
     visitKeyRef.current = visitKey;
   }, [visitKey]);
 
+  // 공급자가 해제되면 이후 응답은 어떤 방문도 소유하지 못한다(StrictMode 재실행에도 다시 연다).
+  useEffect(() => {
+    disposedRef.current = false;
+    return () => {
+      disposedRef.current = true;
+    };
+  }, []);
+
   const setActive = useCallback((target: string, active: boolean) => {
     if (active) activeRef.current = target;
     else if (activeRef.current === target) activeRef.current = null;
   }, []);
 
-  const beginRequest = useCallback((target: string) => {
+  const beginRequest = useCallback((target: string, snapshot?: unknown) => {
     const existing = currentRef.current;
     // 같은 방문에 진행 중 요청이 이미 있으면 하나만 허용한다. 이전 방문의 요청은 무시한다.
     if (existing && existing.visitKey === visitKeyRef.current) return null;
@@ -87,16 +129,60 @@ function SaveSessionCore({ visitKey, children }: CoreProps) {
     currentRef.current = token;
     allowedRef.current = null;
     setCurrent(token);
+    setRecord({
+      visitKey: token.visitKey,
+      target,
+      status: 'saving',
+      message: null,
+      snapshot,
+    });
     return token;
   }, []);
 
-  const finishRequest = useCallback((token: SaveRequestToken) => {
+  const finishRequest = useCallback((token: SaveRequestToken, failure?: SaveFailure) => {
     if (currentRef.current?.requestId !== token.requestId) return;
     currentRef.current = null;
     setCurrent(null);
+    setRecord(
+      failure
+        ? {
+            visitKey: token.visitKey,
+            target: token.target,
+            status: 'failed',
+            message: failure.message,
+            snapshot: failure.snapshot,
+          }
+        : {
+            visitKey: token.visitKey,
+            target: token.target,
+            status: 'completed',
+            message: null,
+            snapshot: undefined,
+          },
+    );
   }, []);
 
+  const clearRecord = useCallback((target: string) => {
+    setRecord((previous) =>
+      previous !== null &&
+      previous.visitKey === visitKeyRef.current &&
+      previous.target === target &&
+      previous.status !== 'saving'
+        ? null
+        : previous,
+    );
+  }, []);
+
+  const saveRecordFor = useCallback(
+    (target: string): SaveRecord | null =>
+      record !== null && record.visitKey === visitKey && record.target === target
+        ? { status: record.status, message: record.message, snapshot: record.snapshot }
+        : null,
+    [record, visitKey],
+  );
+
   const isCurrent = useCallback((token: SaveRequestToken) => {
+    if (disposedRef.current) return false;
     const active = activeRef.current;
     return (
       token.visitKey === visitKeyRef.current &&
@@ -106,6 +192,7 @@ function SaveSessionCore({ visitKey, children }: CoreProps) {
   }, []);
 
   const allowLeave = useCallback((token: SaveRequestToken) => {
+    if (disposedRef.current) return;
     if (token.visitKey !== visitKeyRef.current) return;
     if (currentRef.current?.requestId !== token.requestId) return;
     allowedRef.current = token.visitKey;
@@ -128,20 +215,45 @@ function SaveSessionCore({ visitKey, children }: CoreProps) {
       isSaving,
       beginRequest,
       finishRequest,
+      saveRecordFor,
+      clearRecord,
       isCurrent,
       allowLeave,
       isLeaveAllowed,
     }),
-    [allowLeave, beginRequest, finishRequest, isCurrent, isLeaveAllowed, isSaving, setActive],
+    [
+      allowLeave,
+      beginRequest,
+      finishRequest,
+      saveRecordFor,
+      clearRecord,
+      isCurrent,
+      isLeaveAllowed,
+      isSaving,
+      setActive,
+    ],
   );
 
   return <SaveSessionContext.Provider value={value}>{children}</SaveSessionContext.Provider>;
 }
 
-/** 라우터 안에서는 location.key를 방문 키로 쓴다. 밖(단위 테스트 등)에서는 고정 키다. */
+/**
+ * 라우터 안에서는 방문 키 = (방문 순번, location.key). location.key만 쓰면 POP 뒤로가기가
+ * 같은 key를 되살려 떠난 방문의 허용·요청이 다시 유효해지므로, location이 바뀔 때마다 순번을 올린다.
+ */
 function RouterSaveSession({ children }: { children: ReactNode }) {
   const location = useLocation();
-  return <SaveSessionCore visitKey={location.key}>{children}</SaveSessionCore>;
+  const [visit, setVisit] = useState({ locationKey: location.key, sequence: 0 });
+  let currentVisit = visit;
+  if (visit.locationKey !== location.key) {
+    currentVisit = { locationKey: location.key, sequence: visit.sequence + 1 };
+    setVisit(currentVisit);
+  }
+  return (
+    <SaveSessionCore visitKey={`${currentVisit.sequence}:${location.key}`}>
+      {children}
+    </SaveSessionCore>
+  );
 }
 
 export function SaveSessionProvider({ children }: { children: ReactNode }) {

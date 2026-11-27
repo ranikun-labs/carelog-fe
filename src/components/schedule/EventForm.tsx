@@ -10,9 +10,17 @@ import { TextField } from '@/components/ui/text-field';
 import type { CustomerEvent } from '@/domain/customerEvent';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
-import { useOptionalSaveSession } from '@/state/saveSessionContext';
+import { useOptionalSaveSession, type SaveFailure } from '@/state/saveSessionContext';
 import { cn } from '@/lib/utils';
 import type { EventFormDraft } from '@/state/EventCreateDraftContext';
+
+/** 제출 시점의 입력값. 저장 실패·재마운트 복구에 쓴다(SaveFailure.snapshot). */
+interface EventFormSnapshot {
+  descriptor: string;
+  note: string;
+  scheduledAt: string;
+  occurredAt: string;
+}
 
 export type EventFormMode = 'create' | 'edit';
 
@@ -82,27 +90,34 @@ export function EventForm({
       ? 'OCCURRED'
       : (fixedCreateStatus ?? initialValues?.status ?? 'PLANNED');
   const [status, setStatus] = useState<'PLANNED' | 'OCCURRED'>(initialStatus);
+  // 저장 중·실패 뒤 재마운트되면 공급자가 가진 제출 스냅샷(사용자가 낸 입력)을 우선해 복구한다.
+  const session = useOptionalSaveSession();
+  const saveRecord = session && saveKey ? session.saveRecordFor(saveKey) : null;
+  const restored = saveRecord?.snapshot as EventFormSnapshot | undefined;
   const [descriptor, setDescriptor] = useState(
-    event?.descriptor ?? initialValues?.descriptor ?? '',
+    restored?.descriptor ?? event?.descriptor ?? initialValues?.descriptor ?? '',
   );
-  const [note, setNote] = useState(event?.note ?? initialValues?.note ?? '');
+  const [note, setNote] = useState(restored?.note ?? event?.note ?? initialValues?.note ?? '');
   const [scheduledAt, setScheduledAt] = useState(
-    event?.status === 'PLANNED'
-      ? toDateTimeLocalValue(event.scheduledAt)
-      : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
-          getDefaultPlannedDateTimeLocal(undefined, now),
+    restored?.scheduledAt ??
+      (event?.status === 'PLANNED'
+        ? toDateTimeLocalValue(event.scheduledAt)
+        : toDateTimeLocalValue(initialValues?.scheduledAt ?? event?.scheduledAt ?? '') ||
+          getDefaultPlannedDateTimeLocal(undefined, now)),
   );
   const [occurredAt, setOccurredAt] = useState(
-    event?.status === 'OCCURRED'
-      ? toDateTimeLocalValue(event.occurredAt)
-      : toDateTimeLocalValue(initialValues?.occurredAt ?? now.toISOString()),
+    restored?.occurredAt ??
+      (event?.status === 'OCCURRED'
+        ? toDateTimeLocalValue(event.occurredAt)
+        : toDateTimeLocalValue(initialValues?.occurredAt ?? now.toISOString())),
   );
   const [error, setError] = useState<string | null>(null);
   const [timeErrorKind, setTimeErrorKind] = useState<'required' | 'past' | 'nonexistent' | null>(
     null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const session = useOptionalSaveSession();
+  const recordError = saveRecord?.status === 'failed' ? saveRecord.message : null;
+  const displayedError = error ?? recordError;
   const remoteSaving = Boolean(session && saveKey && session.isSaving(saveKey));
   const saving = isSubmitting || remoteSaving;
   const submitLockRef = useRef(false);
@@ -181,10 +196,11 @@ export function EventForm({
     leaveAllowedRef.current = false;
     setIsSubmitting(true);
     // 요청은 방문(location)당 하나다. 방문 밖(세션 공급자 없음)이면 기존 잠금만 쓴다.
-    const token = session && saveKey ? session.beginRequest(saveKey) : null;
+    const snapshot: EventFormSnapshot = { descriptor, note, scheduledAt, occurredAt };
+    const token = session && saveKey ? session.beginRequest(saveKey, snapshot) : null;
     if (session && saveKey && !token) return;
-    const endRemote = () => {
-      if (session && token) session.finishRequest(token);
+    const endRemote = (failure?: SaveFailure) => {
+      if (session && token) session.finishRequest(token, failure);
     };
     const options: EventFormSubmitOptions = {
       allowLeave: () => {
@@ -225,8 +241,9 @@ export function EventForm({
         },
         (submitError: unknown) => {
           savingRef.current = false;
-          endRemote();
-          setError(t(getCarelogMessageKey(submitError)));
+          const message = t(getCarelogMessageKey(submitError));
+          endRemote({ message, snapshot });
+          setError(message);
           submitLockRef.current = false;
           setIsSubmitting(false);
         },
@@ -377,9 +394,9 @@ export function EventForm({
           />
         </div>
 
-        {error ? (
+        {displayedError ? (
           <Notice tone="danger" className="mt-4" data-event-form-error>
-            {error}
+            {displayedError}
           </Notice>
         ) : null}
 

@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 import {
   EventForm,
   toDateTimeLocalValue,
@@ -57,7 +58,15 @@ export function EventDetail({
   startWithOccurrenceConfirmation = false,
 }: EventDetailProps) {
   const { locale, t } = useTranslation();
-  const [isEditing, setIsEditing] = useState(false);
+  // 저장 중이거나 실패가 남아 있으면 재마운트 뒤에도 편집 폼을 연다(입력·오류는 EventForm이 공급자에서 복구).
+  const session = useOptionalSaveSession();
+  const [isEditing, setIsEditing] = useState(() =>
+    Boolean(
+      session &&
+      saveKey &&
+      ['saving', 'failed'].includes(session.saveRecordFor(saveKey)?.status ?? ''),
+    ),
+  );
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
   const cancelTriggerRef = useRef<HTMLButtonElement>(null);
   const cancelCloseRef = useRef<HTMLButtonElement>(null);

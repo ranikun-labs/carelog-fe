@@ -6,7 +6,7 @@ import { Notice } from '@/components/ui/notice';
 import { TextField } from '@/components/ui/text-field';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
-import { useOptionalSaveSession } from '@/state/saveSessionContext';
+import { useOptionalSaveSession, type SaveFailure } from '@/state/saveSessionContext';
 import {
   useOptionalCustomerFormDraft,
   type CustomerFormDraftKey,
@@ -66,9 +66,11 @@ export function CustomerForm({
   const [displayName, setDisplayName] = useState(initialFormValues.displayName);
   const [customerMemo, setCustomerMemo] = useState(initialFormValues.customerMemo);
   const [error, setError] = useState<string | null>(null);
+  const session = useOptionalSaveSession();
+  const saveRecord = session && saveKey ? session.saveRecordFor(saveKey) : null;
+  const displayedError = error ?? (saveRecord?.status === 'failed' ? saveRecord.message : null);
   const [nameRequiredError, setNameRequiredError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const session = useOptionalSaveSession();
   const remoteSaving = Boolean(session && saveKey && session.isSaving(saveKey));
   const saving = isSubmitting || remoteSaving;
   const submitLockRef = useRef(false);
@@ -126,13 +128,15 @@ export function CustomerForm({
     // 요청은 방문(location)당 하나다. 방문 밖(세션 공급자 없음)이면 기존 잠금만 쓴다.
     const token = session && saveKey ? session.beginRequest(saveKey) : null;
     if (session && saveKey && !token) return;
-    const endRemote = () => {
-      if (session && token) session.finishRequest(token);
+    const endRemote = (failure?: SaveFailure) => {
+      if (session && token) session.finishRequest(token, failure);
     };
     const fail = (submitError?: unknown) => {
       savingRef.current = false;
-      endRemote();
-      if (submitError !== undefined) setError(t(getCarelogMessageKey(submitError)));
+      const message = submitError !== undefined ? t(getCarelogMessageKey(submitError)) : undefined;
+      // 실패 메시지는 방문 세션에 남겨, 재마운트된 화면도 같은 메시지를 보여준다.
+      endRemote(message !== undefined ? { message } : undefined);
+      if (message !== undefined) setError(message);
       submitLockRef.current = false;
       setIsSubmitting(false);
     };
@@ -244,9 +248,9 @@ export function CustomerForm({
           />
         </div>
 
-        {error ? (
+        {displayedError ? (
           <Notice tone="danger" className="mt-4" data-customer-form-error>
-            {error}
+            {displayedError}
           </Notice>
         ) : null}
 
