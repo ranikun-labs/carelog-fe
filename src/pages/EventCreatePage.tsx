@@ -10,7 +10,11 @@ import {
   useOptionalAdaptiveHost,
   type AdaptiveNavigationState,
 } from '@/components/layout/adaptiveHostContext';
-import { EventForm, type EventFormSubmitValues } from '@/components/schedule/EventForm';
+import {
+  EventForm,
+  type EventFormSubmitOptions,
+  type EventFormSubmitValues,
+} from '@/components/schedule/EventForm';
 import { buttonVariants } from '@/components/ui/button';
 import { buildAppCustomerCreatePath, buildAppSchedulePath } from '@/constants/routes';
 import {
@@ -23,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
 import { useEventCreateDraft, type EventFormDraft } from '@/state/EventCreateDraftContext';
 import { useOptionalEventCreateActivation } from '@/state/EventCreateActivationContext';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 import { useEventStore } from '@/state/EventStoreContext';
 
 export interface EventCreatePageProps {
@@ -33,6 +38,14 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  // 저장 응답이 떠난 뒤 도착할 수 있다. 마운트 여부로 떠난 화면의 후속 처리를 막는다(CustomerDetailPage와 같은 방식).
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const adaptiveHost = useOptionalAdaptiveHost();
   const eventCreateActivation = useOptionalEventCreateActivation();
   const customerStore = useCustomerStore();
@@ -53,10 +66,10 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
     eventCreateActivation?.beginCreateSession();
   }, [eventCreateActivation]);
 
+  // 이탈 확정 전에는 초안과 선택 상태를 건드리지 않는다. 가드가 머무르기를 고르면 아무 것도 바뀌지 않는다.
+  // 초안은 실제로 생성 경로를 떠날 때 Provider가 비운다(EventCreateDraftRouteReset).
   const returnToSchedule = useCallback(() => {
     eventCreateActivation?.clearCreateReturnProvenance();
-    clearDraft();
-    adaptiveHost?.setScheduleDate(selectedDateKey);
     navigate(buildAppSchedulePath(), {
       state: {
         adaptiveRoot: 'schedule',
@@ -64,7 +77,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
         targetScrollTop: entryScrollTop,
       } satisfies AdaptiveNavigationState,
     });
-  }, [adaptiveHost, clearDraft, entryScrollTop, eventCreateActivation, navigate, selectedDateKey]);
+  }, [entryScrollTop, eventCreateActivation, navigate, selectedDateKey]);
 
   const selectCustomer = useCallback(
     (customerId: string) => {
@@ -107,8 +120,17 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
     [draft.descriptor, draft.note, draft.scheduledAt, now, selectedDateKey],
   );
 
+  // 저장 세션: 생성 화면이 지금 보이는 업무임을 등록한다(떠나면 해제). 같은 화면의 재마운트는 같은 키로 이어진다.
+  const saveSession = useOptionalSaveSession();
+  const setSaveActive = saveSession?.setActive;
+  useEffect(() => {
+    if (!setSaveActive) return;
+    setSaveActive('event-create', true);
+    return () => setSaveActive('event-create', false);
+  }, [setSaveActive]);
+
   const handleCreate = useCallback(
-    async (values: EventFormSubmitValues) => {
+    async (values: EventFormSubmitValues, options: EventFormSubmitOptions) => {
       if (!selectedCustomer || values.status !== 'PLANNED' || !values.scheduledAt) {
         eventCreateActivation?.clearCreateReturnProvenance();
         return;
@@ -124,13 +146,18 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
           ...(values.note ? { note: values.note } : {}),
         });
       } catch (error) {
-        eventCreateActivation?.clearCreateReturnProvenance();
+        if (mountedRef.current) eventCreateActivation?.clearCreateReturnProvenance();
         throw error;
       }
+      // 떠난 뒤 도착한 저장 응답은 화면 이동·초안·선택 상태를 건드리지 않는다(저장 자체는 스토어에 남는다).
+      const current = options.isCurrent ? options.isCurrent() : mountedRef.current;
+      if (!current) return;
       if (!createdEvent) {
         eventCreateActivation?.clearCreateReturnProvenance();
         return;
       }
+      // 저장 성공을 확인한 뒤 일정 화면으로 옮기므로 이탈 보호를 먼저 놓는다.
+      options.allowLeave();
       clearDraft();
 
       if (adaptiveHost) {
@@ -188,6 +215,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
                 fixedCreateStatus="PLANNED"
                 onDraftChange={onDraftChange}
                 onDiscard={clearDraft}
+                saveKey="event-create"
                 onSubmit={handleCreate}
                 onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
                 onCancel={returnToSchedule}

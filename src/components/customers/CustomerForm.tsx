@@ -6,6 +6,7 @@ import { Notice } from '@/components/ui/notice';
 import { TextField } from '@/components/ui/text-field';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
 import { useTranslation } from '@/i18n/I18nContext';
+import { useOptionalSaveSession, type SaveFailure } from '@/state/saveSessionContext';
 import {
   useOptionalCustomerFormDraft,
   type CustomerFormDraftKey,
@@ -19,11 +20,23 @@ export interface CustomerFormValues {
   customerMemo: string;
 }
 
+/** onSubmit 두 번째 인자. 성공 뒤 화면을 옮기는 부모는 navigate 전에 allowLeave()를 불러 저장 중 이탈 보호를 놓는다. */
+export interface CustomerFormSubmitOptions {
+  allowLeave: () => void;
+  /** 저장 세션 소유권 확인. 세션 공급자가 없으면 없다(부모는 마운트 여부로 판단). */
+  isCurrent?: () => boolean;
+}
+
 interface CustomerFormProps {
   mode: CustomerFormMode;
   initialValues?: Partial<CustomerFormValues>;
   draftKey?: CustomerFormDraftKey;
-  onSubmit: (values: CustomerFormValues) => boolean | void | Promise<boolean | void>;
+  /** 저장 세션 키(업무 대상). 재마운트·대상 변경에도 저장 중 잠금과 소유권을 유지한다. */
+  saveKey?: string;
+  onSubmit: (
+    values: CustomerFormValues,
+    options: CustomerFormSubmitOptions,
+  ) => boolean | void | Promise<boolean | void>;
   onCancel: () => void;
 }
 
@@ -41,6 +54,7 @@ export function CustomerForm({
   mode,
   initialValues,
   draftKey,
+  saveKey,
   onSubmit,
   onCancel,
 }: CustomerFormProps) {
@@ -52,9 +66,17 @@ export function CustomerForm({
   const [displayName, setDisplayName] = useState(initialFormValues.displayName);
   const [customerMemo, setCustomerMemo] = useState(initialFormValues.customerMemo);
   const [error, setError] = useState<string | null>(null);
+  const session = useOptionalSaveSession();
+  const saveRecord = session && saveKey ? session.saveRecordFor(saveKey) : null;
+  const displayedError = error ?? (saveRecord?.status === 'failed' ? saveRecord.message : null);
   const [nameRequiredError, setNameRequiredError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const remoteSaving = Boolean(session && saveKey && session.isSaving(saveKey));
+  const saving = isSubmitting || remoteSaving;
   const submitLockRef = useRef(false);
+  // 저장 진행 중(savingRef)과 이탈 허용(leaveAllowedRef). 이탈 보호는 (입력 있음 || 저장 중) && !허용 이다.
+  const savingRef = useRef(false);
+  const leaveAllowedRef = useRef(false);
   const lastFieldRef = useRef<HTMLElement | null>(null);
   const guardAvailable = useLeaveGuardAvailable();
   const initializationRef = useRef({ draftKey, initialSignature });
@@ -75,6 +97,8 @@ export function CustomerForm({
     setNameRequiredError(false);
     setIsSubmitting(false);
     submitLockRef.current = false;
+    savingRef.current = false;
+    leaveAllowedRef.current = false;
   }, [draftKey, draftStore, initialSignature, initialValues]);
 
   function persistDraft(values: CustomerFormValues) {
@@ -87,7 +111,7 @@ export function CustomerForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitLockRef.current) return;
+    if (submitLockRef.current || remoteSaving) return;
 
     const normalizedDisplayName = displayName.trim();
     if (!normalizedDisplayName) {
@@ -96,37 +120,58 @@ export function CustomerForm({
     }
 
     submitLockRef.current = true;
+    savingRef.current = true;
+    leaveAllowedRef.current = false;
     setError(null);
     setNameRequiredError(false);
     setIsSubmitting(true);
-    let result: boolean | void | Promise<boolean | void>;
-    try {
-      result = onSubmit({
-        displayName: normalizedDisplayName,
-        customerMemo: customerMemo.trim(),
-      });
-    } catch (submitError: unknown) {
-      setError(t(getCarelogMessageKey(submitError)));
+    // 요청은 방문(location)당 하나다. 방문 밖(세션 공급자 없음)이면 기존 잠금만 쓴다.
+    const token = session && saveKey ? session.beginRequest(saveKey) : null;
+    if (session && saveKey && !token) return;
+    const endRemote = (failure?: SaveFailure) => {
+      if (session && token) session.finishRequest(token, failure);
+    };
+    const fail = (submitError?: unknown) => {
+      savingRef.current = false;
+      const message = submitError !== undefined ? t(getCarelogMessageKey(submitError)) : undefined;
+      // 실패 메시지는 방문 세션에 남겨, 재마운트된 화면도 같은 메시지를 보여준다.
+      endRemote(message !== undefined ? { message } : undefined);
+      if (message !== undefined) setError(message);
       submitLockRef.current = false;
       setIsSubmitting(false);
+    };
+    const options: CustomerFormSubmitOptions = {
+      allowLeave: () => {
+        leaveAllowedRef.current = true;
+        if (session && token) session.allowLeave(token);
+      },
+      ...(session && token ? { isCurrent: () => session.isCurrent(token) } : {}),
+    };
+    let result: boolean | void | Promise<boolean | void>;
+    try {
+      result = onSubmit(
+        {
+          displayName: normalizedDisplayName,
+          customerMemo: customerMemo.trim(),
+        },
+        options,
+      );
+    } catch (submitError: unknown) {
+      fail(submitError);
       return;
     }
     const settle = (outcome: boolean | void) => {
       if (outcome === false) {
-        submitLockRef.current = false;
-        setIsSubmitting(false);
+        fail();
         return;
       }
+      savingRef.current = false;
+      endRemote();
+      leaveAllowedRef.current = true;
       clearDraft();
     };
     if (result && typeof result === 'object' && 'then' in result) {
-      void Promise.resolve(result)
-        .then(settle)
-        .catch((submitError: unknown) => {
-          setError(t(getCarelogMessageKey(submitError)));
-          submitLockRef.current = false;
-          setIsSubmitting(false);
-        });
+      void Promise.resolve(result).then(settle, (submitError: unknown) => fail(submitError));
     } else {
       settle(result);
     }
@@ -140,10 +185,14 @@ export function CustomerForm({
   }
 
   // 저장 중(저장 뒤 이동 포함)에는 놓아주고, 처음 값과 다른 입력이 있을 때만 이탈을 막는다.
-  const hasUnsavedInput = () =>
-    !submitLockRef.current &&
-    (displayName !== (initialValues?.displayName ?? '') ||
-      customerMemo !== (initialValues?.customerMemo ?? ''));
+  const hasUnsavedInput = () => {
+    if (leaveAllowedRef.current || session?.isLeaveAllowed()) return false;
+    if (savingRef.current || remoteSaving) return true;
+    return (
+      displayName !== (initialValues?.displayName ?? '') ||
+      customerMemo !== (initialValues?.customerMemo ?? '')
+    );
+  };
 
   return (
     <>
@@ -151,7 +200,7 @@ export function CustomerForm({
         data-customer-form
         data-customer-form-mode={mode}
         data-customer-form-key={draftKey}
-        aria-busy={isSubmitting}
+        aria-busy={saving}
         onSubmit={submit}
         onFocusCapture={(focusEvent) => {
           if (focusEvent.target instanceof HTMLElement) lastFieldRef.current = focusEvent.target;
@@ -166,7 +215,10 @@ export function CustomerForm({
             data-customer-field="displayName"
             label={t('customers.form.displayName')}
             value={displayName}
+            readOnly={saving}
             onChange={(inputEvent) => {
+              // 저장 중에는 입력을 받지 않는다(값과 초안이 저장 요청과 어긋나지 않게).
+              if (saving) return;
               const nextDisplayName = inputEvent.target.value;
               setDisplayName(nextDisplayName);
               if (nextDisplayName.trim()) setNameRequiredError(false);
@@ -184,7 +236,9 @@ export function CustomerForm({
             data-customer-field="customerMemo"
             label={t('customers.form.memo')}
             value={customerMemo}
+            readOnly={saving}
             onChange={(inputEvent) => {
+              if (saving) return;
               const nextCustomerMemo = inputEvent.target.value;
               setCustomerMemo(nextCustomerMemo);
               persistDraft({ displayName, customerMemo: nextCustomerMemo });
@@ -194,9 +248,9 @@ export function CustomerForm({
           />
         </div>
 
-        {error ? (
+        {displayedError ? (
           <Notice tone="danger" className="mt-4" data-customer-form-error>
-            {error}
+            {displayedError}
           </Notice>
         ) : null}
 
@@ -205,12 +259,12 @@ export function CustomerForm({
             type="button"
             variant="text-neutral"
             onClick={cancel}
-            disabled={isSubmitting}
+            disabled={saving}
             data-customer-form-cancel
           >
             {t('customers.form.cancel')}
           </Button>
-          <Button type="submit" disabled={isSubmitting} data-customer-form-submit>
+          <Button type="submit" disabled={saving} data-customer-form-submit>
             {isEdit ? t('customers.form.save') : t('customers.form.create')}
           </Button>
         </div>

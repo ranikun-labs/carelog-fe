@@ -4,10 +4,12 @@ import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getCarelogMessageKey } from '@/integrations/carelog/errorMapping';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 import {
   EventForm,
   toDateTimeLocalValue,
   toStoredTimestamp,
+  type EventFormSubmitOptions,
   type EventFormSubmitValues,
 } from '@/components/schedule/EventForm';
 import { parseExistingLocalDateTime } from '@/components/schedule/localDateTime';
@@ -30,7 +32,10 @@ interface EventDetailProps {
   onOpenAssistant?: () => void;
   onEdit?: (
     values: EventFormSubmitValues,
+    options: EventFormSubmitOptions,
   ) => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
+  /** 편집 폼의 저장 세션 키(업무 대상). */
+  saveKey?: string;
   onCancelEvent?: () => CustomerEvent | undefined | Promise<CustomerEvent | undefined>;
   onOccurEvent?: (
     occurredAt: string,
@@ -47,12 +52,21 @@ export function EventDetail({
   onOpenCustomer,
   onOpenAssistant,
   onEdit,
+  saveKey,
   onCancelEvent,
   onOccurEvent,
   startWithOccurrenceConfirmation = false,
 }: EventDetailProps) {
   const { locale, t } = useTranslation();
-  const [isEditing, setIsEditing] = useState(false);
+  // 저장 중이거나 실패가 남아 있으면 재마운트 뒤에도 편집 폼을 연다(입력·오류는 EventForm이 공급자에서 복구).
+  const session = useOptionalSaveSession();
+  const [isEditing, setIsEditing] = useState(() =>
+    Boolean(
+      session &&
+      saveKey &&
+      ['saving', 'failed'].includes(session.saveRecordFor(saveKey)?.status ?? ''),
+    ),
+  );
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
   const cancelTriggerRef = useRef<HTMLButtonElement>(null);
   const cancelCloseRef = useRef<HTMLButtonElement>(null);
@@ -406,9 +420,11 @@ export function EventDetail({
           event={event}
           customerName={customerName}
           now={now}
-          onSubmit={async (values) => {
-            await onEdit(values);
-            setIsEditing(false);
+          saveKey={saveKey}
+          onSubmit={async (values, options) => {
+            await onEdit(values, options);
+            // 저장 응답이 늦게 와도 지금 이 편집 폼의 응답일 때만 닫는다(다른 일정 B의 편집 폼을 닫지 않는다).
+            if (!options.isCurrent || options.isCurrent()) setIsEditing(false);
           }}
           onCancel={() => setIsEditing(false)}
         />

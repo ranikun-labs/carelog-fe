@@ -34,6 +34,7 @@ import { useOptionalCustomerFormDraft } from '@/state/CustomerFormDraftContext';
 import type { EventFormDraft } from '@/state/EventCreateDraftContext';
 import { useOptionalEventCreateActivation } from '@/state/EventCreateActivationContext';
 import { useOptionalEventStore } from '@/state/EventStoreContext';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 import type { EventCreationInput } from '@/state/eventStore';
 
 export interface CustomerDetailPageProps {
@@ -68,7 +69,17 @@ export function CustomerDetailPage({
   // 인라인 일정 폼의 열림·입력값은 draft에도 둔다. 회전으로 1단↔2단이 바뀌어 화면이 다시 마운트돼도 이어 쓴다.
   const draftStore = useOptionalCustomerFormDraft();
   const inlineEventDraft = draftStore?.getInlineEventDraft(customerId);
-  const isCreating = creatingCustomerId === customerId || inlineEventDraft !== undefined;
+  // 인라인 생성이 이 방문에서 성공했으면(재마운트 포함) 폼을 다시 열지 않는다. 같은 입력의 재제출을 막는다.
+  const saveSession = useOptionalSaveSession();
+  const inlineSaveKey = `inline-event:${customerId}`;
+  const inlineCompleted = saveSession?.saveRecordFor(inlineSaveKey)?.status === 'completed';
+  const isCreating =
+    !inlineCompleted && (creatingCustomerId === customerId || inlineEventDraft !== undefined);
+  useEffect(() => {
+    if (inlineCompleted && inlineEventDraft !== undefined) {
+      draftStore?.clearInlineEventDraft(customerId);
+    }
+  }, [customerId, draftStore, inlineCompleted, inlineEventDraft]);
   const handleInlineDraftChange = useCallback(
     (draft: EventFormDraft) => draftStore?.setInlineEventDraft(customerId, draft),
     [customerId, draftStore],
@@ -223,6 +234,7 @@ export function CustomerDetailPage({
       disabled={!createEvent || eventStore?.mutationPending}
       data-add-event
       onClick={() => {
+        saveSession?.clearRecord(inlineSaveKey);
         eventCreateActivation?.beginCreateSession();
         setCreatingCustomerId(currentCustomer.id);
       }}
@@ -394,6 +406,7 @@ export function CustomerDetailPage({
               initialValues={inlineEventDraft}
               onDraftChange={handleInlineDraftChange}
               onDiscard={() => draftStore?.clearInlineEventDraft(currentCustomer.id)}
+              saveKey={inlineSaveKey}
               onSubmit={handleCreate}
               onValidationFailure={() => eventCreateActivation?.clearCreateReturnProvenance()}
               onCancel={() => {

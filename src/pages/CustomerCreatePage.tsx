@@ -1,19 +1,45 @@
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 
-import { CustomerForm, type CustomerFormValues } from '@/components/customers/CustomerForm';
+import {
+  CustomerForm,
+  type CustomerFormSubmitOptions,
+  type CustomerFormValues,
+} from '@/components/customers/CustomerForm';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AdaptiveSurface } from '@/components/layout/adaptiveHostContext';
 import { buildAppCustomerDetailPath, buildAppCustomersPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
 import { useCustomerStore } from '@/state/CustomerStoreContext';
+import { useOptionalSaveSession } from '@/state/saveSessionContext';
 
 export function CustomerCreatePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // 저장 응답이 떠난 뒤 도착할 수 있다. 떠난 화면은 상세로 되돌리지 않는다.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const customerStore = useCustomerStore();
+  // 저장 세션: 이 화면이 지금 보이는 업무 대상임을 공급자에 등록한다(떠나면 해제).
+  const session = useOptionalSaveSession();
+  const setActive = session?.setActive;
+  useEffect(() => {
+    if (!setActive) return;
+    setActive('customer-create', true);
+    return () => setActive('customer-create', false);
+  }, [setActive]);
 
-  async function handleSubmit(values: CustomerFormValues) {
+  async function handleSubmit(values: CustomerFormValues, options: CustomerFormSubmitOptions) {
     const customer = await customerStore.createCustomer(values);
+    const current = options.isCurrent ? options.isCurrent() : mountedRef.current;
+    if (!current) return true;
+    // 저장 성공을 확인한 뒤 상세로 옮기므로 이탈 보호를 먼저 놓는다.
+    options.allowLeave();
 
     navigate(buildAppCustomerDetailPath(customer.id), {
       state: {
@@ -39,6 +65,7 @@ export function CustomerCreatePage() {
         <CustomerForm
           mode="create"
           draftKey="create"
+          saveKey="customer-create"
           onSubmit={handleSubmit}
           onCancel={() => navigate(buildAppCustomersPath())}
         />

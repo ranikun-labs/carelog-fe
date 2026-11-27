@@ -10,6 +10,7 @@ import { customerFormDraftScopeKey } from '@/components/layout/customerFormDraft
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventCreateActivationProvider } from '@/state/EventCreateActivationContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
+import { SaveSessionProvider } from '@/state/saveSessionContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 import { createProductionProductPorts } from '@/integrations/carelog/productionComposition';
 import { toAuthFailure } from '@/integrations/carelog/errorMapping';
@@ -105,7 +106,9 @@ function SessionStateProviders({
         {/* Return targets contain account-scoped customer/event IDs. */}
         <EventCreateActivationProvider>
           <CustomerFormDraftProvider key={customerFormDraftScopeKey(location.pathname)}>
-            <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+            <SaveSessionProvider>
+              <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+            </SaveSessionProvider>
           </CustomerFormDraftProvider>
         </EventCreateActivationProvider>
       </EventStoreProvider>

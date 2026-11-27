@@ -10,6 +10,7 @@ import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
 import { customerFormDraftScopeKey } from '@/components/layout/customerFormDraftScope';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
+import { SaveSessionProvider } from '@/state/saveSessionContext';
 import { EventStoreProvider } from '@/state/EventStoreContext';
 import type { ProductStateProviderProps } from '@/components/layout/ProductionStateProviders';
 
@@ -45,7 +46,9 @@ export function FixtureStateProviders({
         onFailure={onFailure}
       >
         <CustomerFormDraftProvider key={customerFormDraftScopeKey(location.pathname)}>
-          <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+          <SaveSessionProvider>
+            <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
+          </SaveSessionProvider>
         </CustomerFormDraftProvider>
       </EventStoreProvider>
     </CustomerStoreProvider>
