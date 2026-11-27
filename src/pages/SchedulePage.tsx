@@ -296,6 +296,26 @@ export function SchedulePage({
     [setSelectedDateKey, todayDateKey],
   );
 
+  // 같은 화면에서 새 목표 이동(저장 뒤 등)을 처리한다. 마운트 시점 초기값만 보면 재마운트가 없을 때 대상을 놓친다.
+  // 처리한 location.key는 기록해 같은 이동을 다시 처리하지 않는다(사용자의 수동 스크롤을 빼앗지 않음).
+  // 요청 생명주기: 예약(effect) → 실행(프레임 콜백, 여기서만 완료 표시) → 취소(cleanup, 완료 표시 없음 → 재예약 가능).
+  // 새 이동(location.key 변경)이 오면 이전 예약은 cleanup으로 취소되어 마지막 목표가 이긴다.
+  const handledNavigationKeyRef = useRef(location.key);
+  useEffect(() => {
+    if (handledNavigationKeyRef.current === location.key) return;
+    const target = readScheduleNavigationState(location.state);
+    if (!target?.targetEventId && !target?.targetDateKey) {
+      handledNavigationKeyRef.current = location.key;
+      return;
+    }
+    // 다음 프레임에 처리한다. 이동 직후 렌더와 겹치면 스크롤 대상 행이 아직 없을 수 있다.
+    const frameId = window.requestAnimationFrame(() => {
+      handledNavigationKeyRef.current = location.key;
+      selectDate(target.targetDateKey ?? selectedDateKey, target.targetEventId);
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [location.key, location.state, selectDate, selectedDateKey]);
+
   const openEvent = useCallback(
     (event: CustomerEvent) => {
       const targetDateKey = getAgendaDateKey(event);
