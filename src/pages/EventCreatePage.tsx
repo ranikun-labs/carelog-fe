@@ -66,10 +66,10 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
     eventCreateActivation?.beginCreateSession();
   }, [eventCreateActivation]);
 
+  // 이탈 확정 전에는 초안과 선택 상태를 건드리지 않는다. 가드가 머무르기를 고르면 아무 것도 바뀌지 않는다.
+  // 초안은 실제로 생성 경로를 떠날 때 Provider가 비운다(EventCreateDraftRouteReset).
   const returnToSchedule = useCallback(() => {
     eventCreateActivation?.clearCreateReturnProvenance();
-    clearDraft();
-    adaptiveHost?.setScheduleDate(selectedDateKey);
     navigate(buildAppSchedulePath(), {
       state: {
         adaptiveRoot: 'schedule',
@@ -77,7 +77,7 @@ export function EventCreatePage({ now = new Date() }: EventCreatePageProps) {
         targetScrollTop: entryScrollTop,
       } satisfies AdaptiveNavigationState,
     });
-  }, [adaptiveHost, clearDraft, entryScrollTop, eventCreateActivation, navigate, selectedDateKey]);
+  }, [entryScrollTop, eventCreateActivation, navigate, selectedDateKey]);
 
   const selectCustomer = useCallback(
     (customerId: string) => {

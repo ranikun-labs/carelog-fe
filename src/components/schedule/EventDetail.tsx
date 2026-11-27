@@ -414,7 +414,8 @@ export function EventDetail({
           saveKey={saveKey}
           onSubmit={async (values, options) => {
             await onEdit(values, options);
-            setIsEditing(false);
+            // 저장 응답이 늦게 와도 지금 이 편집 폼의 응답일 때만 닫는다(다른 일정 B의 편집 폼을 닫지 않는다).
+            if (!options.isCurrent || options.isCurrent()) setIsEditing(false);
           }}
           onCancel={() => setIsEditing(false)}
         />

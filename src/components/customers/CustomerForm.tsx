@@ -123,9 +123,11 @@ export function CustomerForm({
     setError(null);
     setNameRequiredError(false);
     setIsSubmitting(true);
-    const gen = session && saveKey ? session.beginSave(saveKey) : null;
+    // 요청은 방문(location)당 하나다. 방문 밖(세션 공급자 없음)이면 기존 잠금만 쓴다.
+    const token = session && saveKey ? session.beginRequest(saveKey) : null;
+    if (session && saveKey && !token) return;
     const endRemote = () => {
-      if (session && saveKey && gen !== null) session.endSave(saveKey, gen);
+      if (session && token) session.finishRequest(token);
     };
     const fail = (submitError?: unknown) => {
       savingRef.current = false;
@@ -137,10 +139,9 @@ export function CustomerForm({
     const options: CustomerFormSubmitOptions = {
       allowLeave: () => {
         leaveAllowedRef.current = true;
+        if (session && token) session.allowLeave(token);
       },
-      ...(session && saveKey && gen !== null
-        ? { isCurrent: () => session.isCurrent(saveKey, gen) }
-        : {}),
+      ...(session && token ? { isCurrent: () => session.isCurrent(token) } : {}),
     };
     let result: boolean | void | Promise<boolean | void>;
     try {
@@ -181,8 +182,8 @@ export function CustomerForm({
 
   // 저장 중(저장 뒤 이동 포함)에는 놓아주고, 처음 값과 다른 입력이 있을 때만 이탈을 막는다.
   const hasUnsavedInput = () => {
-    if (leaveAllowedRef.current) return false;
-    if (savingRef.current) return true;
+    if (leaveAllowedRef.current || session?.isLeaveAllowed()) return false;
+    if (savingRef.current || remoteSaving) return true;
     return (
       displayName !== (initialValues?.displayName ?? '') ||
       customerMemo !== (initialValues?.customerMemo ?? '')

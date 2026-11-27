@@ -120,8 +120,8 @@ export function EventForm({
 
   // 만들기: 제목·메모가 비어 있지 않을 때. 수정: 원래 값과 달라졌을 때. 저장 중에는 놓아준다.
   const hasUnsavedInput = () => {
-    if (leaveAllowedRef.current) return false;
-    if (savingRef.current) return true;
+    if (leaveAllowedRef.current || session?.isLeaveAllowed()) return false;
+    if (savingRef.current || remoteSaving) return true;
     if (!isEdit) return descriptor.trim() !== '' || note.trim() !== '';
     return (
       descriptor !== (event?.descriptor ?? '') ||
@@ -180,17 +180,18 @@ export function EventForm({
     savingRef.current = true;
     leaveAllowedRef.current = false;
     setIsSubmitting(true);
-    const gen = session && saveKey ? session.beginSave(saveKey) : null;
+    // 요청은 방문(location)당 하나다. 방문 밖(세션 공급자 없음)이면 기존 잠금만 쓴다.
+    const token = session && saveKey ? session.beginRequest(saveKey) : null;
+    if (session && saveKey && !token) return;
     const endRemote = () => {
-      if (session && saveKey && gen !== null) session.endSave(saveKey, gen);
+      if (session && token) session.finishRequest(token);
     };
     const options: EventFormSubmitOptions = {
       allowLeave: () => {
         leaveAllowedRef.current = true;
+        if (session && token) session.allowLeave(token);
       },
-      ...(session && saveKey && gen !== null
-        ? { isCurrent: () => session.isCurrent(saveKey, gen) }
-        : {}),
+      ...(session && token ? { isCurrent: () => session.isCurrent(token) } : {}),
     };
     void Promise.resolve()
       .then(() =>

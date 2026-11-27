@@ -262,6 +262,8 @@ export function EventDetailPage({
       >
         <AdaptiveSurfaceContent policy="readable">
           <EventDetail
+            // 다른 일정이 되면 편집창·입력을 새로 만든다(이전 일정의 편집 상태가 넘어가지 않게).
+            key={currentEvent.id}
             event={currentEvent}
             customerName={currentCustomer.displayName}
             customerPath={buildAppCustomerDetailPath(currentCustomer.id)}
