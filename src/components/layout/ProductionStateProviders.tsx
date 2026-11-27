@@ -6,6 +6,7 @@ import { useLocation } from 'react-router';
 import { useOptionalAuth, type AuthContextValue } from '@/auth/AuthProvider';
 import { AUTH_ERROR_KIND, AUTH_STATE } from '@/auth/authTypes';
 import { CustomerFormDraftProvider } from '@/state/CustomerFormDraftContext';
+import { customerFormDraftScopeKey } from '@/components/layout/customerFormDraftScope';
 import { CustomerStoreProvider } from '@/state/CustomerStoreContext';
 import { EventCreateActivationProvider } from '@/state/EventCreateActivationContext';
 import { EventCreateDraftProvider } from '@/state/EventCreateDraftContext';
@@ -103,7 +104,7 @@ function SessionStateProviders({
       >
         {/* Return targets contain account-scoped customer/event IDs. */}
         <EventCreateActivationProvider>
-          <CustomerFormDraftProvider key={location.pathname}>
+          <CustomerFormDraftProvider key={customerFormDraftScopeKey(location.pathname)}>
             <EventCreateDraftProvider>{children}</EventCreateDraftProvider>
           </CustomerFormDraftProvider>
         </EventCreateActivationProvider>
