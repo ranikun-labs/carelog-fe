@@ -7,22 +7,24 @@ open and must be confirmed before enabling the affected flows.
 ## V1 routing
 
 `platform-services/main` routes `/api/v1/auth/**` through
-`PLATFORM_GATEWAY_AUTH_URI`. Its README says the default remains the Carelog BE
-upstream; setting this value to Platform Core is an explicit Identity promotion.
-V1 requires the Carelog BE upstream. The deployed value is not visible in these
-repositories, so the runtime owner must confirm it before release. The FE must
-set `VITE_CARELOG_API_BASE_URL` to the HTTPS shared Gateway origin, without a
-path suffix.
+`PLATFORM_GATEWAY_AUTH_URI`. In Seoul DEV that value is set to Platform Core:
+`platform-infra` `environments/dev/platform/services.tf` (line 51) sets
+`PLATFORM_GATEWAY_AUTH_URI = http://<prefix>-core.<namespace>:8081`. Production
+is not confirmed in these repositories and must be verified by the runtime owner
+before release. The FE must set `VITE_CARELOG_API_BASE_URL` to the HTTPS shared
+Gateway origin, without a path suffix (or use the same-origin DEV Worker,
+see `docs/adr/0002-same-origin-dev-worker.md`).
 
 ## Browser token lifetime
 
-Carelog BE returns `accessToken` and `refreshToken` in JSON and does not define a
-browser cookie contract. This adapter keeps both tokens in page memory, sends
-access tokens as Bearer headers, sends refresh tokens in the verified refresh
-request body, and omits cookies. A full page reload therefore returns the FE to
-Anonymous. The product/auth owner must approve the intended cross-reload session
-policy or provide a server-managed session contract before persistent sessions
-are promised. No browser persistence is selected here.
+Core (`/api/v1/auth/login`, `/refresh`) returns `accessToken` and `refreshToken`
+in JSON and does not define a browser cookie contract. This adapter keeps access tokens in page memory, sends
+them as Bearer headers, sends refresh tokens in the verified refresh request body,
+and omits cookies. The refresh token is also mirrored into `sessionStorage` so a
+reload within the same tab restores the session (see `docs/adr/0001-carelog-session-restore.md`).
+The product/auth owner must approve this cross-reload policy, or provide a
+server-managed cookie session contract, before persistent sessions are promised
+to users. Seoul DEV acceptance uses this decision; production is not approved by it.
 
 ## Kakao callback
 
@@ -45,7 +47,10 @@ route or Kakao button is added.
 - `POST /api/v1/auth/logout`: Bearer access token → HTTP 204; BE blacklists the
   access token and deletes the account refresh session.
 - Login credentials map explicitly as `account → userId` and `secret → password`.
-- BE has no public signup endpoint; the production adapter fails signup closed.
+- Signup uses `POST /api/v1/auth/carelog/registration` through the Gateway with an
+  `Idempotency-Key` header. It is available only when the Gateway registration flag is on.
+  The legacy `/api/v1/users/managers` path is not used. Registration returns no tokens;
+  the adapter then signs in with the password login above.
 
 The shared Gateway keeps login and refresh public only for exact POST routes.
 Logout and product APIs require a valid, non-blacklisted Bearer access token;

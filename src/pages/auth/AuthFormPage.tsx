@@ -3,20 +3,42 @@ import { Link } from 'react-router';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { AUTH_ERROR_KIND, type AuthCommandResult } from '@/auth/authTypes';
+import { findSignupPasswordProblem, type SignupPasswordProblem } from '@/auth/signupPolicy';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { buildAuthEntryPath, buildAuthLoginPath, buildAuthSignupPath } from '@/constants/routes';
 import { useTranslation } from '@/i18n/I18nContext';
+import type { MessageKey } from '@/i18n/dictionary';
 import { cn } from '@/lib/utils';
 
 export type AuthFormMode = 'login' | 'signup';
 
-type ErrorField = 'account' | 'secret' | 'secretConfirmation' | 'form';
+type ErrorField = 'account' | 'name' | 'email' | 'secret' | 'secretConfirmation' | 'form';
 
-function resultMessageKey(
-  result: AuthCommandResult,
-): 'auth.form.invalidCredentials' | 'auth.form.genericFailure' | null {
+// Mirrors the registration contract: userId/email/name ≤255. The password rule lives in signupPolicy.
+const ACCOUNT_MAX_LENGTH = 255;
+const NAME_MAX_LENGTH = 255;
+const EMAIL_MAX_LENGTH = 255;
+
+const PASSWORD_PROBLEM_KEY = {
+  length: 'auth.form.secretLength',
+  characters: 'auth.form.secretCharacters',
+  bytes: 'auth.form.secretBytes',
+} as const satisfies Record<SignupPasswordProblem, MessageKey>;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function resultMessageKey(result: AuthCommandResult, isSignup: boolean): MessageKey | null {
   if (result.ok) return null;
-  return result.failure.kind === AUTH_ERROR_KIND.UNAUTHORIZED
+  const { kind, reason } = result.failure;
+  if (isSignup) {
+    if (reason === 'account-conflict') return 'auth.form.signupConflict';
+    if (reason === 'invalid-registration') return 'auth.form.signupInvalid';
+    if (reason === 'registered-login-required') return 'auth.form.signupRegisteredLoginRequired';
+    if (kind === AUTH_ERROR_KIND.SERVER || kind === AUTH_ERROR_KIND.NETWORK) {
+      return 'auth.form.signupUnavailable';
+    }
+    return 'auth.form.genericFailure';
+  }
+  return kind === AUTH_ERROR_KIND.UNAUTHORIZED
     ? 'auth.form.invalidCredentials'
     : 'auth.form.genericFailure';
 }
@@ -25,11 +47,15 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
   const { t } = useTranslation();
   const { login, signup } = useAuth();
   const [account, setAccount] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [secret, setSecret] = useState('');
   const [secretConfirmation, setSecretConfirmation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [errorField, setErrorField] = useState<ErrorField | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Values at the moment a 503 retry budget ran out. The same-content retry is offered only while they are unchanged.
+  const [retrySnapshot, setRetrySnapshot] = useState<string | null>(null);
   const errorId = useId();
   const errorRef = useRef<HTMLParagraphElement>(null);
   const isSignup = mode === 'signup';
@@ -38,9 +64,16 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
     if (error) errorRef.current?.focus({ preventScroll: true });
   }, [error]);
 
+  const currentValuesKey = () => JSON.stringify([account, name, email, secret, secretConfirmation]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await attempt();
+  }
+
+  async function attempt() {
     if (isSubmitting) return;
+    setRetrySnapshot(null);
     const normalizedAccount = account.trim();
     if (!normalizedAccount) {
       setError(t('auth.form.accountRequired'));
@@ -52,23 +85,60 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
       setErrorField('secret');
       return;
     }
-    if (isSignup && secret !== secretConfirmation) {
-      setError(t('auth.form.secretMismatch'));
-      setErrorField('secretConfirmation');
-      return;
-    }
 
-    setError(null);
-    setErrorField(null);
-    setIsSubmitting(true);
-    const result = isSignup
-      ? await signup({ account: normalizedAccount, secret })
-      : await login({ account: normalizedAccount, secret });
+    let result: AuthCommandResult;
+    if (isSignup) {
+      const normalizedName = name.trim();
+      const normalizedEmail = email.trim();
+      if (normalizedAccount.length > ACCOUNT_MAX_LENGTH) {
+        setError(t('auth.form.accountTooLong'));
+        setErrorField('account');
+        return;
+      }
+      if (!normalizedName || normalizedName.length > NAME_MAX_LENGTH) {
+        setError(t('auth.form.nameRequired'));
+        setErrorField('name');
+        return;
+      }
+      if (normalizedEmail.length > EMAIL_MAX_LENGTH || !EMAIL_PATTERN.test(normalizedEmail)) {
+        setError(t('auth.form.emailInvalid'));
+        setErrorField('email');
+        return;
+      }
+      const passwordProblem = findSignupPasswordProblem(secret);
+      if (passwordProblem) {
+        setError(t(PASSWORD_PROBLEM_KEY[passwordProblem]));
+        setErrorField('secret');
+        return;
+      }
+      if (secret !== secretConfirmation) {
+        setError(t('auth.form.secretMismatch'));
+        setErrorField('secretConfirmation');
+        return;
+      }
+      setError(null);
+      setErrorField(null);
+      setIsSubmitting(true);
+      result = await signup({
+        account: normalizedAccount,
+        name: normalizedName,
+        email: normalizedEmail,
+        secret,
+      });
+    } else {
+      setError(null);
+      setErrorField(null);
+      setIsSubmitting(true);
+      result = await login({ account: normalizedAccount, secret });
+    }
     setIsSubmitting(false);
-    const messageKey = resultMessageKey(result);
+    const messageKey = resultMessageKey(result, isSignup);
     if (messageKey) {
       setError(t(messageKey));
       setErrorField('form');
+    }
+    if (isSignup && !result.ok && result.failure.reason === 'registration-retry-exhausted') {
+      setRetrySnapshot(currentValuesKey());
     }
   }
 
@@ -103,6 +173,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
           <input
             id={`${mode}-account`}
             name="account"
+            data-auth-field="account"
             value={account}
             onChange={(event) => setAccount(event.target.value)}
             autoComplete="username"
@@ -112,6 +183,45 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </div>
+        {isSignup ? (
+          <>
+            <div className="grid gap-2">
+              <label htmlFor="signup-name" className="text-sm font-semibold">
+                {t('auth.form.name')}
+              </label>
+              <input
+                id="signup-name"
+                name="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                autoComplete="name"
+                required
+                data-auth-field="name"
+                aria-invalid={errorField === 'name' ? true : undefined}
+                aria-describedby={errorField === 'name' ? errorId : undefined}
+                className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="signup-email" className="text-sm font-semibold">
+                {t('auth.form.email')}
+              </label>
+              <input
+                id="signup-email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                required
+                data-auth-field="email"
+                aria-invalid={errorField === 'email' ? true : undefined}
+                aria-describedby={errorField === 'email' ? errorId : undefined}
+                className="border-border-default bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+              />
+            </div>
+          </>
+        ) : null}
         <div className="grid grid-cols-1 gap-2">
           <label htmlFor={`${mode}-secret`} className="text-sm font-semibold">
             {t('auth.form.secret')}
@@ -120,6 +230,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
             id={`${mode}-secret`}
             name="secret"
             type="password"
+            data-auth-field="secret"
             value={secret}
             onChange={(event) => setSecret(event.target.value)}
             autoComplete={isSignup ? 'new-password' : 'current-password'}
@@ -138,6 +249,7 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
               id="signup-secret-confirmation"
               name="secretConfirmation"
               type="password"
+              data-auth-field="secretConfirmation"
               value={secretConfirmation}
               onChange={(event) => setSecretConfirmation(event.target.value)}
               autoComplete="new-password"
@@ -146,6 +258,28 @@ export function AuthFormPage({ mode }: { mode: AuthFormMode }) {
               aria-describedby={errorField === 'secretConfirmation' ? errorId : undefined}
               className="border-input bg-surface text-text-primary focus-visible:outline-accent-primary min-h-11 w-full min-w-0 rounded-md border px-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
             />
+          </div>
+        ) : null}
+
+        {retrySnapshot !== null ? (
+          <div data-auth-retry className="grid gap-3">
+            <p className="text-text-secondary text-sm">
+              {retrySnapshot === currentValuesKey()
+                ? t('auth.form.retrySameWarning')
+                : t('auth.form.retryNewRequestWarning')}
+            </p>
+            {retrySnapshot === currentValuesKey() ? (
+              <Button
+                type="button"
+                variant="outline"
+                data-auth-retry-same
+                disabled={isSubmitting}
+                onClick={() => void attempt()}
+                className="w-full"
+              >
+                {t('auth.form.retrySameAction')}
+              </Button>
+            ) : null}
           </div>
         ) : null}
 

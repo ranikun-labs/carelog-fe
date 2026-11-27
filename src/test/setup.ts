@@ -9,11 +9,14 @@ import '@testing-library/jest-dom/vitest';
  * `vi.stubGlobal('navigator', ...)`로 재정의하면 이 기본값은 그 테스트 범위 안에서
  * 덮어써진다.
  */
-Object.defineProperty(window.navigator, 'language', {
-  value: 'ko-KR',
-  configurable: true,
-});
-Object.defineProperty(window.navigator, 'languages', {
-  value: ['ko-KR'],
-  configurable: true,
-});
+// Node-environment suites (for example the DEV edge Worker) have no window.
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window.navigator, 'language', {
+    value: 'ko-KR',
+    configurable: true,
+  });
+  Object.defineProperty(window.navigator, 'languages', {
+    value: ['ko-KR'],
+    configurable: true,
+  });
+}

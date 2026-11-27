@@ -56,6 +56,6 @@ export default defineConfig(({ command, mode }) => ({
     globals: true,
     css: true,
     // Playwright specs use a separate runner and are excluded from Vitest.
-    exclude: [...configDefaults.exclude, 'e2e/**', 'e2e-real/**'],
+    exclude: [...configDefaults.exclude, 'e2e/**', 'e2e-real/**', 'e2e-same-origin/**'],
   },
 }));

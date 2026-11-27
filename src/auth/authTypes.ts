@@ -18,8 +18,19 @@ export const AUTH_ERROR_KIND = {
 
 export type AuthErrorKind = (typeof AUTH_ERROR_KIND)[keyof typeof AUTH_ERROR_KIND];
 
+/**
+ * Signup-specific outcomes the form can word precisely. Kinds stay the shared
+ * vocabulary; the reason only refines copy for the signup form.
+ */
+export type AuthFailureReason =
+  | 'account-conflict'
+  | 'invalid-registration'
+  | 'registered-login-required'
+  | 'registration-retry-exhausted';
+
 export interface AuthFailure {
   kind: AuthErrorKind;
+  reason?: AuthFailureReason;
 }
 
 export type AuthState =
@@ -35,7 +46,10 @@ export interface AuthCredentialFixture {
   secret: string;
 }
 
-export type AuthSignupFixture = AuthCredentialFixture;
+export interface AuthSignupFixture extends AuthCredentialFixture {
+  name: string;
+  email: string;
+}
 
 export type AuthBootstrapResult =
   | { status: 'authenticated' }

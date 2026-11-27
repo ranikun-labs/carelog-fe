@@ -1,4 +1,9 @@
-import { createCarelogAuthRuntime, type CarelogAuthRuntime } from '@/integrations/carelog/authPort';
+import {
+  createCarelogAuthRuntime,
+  createCarelogAuthSessionStore,
+  createSessionStorageRefreshTokenVault,
+  type CarelogAuthRuntime,
+} from '@/integrations/carelog/authPort';
 
 let productionRuntime: CarelogAuthRuntime | undefined;
 
@@ -6,6 +11,9 @@ let productionRuntime: CarelogAuthRuntime | undefined;
 export function getProductionCarelogAuthRuntime(): CarelogAuthRuntime {
   productionRuntime ??= createCarelogAuthRuntime({
     apiBaseUrl: readCarelogApiBaseUrl() ?? '',
+    sessionStore: createCarelogAuthSessionStore({
+      refreshTokenVault: createSessionStorageRefreshTokenVault(),
+    }),
   });
   return productionRuntime;
 }

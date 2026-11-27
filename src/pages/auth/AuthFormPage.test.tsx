@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
 
 import { AppRouter } from '@/app/AppRouter';
+import { AUTH_ERROR_KIND, type AuthPort } from '@/auth/authTypes';
 import { createInMemoryAuthPort } from '@/auth/inMemoryAuthAdapter';
 import { FixtureStateProviders } from '@/components/layout/FixtureStateProviders';
 
@@ -30,9 +32,17 @@ it('routes login success to Schedule when canonical Customer state has records',
   expect(await screen.findByRole('heading', { name: '일정' })).toBeVisible();
 });
 
+function fillSignupIdentity() {
+  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '김치료' } });
+  fireEvent.change(screen.getByLabelText('이메일'), {
+    target: { value: 'fixture@example.test' },
+  });
+}
+
 it('routes signup success to the canonical Customers empty flow', async () => {
   renderAuth('/auth/signup', {}, []);
   fireEvent.change(await screen.findByLabelText('계정'), { target: { value: 'fixture-account' } });
+  fillSignupIdentity();
   fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'fixture-secret' } });
   fireEvent.change(screen.getByLabelText('비밀번호 확인'), {
     target: { value: 'fixture-secret' },
@@ -83,6 +93,7 @@ it('marks only the confirmation field for a signup mismatch', async () => {
   const secret = screen.getByLabelText('비밀번호');
   const confirmation = screen.getByLabelText('비밀번호 확인');
   fireEvent.change(account, { target: { value: 'fixture-account' } });
+  fillSignupIdentity();
   fireEvent.change(secret, { target: { value: 'fixture-secret' } });
   fireEvent.change(confirmation, { target: { value: 'different-secret' } });
   fireEvent.click(screen.getByRole('button', { name: '회원가입' }));
@@ -102,4 +113,81 @@ it('does not render protected product content during anonymous direct navigation
   await waitFor(() =>
     expect(document.querySelector('[data-schedule-page]')).not.toBeInTheDocument(),
   );
+});
+
+function renderSignupWithPort(authPort: AuthPort) {
+  return render(
+    <MemoryRouter initialEntries={['/auth/signup']}>
+      <AppRouter
+        authPort={authPort}
+        stateProviders={FixtureStateProviders}
+        initialCustomers={[]}
+        initialEvents={[]}
+      />
+    </MemoryRouter>,
+  );
+}
+
+function exhaustedThenSucceedingPort() {
+  const base = createInMemoryAuthPort({ bootstrap: 'anonymous' });
+  const signup = vi
+    .fn<AuthPort['signup']>()
+    .mockResolvedValueOnce({
+      ok: false,
+      failure: { kind: AUTH_ERROR_KIND.SERVER, reason: 'registration-retry-exhausted' },
+    })
+    .mockResolvedValueOnce({ ok: true });
+  return { port: { ...base, signup }, signup };
+}
+
+async function fillValidSignup() {
+  fireEvent.change(await screen.findByLabelText('계정'), { target: { value: 'fixture-account' } });
+  fillSignupIdentity();
+  fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'fixture-secret' } });
+  fireEvent.change(screen.getByLabelText('비밀번호 확인'), {
+    target: { value: 'fixture-secret' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: '회원가입' }));
+}
+
+it('offers a same-content retry after the registration retry budget runs out', async () => {
+  const { port, signup } = exhaustedThenSucceedingPort();
+  renderSignupWithPort(port);
+  await fillValidSignup();
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '지금은 회원가입을 처리할 수 없습니다',
+  );
+  fireEvent.click(screen.getByRole('button', { name: '같은 내용으로 다시 시도' }));
+
+  expect(await screen.findByText('아직 고객이 없습니다')).toBeVisible();
+  expect(signup).toHaveBeenCalledTimes(2);
+  expect(signup.mock.calls[1]).toEqual(signup.mock.calls[0]);
+});
+
+it('warns that edited details start a new request and hides the same-content retry', async () => {
+  const { port, signup } = exhaustedThenSucceedingPort();
+  renderSignupWithPort(port);
+  await fillValidSignup();
+  await screen.findByRole('alert');
+
+  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '이치료' } });
+
+  expect(screen.queryByRole('button', { name: '같은 내용으로 다시 시도' })).not.toBeInTheDocument();
+  expect(screen.getByText(/새 가입 요청으로 처리됩니다/)).toBeVisible();
+  expect(signup).toHaveBeenCalledTimes(1);
+});
+
+it('rejects a password outside the registration policy before calling the port', async () => {
+  const { port, signup } = exhaustedThenSucceedingPort();
+  renderSignupWithPort(port);
+  fireEvent.change(await screen.findByLabelText('계정'), { target: { value: 'fixture-account' } });
+  fillSignupIdentity();
+  fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'short' } });
+  fireEvent.change(screen.getByLabelText('비밀번호 확인'), { target: { value: 'short' } });
+  fireEvent.click(screen.getByRole('button', { name: '회원가입' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('8자 이상 20자 이하');
+  expect(screen.getByLabelText('비밀번호')).toHaveAttribute('aria-invalid', 'true');
+  expect(signup).not.toHaveBeenCalled();
 });
